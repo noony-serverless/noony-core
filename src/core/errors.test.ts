@@ -1,4 +1,3 @@
-// src/core/errors.spec.ts
 import { HttpError, ValidationError, AuthenticationError } from './errors';
 
 describe('HttpError', () => {
@@ -9,15 +8,15 @@ describe('HttpError', () => {
     expect(error.status).toBe(404);
     expect(error.message).toBe('Not Found');
     expect(error.code).toBe('NOT_FOUND');
-    expect(error.details).toEqual({ resource: 'User' });
+    expect(JSON.parse(error.details)).toEqual({ resource: 'User' });
     expect(error.name).toBe('HttpError');
   });
 
-  it('creates an instance without optional code and details', () => {
-    const error = new HttpError(500, 'Internal Server Error');
+  it('creates an instance without details', () => {
+    const error = new HttpError(500, 'Internal Server Error', 'INTERNAL_ERROR');
     expect(error.status).toBe(500);
     expect(error.message).toBe('Internal Server Error');
-    expect(error.code).toBeUndefined();
+    expect(error.code).toBe('INTERNAL_ERROR');
     expect(error.details).toBeUndefined();
     expect(error.name).toBe('HttpError');
   });
@@ -29,11 +28,11 @@ describe('ValidationError', () => {
     expect(error.status).toBe(400);
     expect(error.message).toBe('Invalid input');
     expect(error.code).toBe('VALIDATION_ERROR');
-    expect(error.details).toEqual({ field: 'email' });
+    expect(JSON.parse(error.details)).toEqual({ field: 'email' });
     expect(error.name).toBe('ValidationError');
   });
 
-  it('creates an instance without optional details', () => {
+  it('creates an instance without details', () => {
     const error = new ValidationError('Invalid input');
     expect(error.status).toBe(400);
     expect(error.message).toBe('Invalid input');
@@ -54,9 +53,9 @@ describe('AuthenticationError', () => {
   });
 
   it('creates an instance with custom message', () => {
-    const error = new AuthenticationError('Custom unauthorized message');
+    const error = new AuthenticationError('Custom message');
     expect(error.status).toBe(401);
-    expect(error.message).toBe('Custom unauthorized message');
+    expect(error.message).toBe('Custom message');
     expect(error.code).toBe('AUTHENTICATION_ERROR');
     expect(error.details).toBeUndefined();
     expect(error.name).toBe('AuthenticationError');

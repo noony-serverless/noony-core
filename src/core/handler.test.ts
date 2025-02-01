@@ -120,6 +120,7 @@ describe('Handler', () => {
     const handler: Handler = new Handler().use(middleware);
 
     expect(handler).toBeInstanceOf(Handler);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((handler as any).baseMiddlewares).toContain(middleware);
   });
 });

@@ -1,17 +1,34 @@
-import { Context } from '../core/core';
-import { BaseMiddleware } from '../core/handler';
-import { ValidationError } from '../core/errors';
+import { BaseMiddleware, Context, ValidationError } from '../core';
+
+const validateHeaders = (
+  requiredHeaders: string[],
+  headers: Record<string, string | string[] | undefined>
+): void => {
+  for (const header of requiredHeaders) {
+    const headerValue = headers[header.toLowerCase()];
+    if (
+      !headerValue ||
+      (Array.isArray(headerValue) && headerValue.length === 0)
+    ) {
+      throw new ValidationError(`Missing required header: ${header}`);
+    }
+  }
+};
 
 export class HeaderVariablesMiddleware implements BaseMiddleware {
   constructor(private requiredHeaders: string[]) {}
 
   async before(context: Context): Promise<void> {
     context.req.headers = context.req.headers || {};
-
-    for (const header of this.requiredHeaders) {
-      if (!context.req.headers[header.toLowerCase()]) {
-        throw new ValidationError(`Missing required header: ${header}`);
-      }
-    }
+    validateHeaders(this.requiredHeaders, context.req.headers);
   }
 }
+
+export const headerVariablesMiddleware = (
+  requiredHeaders: string[]
+): BaseMiddleware => ({
+  async before(context: Context): Promise<void> {
+    context.req.headers = context.req.headers || {};
+    validateHeaders(requiredHeaders, context.req.headers);
+  },
+});

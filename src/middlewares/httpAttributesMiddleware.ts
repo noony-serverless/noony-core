@@ -26,7 +26,7 @@ export const pathParameters = (): BaseMiddleware => ({
     const url = new URL(context.req.url, `http://${context.req.headers.host}`);
     const pathSegments = url.pathname.split('/').filter(Boolean);
 
-    context.req.params = {};
+    context.req.params = { ...context.req.params };
 
     pathSegments.forEach((segment, index) => {
       if (segment.startsWith(':')) {

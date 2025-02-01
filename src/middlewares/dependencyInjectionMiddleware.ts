@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Container } from 'typedi';
-import { BaseMiddleware } from '../core/handler';
-import { Context } from '../core/core';
+import { BaseMiddleware, Context } from '../core';
 
 export class DependencyInjectionMiddleware implements BaseMiddleware {
   constructor(private services: { id: any; value: any }[]) {}
@@ -13,8 +14,13 @@ export class DependencyInjectionMiddleware implements BaseMiddleware {
   }
 }
 
-export const dependencyInjection = (): BaseMiddleware => ({
+export const dependencyInjection = (
+  services: { id: any; value: any }[] = []
+): BaseMiddleware => ({
   before: async (context: Context): Promise<void> => {
+    services.forEach((service) => {
+      Container.set(service.id, service.value);
+    });
     context.container = Container.of();
   },
 });

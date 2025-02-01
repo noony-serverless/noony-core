@@ -1,29 +1,33 @@
-import { BaseMiddleware } from '../core/handler';
-import { Context } from '../core/core';
-import { ValidationError } from '../core/errors';
+import { BaseMiddleware, Context, ValidationError } from '../core';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const parseBody = (body: any): any => {
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body);
+    } catch (error: unknown) {
+      throw new ValidationError('Invalid JSON body', (error as Error).stack);
+    }
+  }
+
+  if (body?.message?.data) {
+    try {
+      const decoded = Buffer.from(body.message.data, 'base64').toString();
+      return JSON.parse(decoded);
+    } catch (error: unknown) {
+      throw new ValidationError(
+        'Invalid Pub/Sub message',
+        (error as Error).stack
+      );
+    }
+  }
+
+  return body;
+};
 
 export class BodyParserMiddleware implements BaseMiddleware {
   async before(context: Context): Promise<void> {
-    if (context.req.body && typeof context.req.body === 'string') {
-      try {
-        context.req.parsedBody = JSON.parse(context.req.body);
-      } catch (error) {
-        throw new ValidationError('Invalid JSON body');
-      }
-    }
-
-    // Handle Pub/Sub messages
-    if (context.req.body?.message?.data) {
-      try {
-        const decoded = Buffer.from(
-          context.req.body.message.data,
-          'base64'
-        ).toString();
-        context.req.parsedBody = JSON.parse(decoded);
-      } catch (error) {
-        throw new ValidationError('Invalid Pub/Sub message');
-      }
-    }
+    context.req.parsedBody = parseBody(context.req.body);
   }
 }
 
@@ -32,14 +36,7 @@ export const bodyParser = (): BaseMiddleware => ({
     const { method, body } = context.req;
 
     if (['POST', 'PUT', 'PATCH'].includes(method)) {
-      if (typeof body === 'string') {
-        context.req.parsedBody = JSON.parse(body);
-      } else if (body?.message?.data) {
-        const decoded = Buffer.from(body.message.data, 'base64').toString();
-        context.req.body = JSON.parse(decoded);
-      } else {
-        context.req.parsedBody = body;
-      }
+      context.req.parsedBody = parseBody(body);
     }
   },
 });

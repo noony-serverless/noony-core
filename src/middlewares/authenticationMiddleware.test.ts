@@ -9,7 +9,7 @@ import { AuthenticationError, HttpError } from '../core/errors';
 
 describe('AuthenticationMiddleware', () => {
   let context: Context;
-  let tokenVerificationPort: CustomTokenVerificationPort<any>;
+  let tokenVerificationPort: CustomTokenVerificationPort<never>;
 
   beforeEach(() => {
     context = {
