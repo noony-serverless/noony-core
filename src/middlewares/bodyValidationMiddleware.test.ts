@@ -68,6 +68,7 @@ describe('bodyValidator', () => {
     }
 
     expect(context.req.body).toEqual({ name: 'John Doe' });
+    expect(context.req.parsedBody).toEqual({ name: 'John Doe' });
   });
 
   it('throws ValidationError for invalid input', async () => {
