@@ -7,7 +7,7 @@ const wrapResponse = <T>(context: Context): void => {
     const body = context.res.locals.responseBody as T;
     context.res.status(statusCode).json({
       success: true,
-      data: body,
+      payload: body,
       timestamp: new Date().toISOString(),
     });
   }

@@ -30,7 +30,7 @@ describe('ResponseWrapperMiddleware', () => {
     expect(context.res.status).toHaveBeenCalledWith(200);
     expect(context.res.json).toHaveBeenCalledWith({
       success: true,
-      data: { key: 'value' },
+      payload: { key: 'value' },
       timestamp: expect.any(String),
     });
   });
@@ -59,7 +59,7 @@ describe('ResponseWrapperMiddleware', () => {
     await middleware.after(context);
     expect(context.res.json).toHaveBeenCalledWith({
       success: true,
-      data: undefined,
+      payload: undefined,
       timestamp: expect.any(String),
     });
   });
@@ -92,7 +92,7 @@ describe('responseWrapperMiddleware', () => {
       expect(context.res.status).toHaveBeenCalledWith(200);
       expect(context.res.json).toHaveBeenCalledWith({
         success: true,
-        data: { key: 'value' },
+        payload: { key: 'value' },
         timestamp: expect.any(String),
       });
     }
@@ -133,7 +133,7 @@ describe('responseWrapperMiddleware', () => {
       await middleware.after(context);
       expect(context.res.json).toHaveBeenCalledWith({
         success: true,
-        data: undefined,
+        payload: undefined,
         timestamp: expect.any(String),
       });
     }
