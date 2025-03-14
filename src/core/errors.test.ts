@@ -8,7 +8,7 @@ describe('HttpError', () => {
     expect(error.status).toBe(404);
     expect(error.message).toBe('Not Found');
     expect(error.code).toBe('NOT_FOUND');
-    expect(JSON.parse(error.details)).toEqual({ resource: 'User' });
+    expect(JSON.parse(error.details as string)).toEqual({ resource: 'User' });
     expect(error.name).toBe('HttpError');
   });
 
@@ -28,7 +28,7 @@ describe('ValidationError', () => {
     expect(error.status).toBe(400);
     expect(error.message).toBe('Invalid input');
     expect(error.code).toBe('VALIDATION_ERROR');
-    expect(JSON.parse(error.details)).toEqual({ field: 'email' });
+    expect(JSON.parse(error.details as string)).toEqual({ field: 'email' });
     expect(error.name).toBe('ValidationError');
   });
 

@@ -8,12 +8,22 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
 
   if (error instanceof HttpError) {
     context.res.status(error.status).json({
-      error: error.message,
-      details: error.details,
+      success: false,
+      payload: {
+        error: error.message,
+        details: error.details,
+      },
+      timestamp: new Date().toISOString(),
+
     });
   } else {
     context.res.status(500).json({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: new Date().toISOString(),
     });
   }
 };

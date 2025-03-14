@@ -1,6 +1,6 @@
 import {
   BodyValidationMiddleware,
-  bodyValidator,
+  bodyValidatorMiddleware,
 } from './bodyValidationMiddleware';
 import { Context } from '../core/core';
 import { z } from 'zod';
@@ -60,7 +60,7 @@ describe('bodyValidator', () => {
 
   it('validates and sets validatedBody on context for valid input', async () => {
     const schema = z.object({ name: z.string() });
-    const middleware = bodyValidator(schema);
+    const middleware = bodyValidatorMiddleware(schema);
     context.req.body = { name: 'John Doe' };
 
     if (middleware.before) {
@@ -73,7 +73,7 @@ describe('bodyValidator', () => {
 
   it('throws ValidationError for invalid input', async () => {
     const schema = z.object({ name: z.string() });
-    const middleware = bodyValidator(schema);
+    const middleware = bodyValidatorMiddleware(schema);
     context.req.body = { name: 123 };
 
     if (middleware.before) {
@@ -83,7 +83,7 @@ describe('bodyValidator', () => {
 
   it('throws original error if not a ZodError', async () => {
     const schema = z.object({ name: z.string() });
-    const middleware = bodyValidator(schema);
+    const middleware = bodyValidatorMiddleware(schema);
     context.req.body = null;
 
     if (middleware.before) {

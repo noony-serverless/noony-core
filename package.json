@@ -1,6 +1,6 @@
 {
   "name": "@noony-serverless/noony-core",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A Middy base framework compatible with Firebase and GCP Cloud Functions with TypeScript",
   "publishConfig": {
        "registry": "https://npm.pkg.github.com"
