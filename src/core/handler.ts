@@ -1,5 +1,15 @@
 import Container from 'typedi';
-import { Context, CustomRequest, CustomResponse } from './core';
+import {
+  Context,
+  CustomRequest,
+  CustomResponse,
+  GenericRequest,
+  GenericResponse,
+  createContext,
+  adaptGCPRequest,
+  adaptGCPResponse,
+} from './core';
+import { Request, Response } from '@google-cloud/functions-framework';
 
 /**
  * Interface representing a base structure for middleware with optional lifecycle methods.
@@ -70,13 +80,12 @@ export class Handler<T = unknown, U = unknown> {
   }
 
   async execute(req: CustomRequest<T>, res: CustomResponse): Promise<void> {
-    const context: Context<T, U> = {
+    const genericReq = adaptGCPRequest<T>(req as unknown as Request);
+    const genericRes = adaptGCPResponse(res as unknown as Response);
+
+    const context = createContext<T, U>(genericReq, genericRes, {
       container: Container.of(),
-      req,
-      res,
-      error: null,
-      businessData: new Map(),
-    };
+    });
 
     try {
       // Execute before middlewares
@@ -95,6 +104,45 @@ export class Handler<T = unknown, U = unknown> {
         }
       }
     } catch (error) {
+      context.error = error as Error;
+      // Execute error handlers in reverse order
+      for (const middleware of [...this.baseMiddlewares].reverse()) {
+        if (middleware.onError) {
+          await middleware.onError(error as Error, context);
+        }
+      }
+    }
+  }
+
+  /**
+   * Framework-agnostic execute method that works with GenericRequest/GenericResponse
+   */
+  async executeGeneric(
+    req: GenericRequest<T>,
+    res: GenericResponse
+  ): Promise<void> {
+    const context = createContext<T, U>(req, res, {
+      container: Container.of(),
+    });
+
+    try {
+      // Execute before middlewares
+      for (const middleware of this.baseMiddlewares) {
+        if (middleware.before) {
+          await middleware.before(context);
+        }
+      }
+
+      await this.handler(context);
+
+      // Execute after middlewares in reverse order
+      for (const middleware of [...this.baseMiddlewares].reverse()) {
+        if (middleware.after) {
+          await middleware.after(context);
+        }
+      }
+    } catch (error) {
+      context.error = error as Error;
       // Execute error handlers in reverse order
       for (const middleware of [...this.baseMiddlewares].reverse()) {
         if (middleware.onError) {

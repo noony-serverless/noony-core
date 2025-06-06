@@ -6,8 +6,27 @@ describe('Handler', () => {
   let res: CustomResponse;
 
   beforeEach(() => {
-    req = {} as CustomRequest;
-    res = {} as CustomResponse;
+    req = {
+      method: 'GET',
+      url: '/',
+      headers: {},
+      query: {},
+      params: {},
+      body: undefined,
+      ip: '127.0.0.1',
+      get: jest.fn(),
+      path: '/',
+    } as unknown as CustomRequest;
+
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+      send: jest.fn().mockReturnThis(),
+      header: jest.fn().mockReturnThis(),
+      end: jest.fn(),
+      statusCode: undefined,
+      headersSent: false,
+    } as unknown as CustomResponse;
   });
 
   it('executes handler successfully', async () => {

@@ -33,7 +33,31 @@ export class AuthenticationError extends HttpError {
 
 export class BusinessError extends HttpError {
   constructor(message: string, status: number = 500, details?: unknown) {
-    super(status, message, 'VALIDATION_ERROR', details);
-    this.name = 'ValidationError';
+    super(status, message, 'BUSINESS_ERROR', details);
+    this.name = 'BusinessError';
+  }
+}
+
+export class SecurityError extends HttpError {
+  constructor(
+    message: string = 'Security violation detected',
+    details?: unknown
+  ) {
+    super(403, message, 'SECURITY_ERROR', details);
+    this.name = 'SecurityError';
+  }
+}
+
+export class TimeoutError extends HttpError {
+  constructor(message: string = 'Request timeout', details?: unknown) {
+    super(408, message, 'TIMEOUT_ERROR', details);
+    this.name = 'TimeoutError';
+  }
+}
+
+export class TooLargeError extends HttpError {
+  constructor(message: string = 'Request entity too large', details?: unknown) {
+    super(413, message, 'TOO_LARGE_ERROR', details);
+    this.name = 'TooLargeError';
   }
 }

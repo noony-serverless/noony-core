@@ -10,17 +10,23 @@ describe('ResponseWrapperMiddleware', () => {
 
   beforeEach(() => {
     context = {
-      req: { headers: {} },
+      req: { method: 'GET', url: '/', headers: {}, query: {}, params: {} },
       res: {
         headersSent: false,
         statusCode: 200,
-        locals: { responseBody: { key: 'value' } },
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
+        send: jest.fn(),
+        header: jest.fn().mockReturnThis(),
+        headers: jest.fn().mockReturnThis(),
+        end: jest.fn(),
       },
       container: null,
       error: null,
       businessData: new Map(),
+      startTime: Date.now(),
+      requestId: 'test-req-id',
+      responseData: { key: 'value' },
     } as unknown as Context;
     middleware = new ResponseWrapperMiddleware();
   });
@@ -55,7 +61,7 @@ describe('ResponseWrapperMiddleware', () => {
   });
 
   it('handles empty response body', async () => {
-    context.res.locals.responseBody = undefined;
+    context.responseData = undefined;
     await middleware.after(context);
     expect(context.res.json).toHaveBeenCalledWith({
       success: true,
@@ -71,17 +77,23 @@ describe('responseWrapperMiddleware', () => {
 
   beforeEach(() => {
     context = {
-      req: { headers: {} },
+      req: { method: 'GET', url: '/', headers: {}, query: {}, params: {} },
       res: {
         headersSent: false,
         statusCode: 200,
-        locals: { responseBody: { key: 'value' } },
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
+        send: jest.fn(),
+        header: jest.fn().mockReturnThis(),
+        headers: jest.fn().mockReturnThis(),
+        end: jest.fn(),
       },
       container: null,
       error: null,
       businessData: new Map(),
+      startTime: Date.now(),
+      requestId: 'test-req-id',
+      responseData: { key: 'value' },
     } as unknown as Context;
   });
 
@@ -127,7 +139,7 @@ describe('responseWrapperMiddleware', () => {
   });
 
   it('handles empty response body', async () => {
-    context.res.locals.responseBody = undefined;
+    context.responseData = undefined;
     middleware = responseWrapperMiddleware();
     if (middleware.after) {
       await middleware.after(context);

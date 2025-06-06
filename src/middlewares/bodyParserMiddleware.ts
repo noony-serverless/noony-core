@@ -74,7 +74,7 @@ export const bodyParser = <T = unknown>(): BaseMiddleware => ({
   before: async (context: Context): Promise<void> => {
     const { method, body } = context.req;
 
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+    if (method && ['POST', 'PUT', 'PATCH'].includes(method)) {
       context.req.parsedBody = parseBody<T>(body);
     }
   },

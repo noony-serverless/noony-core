@@ -5,7 +5,11 @@ import { z, ZodSchema } from 'zod';
 
 export class PathParametersMiddleware implements BaseMiddleware {
   async before(context: Context): Promise<void> {
-    const url = new URL(context.req.url, `http://${context.req.headers.host}`);
+    const host =
+      (Array.isArray(context.req.headers.host)
+        ? context.req.headers.host[0]
+        : context.req.headers.host) || 'localhost';
+    const url = new URL(context.req.url, `http://${host}`);
     const pathSegments = url.pathname.split('/').filter(Boolean);
 
     context.req.params = context.req.params || {};
@@ -15,7 +19,9 @@ export class PathParametersMiddleware implements BaseMiddleware {
     pathSegments.forEach((segment, index) => {
       if (segment.startsWith(':')) {
         const paramName = segment.slice(1);
-        context.req.params[paramName] = pathSegments[index];
+        if (context.req.params) {
+          context.req.params[paramName] = pathSegments[index];
+        }
       }
     });
   }
@@ -23,7 +29,11 @@ export class PathParametersMiddleware implements BaseMiddleware {
 
 export const pathParameters = (): BaseMiddleware => ({
   before: async (context: Context): Promise<void> => {
-    const url = new URL(context.req.url, `http://${context.req.headers.host}`);
+    const host =
+      (Array.isArray(context.req.headers.host)
+        ? context.req.headers.host[0]
+        : context.req.headers.host) || 'localhost';
+    const url = new URL(context.req.url, `http://${host}`);
     const pathSegments = url.pathname.split('/').filter(Boolean);
 
     context.req.params = { ...context.req.params };
@@ -31,7 +41,9 @@ export const pathParameters = (): BaseMiddleware => ({
     pathSegments.forEach((segment, index) => {
       if (segment.startsWith(':')) {
         const paramName = segment.slice(1);
-        context.req.params[paramName] = pathSegments[index];
+        if (context.req.params) {
+          context.req.params[paramName] = pathSegments[index];
+        }
       }
     });
   },
