@@ -36,7 +36,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.NOONY_NPM_TOKEN }}
           fetch-depth: 0
 
       # Setup Node.js
@@ -130,7 +130,7 @@ jobs:
       - name: Publish to GitHub Packages
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
 
       # Create and push git tag
       - name: Create and push tag
@@ -186,7 +186,7 @@ jobs:
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
         with:
           tag_name: ${{ needs.release.outputs.tag }}
           release_name: Release ${{ needs.release.outputs.tag }}
