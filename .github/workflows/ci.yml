@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches-ignore:
+      - main
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noony-serverless'
+
+      # Cache dependencies
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-
+            ${{ runner.os }}-node-
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Run tests
+      - name: Run tests
+        run: npm test
+
+      # Run test coverage
+      - name: Run test coverage
+        run: npm run test:coverage
+
+      # Upload coverage to Codecov (optional)
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+        if: matrix.node-version == 20
+
+      # Run linting
+      - name: Run linting
+        run: npm run lint
+
+      # Check formatting
+      - name: Check formatting
+        run: npm run format:check
+
+      # Build the project
+      - name: Build project
+        run: npm run build
+
+      # Verify build output
+      - name: Verify build output
+        run: |
+          if [ ! -f "build/index.js" ] || [ ! -f "build/index.d.ts" ]; then
+            echo "❌ Build output missing!"
+            exit 1
+          fi
+          echo "✅ Build verification passed"
+
+      # Check package size
+      - name: Check package size
+        run: |
+          npm pack --dry-run
+          PACKAGE_SIZE=$(npm pack --dry-run | grep "package size" | awk '{print $4}')
+          echo "📦 Package size: $PACKAGE_SIZE"
