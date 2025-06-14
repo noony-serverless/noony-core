@@ -72,7 +72,7 @@ Perfect! I've created a comprehensive GitHub Actions setup for your library with
 3. Enable "Allow GitHub Actions to create and approve pull requests"
 
 ### Environment Variables
-The workflows use `GITHUB_TOKEN` which is automatically provided by GitHub Actions.
+The workflows use `NOONY_NPM_TOKEN` which is automatically provided by GitHub Actions.
 
 ## 📦 How to Use
 
