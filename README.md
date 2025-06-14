@@ -1,380 +1,443 @@
-# GCP Functions Framework Middleware System
+# Noony Serverless Framework
 
-A powerful and flexible middleware system for Google Cloud Functions that supports both HTTP and Pub/Sub triggers. This framework provides a clean, type-safe way to handle requests, validate data, manage authentication, and standardize responses.
+A powerful and flexible serverless middleware framework for Google Cloud Functions with full TypeScript support. This framework provides a clean, type-safe way to handle HTTP and Pub/Sub requests through a composable middleware system inspired by Middy.js.
 
-## Core Concepts
+## Core Architecture
 
-### Handler
+### Handler System
 
-The `Handler` class is the core of the framework. It manages the middleware chain and executes your business logic. Each handler instance can have multiple middlewares and one main handler function.
-
-### Middleware
-
-Middlewares are reusable pieces of logic that run before/after your main handler. They can:
-
-- Modify the request/response objects
-- Perform validation
-- Handle authentication
-- Process errors
-- And more...
-
-### Context
-
-The context object is passed through the entire middleware chain and contains all request-related data:
+The `Handler` class manages the middleware execution pipeline with `before`, `after`, and `onError` lifecycle hooks:
 
 ```typescript
-interface Context {
-  req: CustomRequest; // Extended request with additional properties
-  res: CustomResponse; // Extended response with additional methods
-  container?: Container; // Dependency injection container
-  error: Error | null; // Holds any errors that occur
-  businessData: Map<string, unknown>; // Store data between middlewares
-  user?: unknown; // Authenticated user information
+const handler = new Handler<RequestType, UserType>()
+  .use(errorHandler())
+  .use(bodyParser())
+  .use(bodyValidator(schema))
+  .handle(async (context) => {
+    // Your business logic here
+  });
+```
+
+### Type-Safe Context
+
+The context system provides full TypeScript support with generic typing:
+
+```typescript
+interface Context<T = unknown, U = unknown> {
+  req: CustomRequest<T>;     // Request with parsedBody and validatedBody
+  res: CustomResponse;       // Response object
+  container?: Container;     // TypeDI dependency injection
+  error?: Error | null;      // Error handling
+  businessData: Map<string, unknown>; // Inter-middleware data sharing
+  user?: U;                  // Authenticated user data
 }
 ```
 
-## Getting Started
+### Middleware Lifecycle
 
-### 1. HTTP Function Example
+Middlewares support three lifecycle hooks:
+- **before**: Execute before the main handler
+- **after**: Execute after the main handler (reverse order)
+- **onError**: Handle errors (reverse order)
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install @noony/serverless
+# or
+yarn add @noony/serverless
+```
+
+### Basic HTTP Function
 
 ```typescript
-import { Handler } from '@core/handler';
-import {
-  bodyParser,
-  bodyValidator,
-  authentication,
-  errorHandler,
-  responseWrapper,
-} from '@framework/middlewares';
+import { http } from '@google-cloud/functions-framework';
 import { z } from 'zod';
-import { verifyToken } from '@utils/auth';
+import {
+  Handler,
+  ErrorHandlerMiddleware,
+  BodyValidationMiddleware,
+  ResponseWrapperMiddleware,
+} from '@noony/serverless';
 
-// 1. Define your request schema using Zod
+// Define request schema
 const userSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   age: z.number().min(18),
 });
 
-// 2. Create and configure your handler
-export const createUser = new Handler()
-  // Add middlewares in the order they should execute
-  .use(errorHandler()) // Always add error handler first
-  .use(bodyParser()) // Parse incoming JSON
-  .use(bodyValidator(userSchema)) // Validate request body
-  .use(authentication(verifyToken)) // Verify JWT token
-  .use(responseWrapper()) // Standardize response format
+type UserRequest = z.infer<typeof userSchema>;
+
+// Create handler with full type safety
+const createUserHandler = new Handler<UserRequest, unknown>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new BodyValidationMiddleware(userSchema))
+  .use(new ResponseWrapperMiddleware())
   .handle(async (context) => {
-    // Access validated data and user information
-    const { validatedBody, user } = context.req;
-
-    // Your business logic here
-    const newUser = await createUserInDatabase(validatedBody);
-
-    // Send response
+    // TypeScript knows validatedBody is UserRequest
+    const { name, email, age } = context.req.validatedBody!;
+    
+    // Your business logic
+    const user = await createUser({ name, email, age });
+    
     context.res.json({
-      userId: newUser.id,
       message: 'User created successfully',
+      userId: user.id,
     });
   });
+
+// Export Google Cloud Function
+export const createUser = http('createUser', (req, res) => {
+  return createUserHandler.execute(req, res);
+});
 ```
 
-### 2. Pub/Sub Function Example
+### Pub/Sub Function Example
 
 ```typescript
-import { Handler } from '@core/handler';
-import { bodyParser, bodyValidator, errorHandler } from '@framework/middlewares';
+import { cloudEvent } from '@google-cloud/functions-framework';
 import { z } from 'zod';
+import {
+  Handler,
+  ErrorHandlerMiddleware,
+  BodyParserMiddleware,
+  BodyValidationMiddleware,
+} from '@noony/serverless';
 
-// 1. Define your message schema
+// Define message schema
 const messageSchema = z.object({
   userId: z.string().uuid(),
   action: z.enum(['CREATE', 'UPDATE', 'DELETE']),
   payload: z.record(z.unknown()),
 });
 
-// 2. Create your Pub/Sub handler
-export const processPubSubMessage = new Handler()
-  .use(errorHandler())
-  .use(bodyParser()) // Will decode base64 Pub/Sub message
-  .use(bodyValidator(messageSchema))
-  .handle(async (context) => {
-    const { validatedBody } = context.req;
+type PubSubMessage = z.infer<typeof messageSchema>;
 
-    // Process the message based on action
-    switch (validatedBody.action) {
+// Create Pub/Sub handler
+const pubsubHandler = new Handler<PubSubMessage, unknown>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new BodyParserMiddleware()) // Decodes base64 Pub/Sub messages
+  .use(new BodyValidationMiddleware(messageSchema))
+  .handle(async (context) => {
+    const { action, payload } = context.req.validatedBody!;
+    
+    // Process message based on action
+    switch (action) {
       case 'CREATE':
-        await handleCreateAction(validatedBody.payload);
+        await handleCreateAction(payload);
         break;
-      // ... handle other actions
+      case 'UPDATE':
+        await handleUpdateAction(payload);
+        break;
+      case 'DELETE':
+        await handleDeleteAction(payload);
+        break;
     }
   });
-```
 
-## Available Middlewares
-
-### 1. Body Parser Middleware
-
-Automatically parses:
-
-- JSON request bodies for HTTP functions
-- Base64-encoded Pub/Sub messages
-
-```typescript
-.use(bodyParser())
-```
-
-### 2. Body Validation Middleware
-
-Type-safe request validation using Zod schemas:
-
-```typescript
-const schema = z.object({
-  name: z.string(),
-  age: z.number(),
+// Export Cloud Function
+export const processPubSubMessage = cloudEvent('processPubSubMessage', (cloudEvent) => {
+  return pubsubHandler.execute(cloudEvent.data, {});
 });
-.use(bodyValidator(schema))
 ```
 
-### 3. Authentication Middleware
+## Built-in Middlewares
 
-JWT token validation and user context injection:
+### ErrorHandlerMiddleware
+
+Centralized error handling with custom error types:
 
 ```typescript
-.use(authentication(verifyToken))
+.use(new ErrorHandlerMiddleware())
+
+// Handles these error types:
+throw new HttpError(400, 'Bad Request');
+throw new ValidationError('Invalid input');
+throw new AuthenticationError('Unauthorized');
 ```
 
-### 4. Header Variables Middleware
+### BodyParserMiddleware
 
-Ensure required headers are present:
+Automatically parses JSON and Pub/Sub messages:
 
 ```typescript
-.use(headerVariables(['x-api-key', 'correlation-id']))
+.use(new BodyParserMiddleware())
+// Sets context.req.parsedBody
 ```
 
-### 5. Path Parameters Middleware
+### BodyValidationMiddleware
 
-Extract URL parameters:
+Zod schema validation with TypeScript integration:
 
 ```typescript
-// URL: /users/:userId/posts/:postId
-.use(pathParameters())
-// Access via: context.req.params.userId
+const schema = z.object({ name: z.string() });
+.use(new BodyValidationMiddleware(schema))
+// Sets context.req.validatedBody with proper typing
 ```
 
-### 6. Query Parameters Middleware
+### AuthenticationMiddleware
 
-Process and validate query strings:
+JWT token verification:
 
 ```typescript
-.use(queryParameters(['page', 'limit']))
+const tokenVerifier = {
+  async verifyToken(token: string) {
+    // Your verification logic
+    return { userId: '123', role: 'user' };
+  }
+};
+.use(new AuthenticationMiddleware(tokenVerifier))
+// Sets context.user
 ```
 
-### 7. Response Wrapper Middleware
+### ResponseWrapperMiddleware
 
-Standardizes all responses:
+Standardized response format:
 
 ```typescript
-.use(responseWrapper())
-
-// Output format:
-{
-  "success": true,
-  "statusCode": 200,
-  "data": { /* your response data */ },
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
+.use(new ResponseWrapperMiddleware())
+// Wraps responses in: { success: true, payload: data, timestamp }
 ```
 
-### 8. Error Handler Middleware
+### HeaderVariablesMiddleware
 
-Consistent error handling:
+Validate required headers:
 
 ```typescript
-.use(errorHandler())
+.use(new HeaderVariablesMiddleware(['authorization', 'content-type']))
+```
 
-// Usage in your code:
-throw new HttpError(400, 'Invalid input');
-throw new ValidationError('Email is required');
-throw new AuthenticationError();
+### QueryParametersMiddleware
+
+Process query parameters:
+
+```typescript
+.use(new QueryParametersMiddleware())
+// Processes context.req.query
+```
+
+### DependencyInjectionMiddleware
+
+TypeDI container integration:
+
+```typescript
+.use(new DependencyInjectionMiddleware([
+  { id: 'userService', value: new UserService() }
+]))
 ```
 
 ## Error Handling
 
-The framework provides built-in error classes:
+Built-in error classes with proper HTTP status codes:
 
 ```typescript
-// Basic HTTP error
-throw new HttpError(statusCode, message, code?, details?);
+// HTTP errors with custom status codes
+throw new HttpError(400, 'Bad Request', 'INVALID_INPUT');
 
-// Validation error (400 Bad Request)
-throw new ValidationError(message, details?);
+// Validation errors (400 status)
+throw new ValidationError('Invalid email format', zodErrors);
 
-// Authentication error (401 Unauthorized)
-throw new AuthenticationError(message?);
+// Authentication errors (401 status)
+throw new AuthenticationError('Invalid token');
+
+// Authorization errors (403 status) 
+throw new AuthorizationError('Insufficient permissions');
 ```
 
-## Deployment
+## Framework Integration
 
-### HTTP Function
+### Google Cloud Functions
 
-```bash
-gcloud functions deploy your-function \
-  --runtime nodejs18 \
-  --trigger-http \
-  --entry-point yourFunction \
-  --allow-unauthenticated  # If public access is needed
+```typescript
+import { http } from '@google-cloud/functions-framework';
+
+export const myFunction = http('myFunction', (req, res) => {
+  return handler.execute(req, res);
+});
 ```
 
-### Pub/Sub Function
+### Fastify Integration
 
-```bash
-# 1. Create a Pub/Sub topic
-gcloud pubsub topics create your-topic
+```typescript
+import Fastify from 'fastify';
+import { Handler } from '@noony/serverless';
 
-# 2. Deploy the function
-gcloud functions deploy your-pubsub-function \
-  --runtime nodejs18 \
-  --trigger-topic your-topic \
-  --entry-point yourPubSubFunction
+const fastify = Fastify();
+
+fastify.post('/users', async (request, reply) => {
+  const req = { ...request, body: request.body };
+  const res = {
+    status: (code: number) => reply.status(code),
+    json: (data: any) => reply.send(data)
+  };
+  
+  await handler.execute(req, res);
+});
+```
+
+### Express Integration
+
+```typescript
+import express from 'express';
+import { Handler } from '@noony/serverless';
+
+const app = express();
+
+app.post('/users', async (req, res) => {
+  await handler.execute(req, res);
+});
 ```
 
 ## Best Practices
 
-1. Always add `errorHandler()` as the first middleware
-2. Use `bodyParser()` before `bodyValidator()`
-3. Add `authentication()` before accessing user context
-4. Place `responseWrapper()` last in the chain
-5. Use TypeScript interfaces for better type safety
-6. Implement proper error handling in your business logic
-7. Use environment variables for sensitive configuration
+### 1. Middleware Order
+
+```typescript
+const handler = new Handler<RequestType, UserType>()
+  .use(new ErrorHandlerMiddleware())        // Always first
+  .use(new HeaderVariablesMiddleware(...))  // Required headers
+  .use(new AuthenticationMiddleware(...))   // Authentication
+  .use(new BodyParserMiddleware())          // Parse body
+  .use(new BodyValidationMiddleware(...))   // Validate
+  .use(new DependencyInjectionMiddleware(...))
+  .use(new ResponseWrapperMiddleware())     // Always last
+  .handle(async (context) => {
+    // Business logic
+  });
+```
+
+### 2. Type Safety
+
+```typescript
+// Define clear interfaces
+interface UserRequest {
+  name: string;
+  email: string;
+}
+
+interface UserContext {
+  userId: string;
+  role: string;
+}
+
+// Use throughout the handler
+const handler = new Handler<UserRequest, UserContext>();
+```
+
+### 3. Error Handling
+
+- Always use ErrorHandlerMiddleware first
+- Throw appropriate error types
+- Handle errors gracefully in business logic
+- Use proper HTTP status codes
+
+### 4. Testing
+
+```typescript
+// Mock context for testing
+const mockContext = {
+  req: { validatedBody: { name: 'test' } },
+  res: { json: jest.fn() },
+  businessData: new Map(),
+};
+
+await handler.handle(mockContext);
+```
 
 ## TypeScript Support
 
-The framework is built with TypeScript and provides full type safety. Use the provided interfaces and types for better development experience:
+The framework provides full type safety through generic types:
 
 ```typescript
-import { Context, CustomRequest, CustomResponse } from '@framework/middlewares/base/Middleware';
-import { BaseMiddleware } from '../../core/handler';
+import {
+  Handler,
+  Context,
+  BaseMiddleware,
+  ErrorHandlerMiddleware,
+  BodyValidationMiddleware,
+} from '@noony/serverless';
+
+// No type casting needed with proper generics
+const handler = new Handler<UserRequest, UserContext>()
+  .handle(async (context) => {
+    // TypeScript knows validatedBody is UserRequest
+    const { name, email } = context.req.validatedBody!;
+    // TypeScript knows user is UserContext
+    const { userId } = context.user!;
+  });
 ```
 
+## Development Commands
 
 ```bash
-# Health Check
-curl http://localhost:8080/health
-
-# List Users - No parameters
-curl http://localhost:8080/api/users
-
-# List Users - With age filter
-curl "http://localhost:8080/api/users?age=25"
-
-# List Users - With active filter
-curl "http://localhost:8080/api/users?active=true"
-
-# List Users - With both filters
-curl "http://localhost:8080/api/users?age=25&active=true"
-
-# Get User by ID
-curl http://localhost:8080/api/users/123
-
-# Create User - Minimal required fields
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"name":"John Doe","email":"john@example.com"}' \
-  http://localhost:8080/api/users
-
-# Create User - All fields
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Jane Doe",
-    "email": "jane@example.com",
-    "age": 30
-  }' \
-  http://localhost:8080/api/users
-
-# Create User - Test validation error (missing email)
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"name":"John Doe"}' \
-  http://localhost:8080/api/users
-
-# Create User - Test validation error (invalid email)
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "John Doe",
-    "email": "invalid-email"
-  }' \
-  http://localhost:8080/api/users
-
-# Get Non-existent User (should return 404)
-curl http://localhost:8080/api/users/nonexistent-id
-
-# Test without Content-Type header (should fail)
-curl -X POST \
-  -d '{"name":"John Doe","email":"john@example.com"}' \
-  http://localhost:8080/api/users
-
-# Pretty print responses (add to any command)
-# Windows PowerShell
-curl http://localhost:8080/api/users | ConvertFrom-Json | ConvertTo-Json
-
-# Unix/Linux/MacOS
-curl http://localhost:8080/api/users | json_pp 
+npm run build          # Compile TypeScript
+npm run watch          # Watch mode compilation  
+npm run test           # Run Jest tests
+npm run test:coverage  # Test with coverage
+npm run lint           # ESLint check
+npm run format         # Prettier formatting
 ```
 
+## Example API Usage
 
-## DEployment
+```bash
+# Create user with authentication
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer valid-token" \
+  -H "x-api-version: v1" \
+  -d '{"name":"John Doe","email":"john@example.com","age":30}'
 
-url: https://us-central1-javierhbr-lab.cloudfunctions.net/userApi
+# Get user by ID
+curl -H "Authorization: Bearer valid-token" \
+  http://localhost:3000/api/users/123
 
-
-
-gcloud endpoints services deploy openapi.yaml --project [PROJECT_ID]
-
+# List users with query parameters
+curl -H "Authorization: Bearer valid-token" \
+  "http://localhost:3000/api/users?name=john"
 ```
-export GCP_REGION=us-central1
-export GCP_PROJECT_ID=javierhbr-lab
 
-❯ chmod u+rw ./openapi/user-api-spec.yaml
+## Deployment
 
+### Google Cloud Functions
 
-./openapi/user-api-spec.yaml
+```bash
+# Deploy HTTP function
+gcloud functions deploy myFunction \
+  --runtime nodejs20 \
+  --trigger-http \
+  --entry-point myFunction \
+  --allow-unauthenticated
 
-
-  --backend-auth-service-account=${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
-
-to change the openAPI. it's need to be updated in the openapi.yaml file and then create a new version of it
-
-gcloud api-gateway api-configs create gtw-user-api-config-v1-2  \
-	--api=user-api \
-	--openapi-spec=swagger.yaml
-	
-
-[//]: # (--backend-auth-service-account=sa-javierhbr-lab@javierhbr-lab.iam.gserviceaccount.com)
-
-CReate a new gateways with api config 
-
-gcloud api-gateway gateways create gtw-user-api \
-    --api=user-api \
-    --api-config=gtw-user-api-config \
-    --location=us-central1 \
-    --project=javierhbr-lab
-
-Update the gateway with the new api config
-gcloud api-gateway gateways update gtw-user-api \
-    --api=user-api \
-    --api-config=gtw-user-api-config-v1-2 \
-    --location=us-central1 \
-    --project=javierhbr-lab
-
-    
-        
-gcloud api-gateway apis describe user-api --project=my-project
-
-gcloud api-gateway gateways describe gtw-user-api --location=us-central1 --project=my-project
-
-
+# Deploy Pub/Sub function
+gcloud functions deploy myPubSubFunction \
+  --runtime nodejs20 \
+  --trigger-topic my-topic \
+  --entry-point myPubSubFunction
 ```
+
+### Cloud Run
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 8080
+CMD ["npm", "start"]
+```
+
+## Community & Support
+
+- 📖 [Documentation](https://github.com/noony-org/noony-serverless)
+- 🐛 [Issue Tracker](https://github.com/noony-org/noony-serverless/issues)
+- 💬 [Discussions](https://github.com/noony-org/noony-serverless/discussions)
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
