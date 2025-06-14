@@ -1,10 +1,11 @@
 name: Build, Deploy & Version Bump
 
 on:
-  push:
-    branches:
-      - main
-      - master
+  # Temporarily disabled to avoid conflicts with release.yml
+  # push:
+  #   branches:
+  #     - main
+  #     - master
   workflow_dispatch:
 
 permissions:

@@ -152,14 +152,20 @@ jobs:
 
       # Publish to GitHub Packages
       - name: Publish to GitHub Packages
-        run: npm publish
+        run: |
+          echo "🔐 Publishing to GitHub Packages..."
+          echo "Registry: https://npm.pkg.github.com"
+          echo "Package: @noony-serverless/core"
+          npm publish
         env:
           NOONY_NPM_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
 
       # Create and push git tag
       - name: Create and push tag
         run: |
+          echo "🏷️ Creating tag: ${{ steps.version.outputs.new_tag }}"
           git tag ${{ steps.version.outputs.new_tag }}
+          echo "📤 Pushing tag to origin..."
           git push origin ${{ steps.version.outputs.new_tag }}
 
       # Commit version bump (after successful publish)
@@ -210,7 +216,7 @@ jobs:
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.release.outputs.tag }}
           release_name: Release ${{ needs.release.outputs.tag }}
