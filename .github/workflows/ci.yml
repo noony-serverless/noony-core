@@ -72,13 +72,37 @@ jobs:
 
       # Build the project
       - name: Build project
-        run: npm run build
+        run: |
+          # Clean previous build
+          rm -rf build/
+          # Run build
+          npm run build
+          echo "📦 Build completed"
 
       # Verify build output
       - name: Verify build output
         run: |
+          echo "🔍 Checking build output..."
+          echo "Build directory contents:"
+          ls -la build/ || echo "Build directory not found"
+          
+          echo "Expected files check:"
+          if [ -f "build/index.js" ]; then
+            echo "✅ build/index.js exists"
+          else
+            echo "❌ build/index.js missing"
+          fi
+          
+          if [ -f "build/index.d.ts" ]; then
+            echo "✅ build/index.d.ts exists"
+          else
+            echo "❌ build/index.d.ts missing"
+          fi
+          
           if [ ! -f "build/index.js" ] || [ ! -f "build/index.d.ts" ]; then
             echo "❌ Build output missing!"
+            echo "Available files in build directory:"
+            find build/ -type f 2>/dev/null || echo "No files found"
             exit 1
           fi
           echo "✅ Build verification passed"

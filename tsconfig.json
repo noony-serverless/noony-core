@@ -24,8 +24,7 @@
     "emitDecoratorMetadata": true,
     "declaration": true,
     "declarationMap": true,
-    "baseUrl": ".",
-    "emitDeclarationOnly": true,
+    "baseUrl": "."
   },
     "include": ["src/**/*"],
   "exclude": [
