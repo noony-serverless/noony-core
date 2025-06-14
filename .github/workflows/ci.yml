@@ -54,13 +54,13 @@ jobs:
     #     run: npm run test:coverage
 
       # Upload coverage to Codecov (optional)
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-        if: matrix.node-version == 20
+    #   - name: Upload coverage reports
+    #     uses: codecov/codecov-action@v3
+    #     with:
+    #       file: ./coverage/lcov.info
+    #       flags: unittests
+    #       name: codecov-umbrella
+    #     if: matrix.node-version == 20
 
       # Run linting
       - name: Run linting

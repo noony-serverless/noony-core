@@ -130,7 +130,7 @@ jobs:
       - name: Publish to GitHub Packages
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
+          NOONY_NPM_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
 
       # Create and push git tag
       - name: Create and push tag
