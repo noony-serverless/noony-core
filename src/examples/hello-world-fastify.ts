@@ -36,6 +36,7 @@ import {
   ResponseWrapperMiddleware,
   DependencyInjectionMiddleware,
   QueryParametersMiddleware,
+  GenericRequest,
 } from '../core';
 
 // Define schemas for different endpoints
@@ -53,25 +54,34 @@ const getUserParamsSchema = z.object({
 type CreateUserRequest = z.infer<typeof createUserSchema>;
 type GetUserParams = z.infer<typeof getUserParamsSchema>;
 
+// User entity type
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+  createdAt: string;
+}
+
 // Mock service for demonstration
 class UserService {
-  private users = new Map<string, any>();
+  private users = new Map<string, User>();
 
   createUser(userData: CreateUserRequest): {
     id: string;
-    user: CreateUserRequest;
+    user: User;
   } {
     const id = crypto.randomUUID();
-    const user = { id, ...userData, createdAt: new Date().toISOString() };
+    const user: User = { id, ...userData, createdAt: new Date().toISOString() };
     this.users.set(id, user);
     return { id, user };
   }
 
-  getUserById(id: string): any | null {
+  getUserById(id: string): User | null {
     return this.users.get(id) || null;
   }
 
-  getAllUsers(): any[] {
+  getAllUsers(): User[] {
     return Array.from(this.users.values());
   }
 }
@@ -135,7 +145,11 @@ const getUserHandler = Handler.use(new ErrorHandlerMiddleware())
     const userService = Container.get('userService') as UserService;
 
     // Extract URL parameters (Fastify specific)
-    const { id } = (context.req as any).params as GetUserParams;
+    const { id } = (
+      context.req as GenericRequest & {
+        params: GetUserParams;
+      }
+    ).params;
 
     // Validate the ID parameter
     const validatedParams = getUserParamsSchema.parse({ id });
@@ -192,7 +206,7 @@ const listUsersHandler = Handler.use(new ErrorHandlerMiddleware())
     // Simple filtering based on query parameters
     let filteredUsers = users;
     if (queryParams.name) {
-      filteredUsers = users.filter((user: any) =>
+      filteredUsers = users.filter((user: User) =>
         user.name
           .toLowerCase()
           .includes((queryParams.name as string).toLowerCase())
@@ -206,6 +220,18 @@ const listUsersHandler = Handler.use(new ErrorHandlerMiddleware())
     });
   });
 
+// Type for our handler
+interface NoonyHandler {
+  execute(req: unknown, res: unknown): Promise<void>;
+}
+
+// Response adapter interface
+interface ResponseAdapter {
+  status(code: number): ResponseAdapter;
+  json(data: unknown): void;
+  send(data: unknown): void;
+}
+
 /**
  * Create and configure Fastify server
  */
@@ -216,10 +242,10 @@ export function createFastifyServer(): FastifyInstance {
 
   // Helper function to convert Fastify request/reply to our handler format
   const executeHandler = async (
-    handler: any,
+    handler: NoonyHandler,
     request: FastifyRequest,
     reply: FastifyReply
-  ) => {
+  ): Promise<void> => {
     // Create a request object compatible with our middleware system
     const req = {
       ...request,
@@ -230,15 +256,15 @@ export function createFastifyServer(): FastifyInstance {
     };
 
     // Create a response object compatible with our middleware system
-    const res = {
-      status: (code: number) => {
+    const res: ResponseAdapter = {
+      status: (code: number): ResponseAdapter => {
         reply.status(code);
         return res;
       },
-      json: (data: any) => {
+      json: (data: unknown): void => {
         reply.send(data);
       },
-      send: (data: any) => {
+      send: (data: unknown): void => {
         reply.send(data);
       },
     };

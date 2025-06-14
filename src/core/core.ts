@@ -148,37 +148,37 @@ export function adaptGCPResponse(gcpResponse: Response): GenericResponse {
   let isHeadersSent = false;
 
   return {
-    status: (code: number) => {
+    status: (code: number): GenericResponse => {
       currentStatusCode = code;
       gcpResponse.status(code);
       return adaptGCPResponse(gcpResponse);
     },
-    json: (data: unknown) => {
+    json: (data: unknown): void => {
       isHeadersSent = true;
       gcpResponse.json(data);
     },
-    send: (data: unknown) => {
+    send: (data: unknown): void => {
       isHeadersSent = true;
       gcpResponse.send(data);
     },
-    header: (name: string, value: string) => {
+    header: (name: string, value: string): GenericResponse => {
       gcpResponse.header(name, value);
       return adaptGCPResponse(gcpResponse);
     },
-    headers: (headers: Record<string, string>) => {
+    headers: (headers: Record<string, string>): GenericResponse => {
       Object.entries(headers).forEach(([key, value]) => {
         gcpResponse.header(key, value);
       });
       return adaptGCPResponse(gcpResponse);
     },
-    end: () => {
+    end: (): void => {
       isHeadersSent = true;
       gcpResponse.end();
     },
-    get statusCode() {
+    get statusCode(): number {
       return gcpResponse.statusCode || currentStatusCode;
     },
-    get headersSent() {
+    get headersSent(): boolean {
       return gcpResponse.headersSent || isHeadersSent;
     },
   };
