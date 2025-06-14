@@ -30,7 +30,11 @@ export class QueryParametersMiddleware implements BaseMiddleware {
   constructor(private readonly requiredParams: string[] = []) {}
 
   async before(context: Context): Promise<void> {
-    const url = new URL(context.req.url, `http://${context.req.headers.host}`);
+    const host =
+      (Array.isArray(context.req.headers.host)
+        ? context.req.headers.host[0]
+        : context.req.headers.host) || 'localhost';
+    const url = new URL(context.req.url, `http://${host}`);
     context.req.query = Object.fromEntries(url.searchParams);
     const query = convertQueryToRecord(context.req.query);
     validateQueryParameters(this.requiredParams, query);
@@ -41,7 +45,11 @@ export const queryParametersMiddleware = (
   requiredParams: string[] = []
 ): BaseMiddleware => ({
   async before(context: Context): Promise<void> {
-    const url = new URL(context.req.url, `http://${context.req.headers.host}`);
+    const host =
+      (Array.isArray(context.req.headers.host)
+        ? context.req.headers.host[0]
+        : context.req.headers.host) || 'localhost';
+    const url = new URL(context.req.url, `http://${host}`);
     context.req.query = Object.fromEntries(url.searchParams);
     const query = convertQueryToRecord(context.req.query);
     validateQueryParameters(requiredParams, query);

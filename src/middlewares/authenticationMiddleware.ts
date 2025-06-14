@@ -16,7 +16,10 @@ async function verifyToken<T>(
     throw new HttpError(401, 'No authorization header');
   }
 
-  const token = authHeader.split('Bearer ')[1];
+  const authHeaderString = Array.isArray(authHeader)
+    ? authHeader[0]
+    : authHeader;
+  const token = authHeaderString?.split('Bearer ')[1];
   if (!token) {
     throw new AuthenticationError('Invalid token format');
   }
@@ -49,22 +52,15 @@ export const verifyAuthTokenMiddleware = <T>(
 
 /*
 // Example protected endpoint
-const protectedHandler = Handler.use(verifyAuthTokenMiddleware(customTokenVerificationPort))
+const protectedHandler = new Handler()
+  .use(verifyAuthTokenMiddleware(customTokenVerificationPort))
   .use(errorHandler())
-  .use(responseWrapperV2<any>())
+  .use(responseWrapperMiddleware<any>())
   .handle(async (context: Context) => {
     const user = context.user;
-    context.res.json({
+    setResponseData(context, {
       message: 'Protected endpoint',
       user,
     });
   });
-
-const app = express();
-app.use(express.json());
-
-app.get('/protected', (req, res) =>
-  protectedHandler.execute(req as unknown as CustomRequest, res as unknown as CustomResponse)
-);
-
-export default app;*/
+*/

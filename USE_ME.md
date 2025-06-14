@@ -1,54 +1,57 @@
-# TypeScript Request Handler System
+# Noony Serverless Framework - Usage Guide
 
-A flexible request handling system for TypeScript applications with middleware support. This system provides a robust way to handle HTTP requests and manage request context.
+A flexible and type-safe serverless middleware framework for Google Cloud Functions. This guide provides detailed examples of how to use the framework's features.
 
 ## Core Components
 
-### Context
+### Context with Generic Types
 
-The `Context` interface provides a wrapper for request handling with request and response data.
+The `Context` interface provides type-safe request handling with generic support:
 
 ```typescript
-interface Context {
-  req: CustomRequest;
-  res: CustomResponse;
-  container?: Container;
-  error?: Error | null;
-  businessData: Map<string, unknown>;
-  user?: unknown;
+interface Context<T = unknown, U = unknown> {
+  req: CustomRequest<T>;     // Request with typed parsedBody and validatedBody
+  res: CustomResponse;       // Response object
+  container?: Container;     // TypeDI dependency injection container
+  error?: Error | null;      // Error handling
+  businessData: Map<string, unknown>; // Inter-middleware data sharing
+  user?: U;                  // Typed authenticated user data
 }
 ```
 
 Key Properties:
-- `req`: The enhanced request object
-- `res`: The response object
-- `container`: Optional dependency injection container
-- `error`: Error handling property
-- `businessData`: Storage for business logic data
-- `user`: Optional user information
+- `req`: Enhanced request object with `parsedBody` and `validatedBody`
+- `res`: Response object with `json()`, `status()`, and `send()` methods
+- `container`: TypeDI dependency injection container
+- `error`: Error object for centralized error handling
+- `businessData`: Map for sharing data between middlewares
+- `user`: Authenticated user information with proper typing
 
-### Handler
+### Handler with Generics
 
-The `Handler` class manages the request processing pipeline through middleware chains.
+The `Handler` class manages the request processing pipeline with full TypeScript support:
 
 ```typescript
-const handler = new Handler()
-  .use(middleware1())
-  .use(middleware2())
+const handler = new Handler<RequestType, UserType>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new BodyValidationMiddleware(schema))
+  .use(new AuthenticationMiddleware(tokenVerifier))
   .handle(async (context) => {
-    // Handler logic
+    // TypeScript knows the exact types of validatedBody and user
+    const { name } = context.req.validatedBody!; // No casting needed!
+    const { userId } = context.user!;
   });
 ```
 
-### BaseMiddleware
+### BaseMiddleware with Generics
 
-Interface for creating middleware with lifecycle hooks:
+Interface for creating type-safe middleware with lifecycle hooks:
 
 ```typescript
-interface BaseMiddleware {
-  before?: (context: Context) => Promise<void>;
-  after?: (context: Context) => Promise<void>;
-  onError?: (error: Error, context: Context) => Promise<void>;
+interface BaseMiddleware<T = unknown, U = unknown> {
+  before?: (context: Context<T, U>) => Promise<void>;
+  after?: (context: Context<T, U>) => Promise<void>;
+  onError?: (error: Error, context: Context<T, U>) => Promise<void>;
 }
 ```
 

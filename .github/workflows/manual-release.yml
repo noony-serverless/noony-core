@@ -1,0 +1,205 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.2.3 or patch/minor/major)'
+        required: true
+        default: 'patch'
+      prerelease:
+        description: 'Create a pre-release'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Dry run (build and test only, no publish)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  manual-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noony-serverless'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Run full test suite
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # Run quality checks
+      - name: Run linting
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      # Build project
+      - name: Build project
+        run: npm run build
+
+      # Configure Git
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      # Handle version input
+      - name: Process version input
+        id: version
+        run: |
+          VERSION_INPUT="${{ github.event.inputs.version }}"
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          
+          echo "Current version: $CURRENT_VERSION"
+          echo "Version input: $VERSION_INPUT"
+          
+          # Check if input is a semantic version or bump type
+          if [[ "$VERSION_INPUT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+            # Direct version number
+            NEW_VERSION="$VERSION_INPUT"
+            npm version "$NEW_VERSION" --no-git-tag-version
+          else
+            # Version bump type (patch, minor, major, prerelease)
+            npm version "$VERSION_INPUT" --no-git-tag-version
+            NEW_VERSION=$(node -p "require('./package.json').version")
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      # Dry run check
+      - name: Dry run summary
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🧪 DRY RUN MODE - No publishing will occur"
+          echo "📦 Package: @noony-serverless/core"
+          echo "🏷️  Version: ${{ steps.version.outputs.new_version }}"
+          echo "📁 Build output:"
+          ls -la build/
+          echo "✅ All checks passed - ready for release!"
+
+      # Publish to GitHub Packages (skip if dry run)
+      - name: Publish to GitHub Packages
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🚀 Publishing @noony-serverless/core@${{ steps.version.outputs.new_version }}"
+          npm publish
+        env:
+          NOONY_NPM_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
+
+      # Create git tag (skip if dry run)
+      - name: Create and push tag
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          TAG="v${{ steps.version.outputs.new_version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "📌 Created tag: $TAG"
+
+      # Commit version changes (skip if dry run)
+      - name: Commit version changes
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore: release version ${{ steps.version.outputs.new_version }}
+
+          🚀 Manual release triggered by @${{ github.actor }}
+          📦 Package: @noony-serverless/core@${{ steps.version.outputs.new_version }}
+          🏷️  Tag: v${{ steps.version.outputs.new_version }}
+          ⚙️  Build: ${{ github.run_number }}
+          📋 Prerelease: ${{ github.event.inputs.prerelease }}
+          "
+          git push origin ${{ github.ref_name }}
+
+      # Prepare for next development cycle (skip if dry run or prerelease)
+      - name: Bump to next development version
+        if: github.event.inputs.dry_run != 'true' && github.event.inputs.prerelease != 'true'
+        run: |
+          # Bump patch version for next development cycle
+          npm version patch --no-git-tag-version
+          NEXT_DEV_VERSION=$(node -p "require('./package.json').version")
+          
+          git add package.json package-lock.json
+          git commit -m "chore: bump to next development version $NEXT_DEV_VERSION [skip ci]"
+          git push origin ${{ github.ref_name }}
+          
+          echo "🔄 Bumped to next development version: $NEXT_DEV_VERSION"
+
+      # Create GitHub Release (skip if dry run)
+      - name: Create GitHub Release
+        if: github.event.inputs.dry_run != 'true'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          release_name: Release v${{ steps.version.outputs.new_version }}
+          body: |
+            ## 🎉 Manual Release v${{ steps.version.outputs.new_version }}
+            
+            Released by: @${{ github.actor }}
+            
+            ### 📦 Package Information
+            - **Package**: `@noony-serverless/core`
+            - **Version**: `${{ steps.version.outputs.new_version }}`
+            - **Registry**: GitHub Packages
+            - **Build**: #${{ github.run_number }}
+            
+            ### 📥 Installation
+            ```bash
+            npm install @noony-serverless/core@${{ steps.version.outputs.new_version }}
+            ```
+            
+            ### 🔧 Quick Start
+            ```typescript
+            import { Handler, ErrorHandlerMiddleware } from '@noony-serverless/core';
+            
+            const handler = new Handler()
+              .use(new ErrorHandlerMiddleware())
+              .handle(async (context) => {
+                context.res.json({ message: 'Hello from Noony!' });
+              });
+            ```
+            
+            ### 📚 Documentation
+            - [GitHub Repository](https://github.com/noony-serverless/noony-core)
+            - [Package Registry](https://github.com/noony-serverless/noony-core/packages)
+            
+            ---
+            
+            **Full Changelog**: https://github.com/noony-serverless/noony-core/compare/v${{ steps.version.outputs.new_version }}...v${{ steps.version.outputs.new_version }}
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+
+      # Success summary
+      - name: Release Summary
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🎉 Release completed successfully!"
+          echo "📦 Package: @noony-serverless/core@${{ steps.version.outputs.new_version }}"
+          echo "🏷️  Tag: v${{ steps.version.outputs.new_version }}"
+          echo "🔗 GitHub Packages: https://github.com/noony-serverless/noony-core/packages"

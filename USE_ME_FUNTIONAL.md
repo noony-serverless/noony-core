@@ -1,6 +1,5 @@
 Below is a sample content for your README.md file that explains how to use the `Context`, `Handler`, functional middlewares, and the `BaseMiddleware` class without using generics:
 
----
 
 # Project Overview
 
@@ -13,7 +12,6 @@ This project demonstrates how to organize and implement a middleware-based flow 
 
 > **Note**: All examples are implemented without using generics to keep the implementation straightforward.
 
----
 
 # Components
 
@@ -162,7 +160,6 @@ class AuthMiddleware extends BaseMiddleware {
 module.exports = AuthMiddleware;
 ```
 
----
 
 # How it All Fits Together
 
@@ -212,7 +209,6 @@ const requestData = {
 console.log(processRequest(requestData));
 ```
 
----
 
 # Conclusion
 
@@ -220,4 +216,3 @@ This sample project provides a basic architecture for handling requests using a 
 
 Feel free to modify and extend the examples to suit the needs of your project!
 
----

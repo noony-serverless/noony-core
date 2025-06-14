@@ -11,15 +11,27 @@ describe('HeaderVariablesMiddleware', () => {
   beforeEach(() => {
     context = {
       req: {
+        method: 'GET',
+        url: '/',
         headers: {},
+        query: {},
+        params: {},
       },
       res: {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
+        send: jest.fn(),
+        header: jest.fn().mockReturnThis(),
+        headers: jest.fn().mockReturnThis(),
+        end: jest.fn(),
+        statusCode: 200,
+        headersSent: false,
       },
       container: null,
       error: null,
       businessData: new Map(),
+      startTime: Date.now(),
+      requestId: 'test-req-id',
     } as unknown as Context;
   });
 
@@ -71,15 +83,27 @@ describe('headerVariablesMiddleware', () => {
   beforeEach(() => {
     context = {
       req: {
+        method: 'GET',
+        url: '/',
         headers: {},
+        query: {},
+        params: {},
       },
       res: {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
+        send: jest.fn(),
+        header: jest.fn().mockReturnThis(),
+        headers: jest.fn().mockReturnThis(),
+        end: jest.fn(),
+        statusCode: 200,
+        headersSent: false,
       },
       container: null,
       error: null,
       businessData: new Map(),
+      startTime: Date.now(),
+      requestId: 'test-req-id',
     } as unknown as Context;
   });
 

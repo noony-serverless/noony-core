@@ -14,7 +14,6 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
         details: error.details,
       },
       timestamp: new Date().toISOString(),
-
     });
   } else {
     context.res.status(500).json({

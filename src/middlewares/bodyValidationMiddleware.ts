@@ -31,9 +31,8 @@ export class BodyValidationMiddleware<T = unknown> implements BaseMiddleware {
 // Modified to fix type instantiation error
 export const bodyValidatorMiddleware = <T>(
   schema: z.ZodType<T>
-) => ({
+): { before: (context: Context) => Promise<void> } => ({
   before: async (context: Context): Promise<void> => {
     context.req.parsedBody = await validateBody(schema, context.req.body);
-  }
+  },
 });
-
