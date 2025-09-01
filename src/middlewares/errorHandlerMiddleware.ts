@@ -1,29 +1,57 @@
 import { BaseMiddleware, Context, HttpError, logger } from '../core';
 
 const handleError = async (error: Error, context: Context): Promise<void> => {
+  const isDevelopment =
+    process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
+
   logger.error('Error processing request', {
     errorMessage: error?.message,
     errorStack: error?.stack,
+    requestId: context.requestId,
+    userAgent: context.req.headers?.['user-agent'],
+    ip: context.req.ip || 'unknown',
   });
 
   if (error instanceof HttpError) {
-    context.res.status(error.status).json({
+    const responsePayload: any = {
       success: false,
       payload: {
         error: error.message,
-        details: error.details,
       },
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    // Only include sensitive details in development
+    if (isDevelopment && error.details) {
+      responsePayload.payload.details = error.details;
+    }
+
+    // Only include error codes for client errors (4xx), not server errors
+    if (error.code && error.status < 500) {
+      responsePayload.payload.code = error.code;
+    }
+
+    context.res.status(error.status).json(responsePayload);
   } else {
-    context.res.status(500).json({
+    // For non-HttpError exceptions, provide generic error message in production
+    const errorMessage = isDevelopment
+      ? error.message
+      : 'Internal Server Error';
+    const responsePayload: any = {
       error: 'Internal Server Error',
       success: false,
       payload: {
-        error: 'Internal Server Error',
+        error: errorMessage,
       },
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    // Only include stack trace in development
+    if (isDevelopment && error.stack) {
+      responsePayload.payload.stack = error.stack;
+    }
+
+    context.res.status(500).json(responsePayload);
   }
 };
 

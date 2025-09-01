@@ -12,8 +12,10 @@ interface PubSubMessage {
   };
 }
 
-// Performance optimization: Cache compiled regex for better performance
-const PUB_SUB_MESSAGE_REGEX = /^[A-Za-z0-9+/]*={0,2}$/;
+// Enhanced base64 validation with stricter security checks
+const BASE64_REGEX = /^[A-Za-z0-9+/]*={0,2}$/;
+const MAX_BASE64_PADDING = 2;
+const MIN_BASE64_LENGTH = 4; // Base64 minimum valid length
 
 // Type guard to check if the body is a PubSub message - optimized version
 const isPubSubMessage = (body: unknown): body is PubSubMessage => {
@@ -62,13 +64,46 @@ const parseJsonAsync = async <T = unknown>(jsonString: string): Promise<T> => {
 };
 
 /**
- * Optimized base64 decoding with size limits and streaming for large data
+ * Enhanced base64 validation with comprehensive security checks
  */
-const decodeBase64Async = async (base64Data: string): Promise<string> => {
-  // Validate base64 string format first (performance optimization)
-  if (!PUB_SUB_MESSAGE_REGEX.test(base64Data)) {
+const validateBase64Format = (base64Data: string): void => {
+  // Check minimum length
+  if (base64Data.length < MIN_BASE64_LENGTH) {
+    throw new ValidationError('Base64 data too short');
+  }
+
+  // Validate base64 alphabet and padding
+  if (!BASE64_REGEX.test(base64Data)) {
     throw new ValidationError('Invalid base64 format in Pub/Sub message');
   }
+
+  // Validate padding is only at the end
+  const paddingIndex = base64Data.indexOf('=');
+  if (paddingIndex !== -1) {
+    const paddingCount = base64Data.length - paddingIndex;
+    if (paddingCount > MAX_BASE64_PADDING) {
+      throw new ValidationError('Invalid base64 padding');
+    }
+
+    // Ensure no non-padding characters after padding starts
+    const paddingPart = base64Data.substring(paddingIndex);
+    if (!/^=+$/.test(paddingPart)) {
+      throw new ValidationError('Invalid characters after base64 padding');
+    }
+  }
+
+  // Validate length is multiple of 4 (base64 requirement)
+  if (base64Data.length % 4 !== 0) {
+    throw new ValidationError('Invalid base64 length - must be multiple of 4');
+  }
+};
+
+/**
+ * Secure base64 decoding with comprehensive validation and size limits
+ */
+const decodeBase64Async = async (base64Data: string): Promise<string> => {
+  // Perform comprehensive base64 validation
+  validateBase64Format(base64Data);
 
   // Check size limits to prevent memory exhaustion
   if (base64Data.length > MAX_BASE64_SIZE) {
@@ -77,22 +112,36 @@ const decodeBase64Async = async (base64Data: string): Promise<string> => {
 
   // For small messages, use sync decoding
   if (base64Data.length < 1000) {
-    return Buffer.from(base64Data, 'base64').toString();
+    try {
+      const decoded = Buffer.from(base64Data, 'base64').toString('utf8');
+      // Validate decoded content is valid UTF-8
+      if (decoded.includes('\uFFFD')) {
+        throw new ValidationError('Invalid UTF-8 content in decoded base64');
+      }
+      return decoded;
+    } catch (error: unknown) {
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+      throw new ValidationError('Failed to decode base64 data');
+    }
   }
 
   // For larger messages, use async decoding to avoid blocking
   return new Promise((resolve, reject) => {
     setImmediate(() => {
       try {
-        const decoded = Buffer.from(base64Data, 'base64').toString();
+        const decoded = Buffer.from(base64Data, 'base64').toString('utf8');
+        // Validate decoded content is valid UTF-8
+        if (decoded.includes('\uFFFD')) {
+          reject(
+            new ValidationError('Invalid UTF-8 content in decoded base64')
+          );
+          return;
+        }
         resolve(decoded);
       } catch (error: unknown) {
-        reject(
-          new ValidationError(
-            'Failed to decode base64 Pub/Sub message',
-            (error as Error).message
-          )
-        );
+        reject(new ValidationError('Failed to decode base64 Pub/Sub message'));
       }
     });
   });

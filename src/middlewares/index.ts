@@ -6,5 +6,8 @@ export * from './errorHandlerMiddleware';
 export * from './headerVariablesMiddleware';
 export * from './httpAttributesMiddleware';
 export * from './queryParametersMiddleware';
+export * from './rateLimitingMiddleware';
 export * from './responseWrapperMiddleware';
+export * from './securityAuditMiddleware';
+export * from './securityHeadersMiddleware';
 export * from './validationMiddleware';
