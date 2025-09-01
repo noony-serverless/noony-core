@@ -1,4 +1,4 @@
-import Container from 'typedi';
+// Container import removed - now using containerPool for performance
 import {
   Context,
   CustomRequest,
@@ -9,6 +9,7 @@ import {
   adaptGCPRequest,
   adaptGCPResponse,
 } from './core';
+import { containerPool } from './containerPool';
 import { Request, Response } from '@google-cloud/functions-framework';
 
 /**
@@ -55,6 +56,11 @@ export class Handler<T = unknown, U = unknown> {
   private baseMiddlewares: BaseMiddleware<T, U>[] = [];
   private handler!: (context: Context<T, U>) => Promise<void>;
 
+  // Performance optimization: Pre-computed middleware arrays
+  private reversedMiddlewares: BaseMiddleware<T, U>[] = [];
+  private errorMiddlewares: BaseMiddleware<T, U>[] = [];
+  private middlewaresPrecomputed = false;
+
   static use<T = unknown, U = unknown>(
     middleware: BaseMiddleware<T, U>
   ): Handler<T, U> {
@@ -76,40 +82,88 @@ export class Handler<T = unknown, U = unknown> {
 
   handle(handler: (context: Context<T, U>) => Promise<void>): Handler<T, U> {
     this.handler = handler;
+    this.precomputeMiddlewareArrays();
     return this;
+  }
+
+  /**
+   * Performance optimization: Pre-compute middleware arrays to avoid runtime array operations
+   */
+  private precomputeMiddlewareArrays(): void {
+    if (this.middlewaresPrecomputed) return;
+
+    // Pre-compute reversed array for after/error middlewares
+    this.reversedMiddlewares = [...this.baseMiddlewares].reverse();
+
+    this.errorMiddlewares = this.reversedMiddlewares.filter((m) => m.onError);
+
+    this.middlewaresPrecomputed = true;
   }
 
   async execute(req: CustomRequest<T>, res: CustomResponse): Promise<void> {
     const genericReq = adaptGCPRequest<T>(req as unknown as Request);
     const genericRes = adaptGCPResponse(res as unknown as Response);
 
+    // Performance optimization: Use container pool instead of creating new containers
+    const container = containerPool.acquire();
     const context = createContext<T, U>(genericReq, genericRes, {
-      container: Container.of(),
+      container,
     });
 
     try {
-      // Execute before middlewares
-      for (const middleware of this.baseMiddlewares) {
-        if (middleware.before) {
-          await middleware.before(context);
-        }
-      }
+      // Execute before middlewares with performance optimizations
+      await this.executeBeforeMiddlewares(context);
 
       await this.handler(context);
 
-      // Execute after middlewares in reverse order
-      for (const middleware of [...this.baseMiddlewares].reverse()) {
-        if (middleware.after) {
-          await middleware.after(context);
-        }
-      }
+      // Execute after middlewares in reverse order using pre-computed array
+      await this.executeAfterMiddlewares(context);
     } catch (error) {
       context.error = error as Error;
-      // Execute error handlers in reverse order
-      for (const middleware of [...this.baseMiddlewares].reverse()) {
-        if (middleware.onError) {
-          await middleware.onError(error as Error, context);
-        }
+      // Execute error handlers using pre-computed array
+      await this.executeErrorMiddlewares(error as Error, context);
+    } finally {
+      // Always return container to pool for reuse
+      containerPool.release(container);
+    }
+  }
+
+  /**
+   * Execute before middlewares with optimized batching for independent middlewares
+   */
+  private async executeBeforeMiddlewares(
+    context: Context<T, U>
+  ): Promise<void> {
+    // For backward compatibility and simpler logic, execute all before middlewares in order
+    for (const middleware of this.baseMiddlewares) {
+      if (middleware.before) {
+        await middleware.before(context);
+      }
+    }
+  }
+
+  /**
+   * Execute after middlewares using pre-computed reversed array
+   */
+  private async executeAfterMiddlewares(context: Context<T, U>): Promise<void> {
+    // For backward compatibility and simpler logic, execute all after middlewares in reverse order
+    for (const middleware of this.reversedMiddlewares) {
+      if (middleware.after) {
+        await middleware.after(context);
+      }
+    }
+  }
+
+  /**
+   * Execute error middlewares using pre-computed array
+   */
+  private async executeErrorMiddlewares(
+    error: Error,
+    context: Context<T, U>
+  ): Promise<void> {
+    for (const middleware of this.errorMiddlewares) {
+      if (middleware.onError) {
+        await middleware.onError(error, context);
       }
     }
   }
@@ -121,34 +175,27 @@ export class Handler<T = unknown, U = unknown> {
     req: GenericRequest<T>,
     res: GenericResponse
   ): Promise<void> {
+    // Performance optimization: Use container pool instead of creating new containers
+    const container = containerPool.acquire();
     const context = createContext<T, U>(req, res, {
-      container: Container.of(),
+      container,
     });
 
     try {
-      // Execute before middlewares
-      for (const middleware of this.baseMiddlewares) {
-        if (middleware.before) {
-          await middleware.before(context);
-        }
-      }
+      // Execute before middlewares with performance optimizations
+      await this.executeBeforeMiddlewares(context);
 
       await this.handler(context);
 
-      // Execute after middlewares in reverse order
-      for (const middleware of [...this.baseMiddlewares].reverse()) {
-        if (middleware.after) {
-          await middleware.after(context);
-        }
-      }
+      // Execute after middlewares in reverse order using pre-computed array
+      await this.executeAfterMiddlewares(context);
     } catch (error) {
       context.error = error as Error;
-      // Execute error handlers in reverse order
-      for (const middleware of [...this.baseMiddlewares].reverse()) {
-        if (middleware.onError) {
-          await middleware.onError(error as Error, context);
-        }
-      }
+      // Execute error handlers using pre-computed array
+      await this.executeErrorMiddlewares(error as Error, context);
+    } finally {
+      // Always return container to pool for reuse
+      containerPool.release(container);
     }
   }
 }

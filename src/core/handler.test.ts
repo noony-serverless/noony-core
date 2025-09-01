@@ -34,11 +34,11 @@ describe('Handler', () => {
       before: jest.fn(),
       after: jest.fn(),
     }).handle(async (ctx: Context) => {
-      ctx.res.statusCode = 200;
+      ctx.res.status(200);
     });
 
     await handler.execute(req, res);
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('executes before middleware', async () => {
@@ -46,7 +46,7 @@ describe('Handler', () => {
     const handler = Handler.use({
       before: beforeMiddleware,
     }).handle(async (ctx: Context) => {
-      ctx.res.statusCode = 200;
+      ctx.res.status(200);
     });
 
     await handler.execute(req, res);
@@ -58,7 +58,7 @@ describe('Handler', () => {
     const handler = Handler.use({
       after: afterMiddleware,
     }).handle(async (ctx: Context) => {
-      ctx.res.statusCode = 200;
+      ctx.res.status(200);
     });
 
     await handler.execute(req, res);
@@ -89,7 +89,7 @@ describe('Handler', () => {
       after: afterMiddleware,
       onError: onErrorMiddleware,
     }).handle(async (ctx: Context) => {
-      ctx.res.statusCode = 200;
+      ctx.res.status(200);
     });
 
     await handler.execute(req, res);
@@ -106,7 +106,7 @@ describe('Handler', () => {
       },
       onError: onErrorMiddleware,
     }).handle(async (ctx: Context) => {
-      ctx.res.statusCode = 200;
+      ctx.res.status(200);
     });
 
     await handler.execute(req, res);
@@ -124,7 +124,7 @@ describe('Handler', () => {
       },
       onError: onErrorMiddleware,
     }).handle(async (ctx: Context) => {
-      ctx.res.statusCode = 200;
+      ctx.res.status(200);
     });
 
     await handler.execute(req, res);

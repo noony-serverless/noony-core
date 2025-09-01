@@ -25,6 +25,9 @@ The combination of Noony and Fastify provides:
 - ☁️ **Cloud-Native**: Designed for serverless environments
 - 📊 **Observability**: Structured logging and error handling
 
+
+Install and use  `@noony-serverless/core` `0.0.4`. 
+
 ## Architecture
 
 ```text
