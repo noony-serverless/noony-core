@@ -1,5 +1,17 @@
 import { BaseMiddleware, Context, HttpError, logger } from '../core';
 
+interface ResponsePayload {
+  success: boolean;
+  payload: {
+    error: string;
+    details?: unknown;
+    code?: string;
+    stack?: string;
+  };
+  timestamp: string;
+  error?: string;
+}
+
 const handleError = async (error: Error, context: Context): Promise<void> => {
   const isDevelopment =
     process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
@@ -13,7 +25,7 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
   });
 
   if (error instanceof HttpError) {
-    const responsePayload: any = {
+    const responsePayload: ResponsePayload = {
       success: false,
       payload: {
         error: error.message,
@@ -37,7 +49,7 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
     const errorMessage = isDevelopment
       ? error.message
       : 'Internal Server Error';
-    const responsePayload: any = {
+    const responsePayload: ResponsePayload = {
       error: 'Internal Server Error',
       success: false,
       payload: {
@@ -46,7 +58,7 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
       timestamp: new Date().toISOString(),
     };
 
-    // Only include stack trace in development
+    // Add stack trace in development for non-HTTP errors
     if (isDevelopment && error.stack) {
       responsePayload.payload.stack = error.stack;
     }

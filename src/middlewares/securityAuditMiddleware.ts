@@ -1,5 +1,5 @@
 import { BaseMiddleware, Context, HttpError } from '../core';
-import { logger } from '../core/logger';
+import { logger, LogOptions } from '../core/logger';
 
 export interface SecurityEvent {
   type: SecurityEventType;
@@ -91,9 +91,9 @@ const DEFAULT_EXCLUDE_HEADERS = [
 const DEFAULT_SUSPICIOUS_PATTERNS = {
   sqlInjection: [
     /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC(UTE)?|UNION|SCRIPT)\b)/i,
-    /((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))/i,
-    /(((\%27)|(\'))\s*((\%6F)|o|(\%4F))((\%72)|r|(\%52)))/i,
-    /((\%27)|(\'))union/i,
+    /(('%27)|('))(('%6F)|o|('%4F'))(('%72)|r|('%52'))/i,
+    /(((')|('))\s*(('%6F)|o|('%4F'))(('%72)|r|('%52')))/i,
+    /((')|('))union/i,
   ],
   xss: [
     /<script[^>]*>.*?<\/script>/gi,
@@ -103,9 +103,9 @@ const DEFAULT_SUSPICIOUS_PATTERNS = {
     /<iframe[^>]*>.*?<\/iframe>/gi,
   ],
   pathTraversal: [
-    /\.\.[\/\\]/g,
-    /%2e%2e[\/\\]/gi,
-    /%252e%252e[\/\\]/gi,
+    /\.\.[/\\]/g,
+    /%2e%2e[/\\]/gi,
+    /%252e%252e[/\\]/gi,
     /\.\.[%2f%5c]/gi,
   ],
   commandInjection: [
@@ -247,7 +247,13 @@ const sanitizeForLogging = (data: unknown, maxSize = 1024): string => {
 /**
  * Extract client information from request
  */
-const extractClientInfo = (context: Context) => ({
+const extractClientInfo = (
+  context: Context
+): {
+  clientIP: string;
+  userAgent: string;
+  userId: string | undefined;
+} => ({
   clientIP:
     context.req.ip ||
     (Array.isArray(context.req.headers?.['x-forwarded-for'])
@@ -304,7 +310,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
 
     // Log incoming request if enabled
     if (this.options.logRequests) {
-      const requestData: Record<string, unknown> = {
+      const requestData: LogOptions = {
         method: context.req.method,
         url: context.req.url || context.req.path,
         headers: this.sanitizeHeaders(context.req.headers || {}),
@@ -320,7 +326,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
         );
       }
 
-      logger.info('Incoming request', requestData as any);
+      logger.info('Incoming request', requestData);
     }
 
     // Check for suspicious patterns in URL and headers
@@ -391,7 +397,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
 
     // Log response if enabled
     if (this.options.logResponses) {
-      const responseData: Record<string, unknown> = {
+      const responseData: LogOptions = {
         statusCode: context.res.statusCode,
         duration: `${duration}ms`,
         ...clientInfo,
@@ -404,7 +410,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
         );
       }
 
-      logger.info('Outgoing response', responseData as any);
+      logger.info('Outgoing response', responseData);
     }
   }
 
@@ -471,7 +477,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
     }
 
     // Log the security event
-    logger.warn('Security event detected', event as any);
+    logger.warn('Security event detected', event as unknown as LogOptions);
 
     // Call custom handler if provided
     if (this.options.onSecurityEvent) {
@@ -491,8 +497,8 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
 
   private sanitizeHeaders(
     headers: Record<string, string | string[] | undefined>
-  ): Record<string, unknown> {
-    const sanitized: Record<string, unknown> = {};
+  ): LogOptions {
+    const sanitized: LogOptions = {};
 
     for (const [key, value] of Object.entries(headers)) {
       if (this.options.excludeHeaders.includes(key.toLowerCase())) {

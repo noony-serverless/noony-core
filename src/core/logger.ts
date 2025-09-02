@@ -1,6 +1,6 @@
 type LogLevel = 'info' | 'error' | 'warn' | 'debug';
 
-interface LogOptions {
+export interface LogOptions {
   structuredData?: boolean;
   [key: string]: boolean | string | number | object | undefined;
 }

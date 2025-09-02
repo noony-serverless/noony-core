@@ -326,7 +326,7 @@ export const RateLimitPresets = {
       authenticated: {
         maxRequests: 1000,
         windowMs: 60000,
-        matcher: (context: Context) => !!context.user,
+        matcher: (context: Context): boolean => !!context.user,
       },
     },
   } satisfies RateLimitOptions,

@@ -210,9 +210,8 @@ export const performanceMonitor = new PerformanceMonitor();
  * Decorator for timing method calls
  */
 export function timed(operationName?: string): MethodDecorator {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (
-    target: any,
+    target: object,
     propertyKey: string | symbol,
     descriptor: PropertyDescriptor
   ) {
@@ -234,9 +233,8 @@ export function timed(operationName?: string): MethodDecorator {
  * Decorator for timing synchronous method calls
  */
 export function timedSync(operationName?: string): MethodDecorator {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (
-    target: any,
+    target: object,
     propertyKey: string | symbol,
     descriptor: PropertyDescriptor
   ) {
