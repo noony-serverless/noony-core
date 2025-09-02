@@ -36,6 +36,11 @@ describe('ErrorHandlerMiddleware', () => {
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: expect.any(String),
     });
   });
 
@@ -54,10 +59,15 @@ describe('ErrorHandlerMiddleware', () => {
     });
     expect(context.res.status).toHaveBeenCalledWith(404);
     expect(context.res.json).toHaveBeenCalledWith({
-      error: error.message,
-      details: 'Resource not found',
+      success: false,
+      payload: {
+        error: error.message,
+        details: 'Resource not found',
+      },
+      timestamp: expect.any(String),
     });
   });
+
   it('handles errors without a stack trace', async () => {
     const error = new Error('No stack trace');
     error.stack = undefined;
@@ -70,6 +80,11 @@ describe('ErrorHandlerMiddleware', () => {
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: expect.any(String),
     });
   });
 
@@ -85,6 +100,11 @@ describe('ErrorHandlerMiddleware', () => {
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: expect.any(String),
     });
   });
 });
@@ -120,6 +140,11 @@ describe('errorHandler', () => {
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: expect.any(String),
     });
   });
 
@@ -140,8 +165,12 @@ describe('errorHandler', () => {
     });
     expect(context.res.status).toHaveBeenCalledWith(404);
     expect(context.res.json).toHaveBeenCalledWith({
-      error: error.message,
-      details: 'Resource not found',
+      success: false,
+      payload: {
+        error: error.message,
+        details: 'Resource not found',
+      },
+      timestamp: expect.any(String),
     });
   });
 
@@ -159,6 +188,11 @@ describe('errorHandler', () => {
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: expect.any(String),
     });
   });
 
@@ -176,6 +210,11 @@ describe('errorHandler', () => {
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
       error: 'Internal Server Error',
+      success: false,
+      payload: {
+        error: 'Internal Server Error',
+      },
+      timestamp: expect.any(String),
     });
   });
 });
