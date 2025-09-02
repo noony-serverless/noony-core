@@ -22,7 +22,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.NOONY_NPM_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       # Setup Node.js
@@ -66,9 +66,21 @@ jobs:
 
       # Publish to GitHub Packages
       - name: Publish to GitHub Packages
-        run: npm publish
+        run: |
+          echo "Publishing to GitHub Packages..."
+          echo "Registry: $(npm config get registry)"
+          npm publish --access public
         env:
-          NOONY_NPM_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Verify publication
+      - name: Verify Publication
+        run: |
+          echo "Verifying package publication..."
+          sleep 10  # Wait for package to be available
+          npm view @noony-serverless/core@$(node -p "require('./package.json').version") --registry https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Bump version for next release
       - name: Bump version
@@ -89,14 +101,27 @@ jobs:
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
           git push origin ${{ github.ref_name }}
 
+      # Get current version for release
+      - name: Get current version
+        id: get-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # Create Git tag
+      - name: Create Git tag
+        run: |
+          git tag -a v${{ steps.get-version.outputs.version }} -m "Release v${{ steps.get-version.outputs.version }}"
+          git push origin v${{ steps.get-version.outputs.version }}
+
       # Create GitHub release
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
-          NOONY_NPM_TOKEN: ${{ secrets.NOONY_NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.get-version.outputs.version }}
-          release_name: Release v${{ steps.get-version.outputs.version }}
+          name: Release v${{ steps.get-version.outputs.version }}
           body: |
             ## Changes
             
@@ -113,10 +138,3 @@ jobs:
             ```
           draft: false
           prerelease: false
-
-      # Get version for release
-      - name: Get current version
-        id: get-version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
