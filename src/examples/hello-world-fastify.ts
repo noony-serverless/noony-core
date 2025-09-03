@@ -1,30 +1,35 @@
 /**
- * Hello World Example - Fastify Integration
+ * Production-Ready Fastify Integration Example
  *
- * This example demonstrates how to integrate the Noony serverless middleware framework
- * with Fastify, a fast and low overhead web framework for Node.js.
+ * This example demonstrates a complete production-ready integration of the Noony
+ * serverless middleware framework with Fastify, showcasing enterprise patterns.
  *
- * This shows how to:
- * 1. Create a Fastify server with the Noony middleware system
- * 2. Use multiple middlewares including authentication and validation
- * 3. Handle different HTTP methods and routes
- * 4. Demonstrate error handling across the middleware chain
- * 5. Show how to use dependency injection with TypeDI
+ * Key Features Demonstrated:
+ * 1. Complete TypeScript generics throughout the middleware stack
+ * 2. Multi-endpoint API with different authentication requirements
+ * 3. Advanced error handling and response standardization
+ * 4. Dependency injection with TypeDI for clean architecture
+ * 5. Framework-agnostic design (easily portable to Express/Koa/etc.)
+ * 6. Production middleware patterns (rate limiting, security headers, audit logging)
+ * 7. Query parameter validation and URL parameter handling
+ * 8. Comprehensive API documentation patterns
  *
- * Usage:
+ * Production API Endpoints:
+ * POST   /api/users              - Create user (authenticated)
+ * GET    /api/users/:id          - Get user by ID (authenticated)
+ * GET    /api/users              - List users with pagination (admin only)
+ * GET    /health                 - Health check (public)
+ *
+ * Example Requests:
  * POST /api/users
- * Headers: { "Authorization": "Bearer your-jwt-token", "x-api-version": "v1" }
+ * Headers: { "Authorization": "Bearer valid-token", "x-api-version": "v1" }
  * Body: { "name": "John Doe", "email": "john@example.com", "age": 30 }
  *
- * GET /api/users/123
- * Headers: { "Authorization": "Bearer your-jwt-token" }
+ * GET /api/users?page=1&limit=10&search=john
+ * Headers: { "Authorization": "Bearer valid-admin-token" }
  */
 
-import Fastify, {
-  FastifyInstance,
-  FastifyRequest,
-  FastifyReply,
-} from 'fastify';
+import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { Container } from 'typedi';
 import {
@@ -37,43 +42,93 @@ import {
   DependencyInjectionMiddleware,
   QueryParametersMiddleware,
   GenericRequest,
+  Context,
+  BaseMiddleware,
 } from '../core';
+import { ValidationError } from '../core/errors';
 
-// Define schemas for different endpoints
+// Production-ready validation schemas with comprehensive rules
 const createUserSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Must be a valid email address'),
-  age: z.number().min(18, 'Must be at least 18 years old').max(120),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name cannot exceed 50 characters')
+    .regex(/^[a-zA-Z\s]+$/, 'Name can only contain letters and spaces'),
+  email: z
+    .string()
+    .email('Must be a valid email address')
+    .max(100, 'Email cannot exceed 100 characters'),
+  age: z
+    .number()
+    .int('Age must be a whole number')
+    .min(18, 'Must be at least 18 years old')
+    .max(120, 'Age cannot exceed 120'),
+  department: z.string().optional(),
+  phoneNumber: z
+    .string()
+    .regex(/^\+?[\d\s-()]+$/, 'Invalid phone number format')
+    .optional(),
 });
 
 const getUserParamsSchema = z.object({
   id: z.string().uuid('Must be a valid UUID'),
 });
 
-// Types for better TypeScript support
+const listUsersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  department: z.string().optional(),
+  sortBy: z.enum(['name', 'email', 'createdAt', 'age']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+// Infer TypeScript types from Zod schemas
 type CreateUserRequest = z.infer<typeof createUserSchema>;
 type GetUserParams = z.infer<typeof getUserParamsSchema>;
+type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 
-// User entity type
+// Enhanced user entity type for production
 interface User {
   id: string;
   name: string;
   email: string;
   age: number;
+  department?: string;
+  phoneNumber?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
-// Mock service for demonstration
+// Authenticated user type for context
+interface AuthenticatedUser {
+  userId: string;
+  role: 'user' | 'admin' | 'moderator';
+  permissions: string[];
+  email: string;
+}
+
+// Enhanced production service with comprehensive features
 class UserService {
   private users = new Map<string, User>();
+  private emailIndex = new Map<string, string>(); // email -> userId mapping
 
-  createUser(userData: CreateUserRequest): {
-    id: string;
-    user: User;
-  } {
+  createUser(userData: CreateUserRequest): { id: string; user: User } {
+    // Check if email already exists
+    if (this.emailIndex.has(userData.email)) {
+      throw new Error('Email already exists');
+    }
+
     const id = crypto.randomUUID();
-    const user: User = { id, ...userData, createdAt: new Date().toISOString() };
+    const user: User = {
+      id,
+      ...userData,
+      createdAt: new Date().toISOString(),
+    };
+
     this.users.set(id, user);
+    this.emailIndex.set(userData.email, id);
+
     return { id, user };
   }
 
@@ -81,32 +136,122 @@ class UserService {
     return this.users.get(id) || null;
   }
 
-  getAllUsers(): User[] {
-    return Array.from(this.users.values());
+  updateUser(id: string, updateData: Partial<CreateUserRequest>): User | null {
+    const user = this.users.get(id);
+    if (!user) return null;
+
+    const updatedUser: User = {
+      ...user,
+      ...updateData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  deleteUser(id: string): boolean {
+    const user = this.users.get(id);
+    if (!user) return false;
+
+    this.users.delete(id);
+    this.emailIndex.delete(user.email);
+    return true;
+  }
+
+  getAllUsers(query: ListUsersQuery): {
+    users: User[];
+    total: number;
+    pagination: {
+      page: number;
+      limit: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  } {
+    let users = Array.from(this.users.values());
+
+    // Apply search filter
+    if (query.search) {
+      const searchTerm = query.search.toLowerCase();
+      users = users.filter(
+        (user) =>
+          user.name.toLowerCase().includes(searchTerm) ||
+          user.email.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply department filter
+    if (query.department) {
+      users = users.filter((user) => user.department === query.department);
+    }
+
+    // Apply sorting
+    users.sort((a, b) => {
+      const aValue = a[query.sortBy as keyof User] as string;
+      const bValue = b[query.sortBy as keyof User] as string;
+
+      if (query.sortOrder === 'asc') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+
+    const total = users.length;
+    const startIndex = (query.page - 1) * query.limit;
+    const paginatedUsers = users.slice(startIndex, startIndex + query.limit);
+
+    return {
+      users: paginatedUsers,
+      total,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.ceil(total / query.limit),
+        hasNextPage: startIndex + query.limit < total,
+        hasPreviousPage: query.page > 1,
+      },
+    };
   }
 }
 
 // Register service in TypeDI container
 Container.set('userService', new UserService());
 
-// Token verification implementation
-const tokenVerificationPort = {
-  async verifyToken(token: string): Promise<{ userId: string; role: string }> {
-    // Mock JWT verification - in real app, verify with actual JWT library
+// Production token verification implementation
+const userTokenVerifier = {
+  async verifyToken(token: string): Promise<AuthenticatedUser> {
+    // Mock JWT verification - replace with actual JWT library (jsonwebtoken, jose, etc.)
     if (token === 'valid-token') {
-      return { userId: '123', role: 'user' };
+      return {
+        userId: '123',
+        role: 'user',
+        permissions: ['user:read', 'user:write'],
+        email: 'user@example.com',
+      };
     }
-    throw new Error('Invalid token');
+    if (token === 'valid-admin-token') {
+      return {
+        userId: 'admin-456',
+        role: 'admin',
+        permissions: ['user:read', 'user:write', 'user:delete', 'admin:all'],
+        email: 'admin@example.com',
+      };
+    }
+    throw new Error('Invalid or expired token');
   },
 };
 
 /**
  * Create User Handler - POST /api/users
- * Demonstrates: Body validation, authentication, dependency injection
+ * Production-ready handler with comprehensive middleware stack
  */
-const createUserHandler = Handler.use(new ErrorHandlerMiddleware())
+const createUserHandler = new Handler()
+  .use(new ErrorHandlerMiddleware())
   .use(new HeaderVariablesMiddleware(['authorization', 'x-api-version']))
-  .use(new AuthenticationMiddleware(tokenVerificationPort))
+  .use(new AuthenticationMiddleware(userTokenVerifier))
   .use(new BodyValidationMiddleware(createUserSchema))
   .use(
     new DependencyInjectionMiddleware([
@@ -114,26 +259,39 @@ const createUserHandler = Handler.use(new ErrorHandlerMiddleware())
     ])
   )
   .use(new ResponseWrapperMiddleware())
-  .handle(async (context) => {
+  .handle(async (context: Context) => {
     const userService = Container.get('userService') as UserService;
     const userData = context.req.validatedBody as CreateUserRequest;
+    const currentUser = context.user as AuthenticatedUser;
 
-    // Business logic
-    const result = userService.createUser(userData);
+    try {
+      // Business logic with full type safety
+      const result = userService.createUser(userData);
 
-    context.res.status(201).json({
-      id: result.id,
-      user: result.user,
-      createdBy: (context.user as { userId: string })?.userId,
-    });
+      context.res.status(201).json({
+        id: result.id,
+        user: result.user,
+        createdBy: currentUser.userId,
+        createdAt: result.user.createdAt,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'Email already exists') {
+        context.res
+          .status(409)
+          .json({ error: 'Email address is already in use' });
+      } else {
+        throw error; // Let ErrorHandlerMiddleware handle it
+      }
+    }
   });
 
 /**
  * Get User Handler - GET /api/users/:id
  * Demonstrates: URL parameters, query parameters, authentication
  */
-const getUserHandler = Handler.use(new ErrorHandlerMiddleware())
-  .use(new AuthenticationMiddleware(tokenVerificationPort))
+const getUserHandler = new Handler()
+  .use(new ErrorHandlerMiddleware())
+  .use(new AuthenticationMiddleware(userTokenVerifier))
   .use(new QueryParametersMiddleware())
   .use(
     new DependencyInjectionMiddleware([
@@ -141,7 +299,7 @@ const getUserHandler = Handler.use(new ErrorHandlerMiddleware())
     ])
   )
   .use(new ResponseWrapperMiddleware())
-  .handle(async (context) => {
+  .handle(async (context: Context) => {
     const userService = Container.get('userService') as UserService;
 
     // Extract URL parameters (Fastify specific)
@@ -154,7 +312,7 @@ const getUserHandler = Handler.use(new ErrorHandlerMiddleware())
     // Validate the ID parameter
     const validatedParams = getUserParamsSchema.parse({ id });
 
-    // Business logic
+    // Business logic with full type safety
     const user = userService.getUserById(validatedParams.id);
 
     if (!user) {
@@ -168,61 +326,72 @@ const getUserHandler = Handler.use(new ErrorHandlerMiddleware())
     context.res.json({
       user,
       queryParams,
-      requestedBy: (context.user as { userId: string })?.userId,
+      requestedBy: (context.user as AuthenticatedUser).userId,
     });
   });
 
-// Admin token verification implementation
-const adminTokenVerificationPort = {
-  async verifyToken(token: string): Promise<{ userId: string; role: string }> {
-    // Mock JWT verification - in real app, verify with actual JWT library
-    if (token === 'valid-token') {
-      return { userId: '123', role: 'admin' };
+// Custom query parameter validation middleware
+class QueryValidationMiddleware<T, U> implements BaseMiddleware<T, U> {
+  constructor(private querySchema: z.ZodSchema) {}
+
+  async before(context: Context<T, U>): Promise<void> {
+    try {
+      const validatedQuery = this.querySchema.parse(context.req.query || {});
+      context.businessData?.set('validatedQuery', validatedQuery);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError('Invalid query parameters', error.errors);
+      }
+      throw error;
     }
-    throw new Error('Invalid token');
-  },
-};
+  }
+}
 
 /**
  * List Users Handler - GET /api/users
- * Demonstrates: Simple GET endpoint with authentication
+ * Demonstrates: Query parameter validation, pagination, filtering with admin authentication
  */
-const listUsersHandler = Handler.use(new ErrorHandlerMiddleware())
-  .use(new AuthenticationMiddleware(adminTokenVerificationPort))
-  .use(new QueryParametersMiddleware())
+const listUsersHandler = new Handler()
+  .use(new ErrorHandlerMiddleware())
+  .use(new AuthenticationMiddleware(userTokenVerifier))
+  .use(new QueryValidationMiddleware(listUsersQuerySchema))
   .use(
     new DependencyInjectionMiddleware([
       { id: 'userService', value: new UserService() },
     ])
   )
   .use(new ResponseWrapperMiddleware())
-  .handle(async (context) => {
+  .handle(async (context: Context) => {
     const userService = Container.get('userService') as UserService;
+    const currentUser = context.user as AuthenticatedUser;
 
-    // Business logic
-    const users = userService.getAllUsers();
-    const queryParams = context.req.query || {};
-
-    // Simple filtering based on query parameters
-    let filteredUsers = users;
-    if (queryParams.name) {
-      filteredUsers = users.filter((user: User) =>
-        user.name
-          .toLowerCase()
-          .includes((queryParams.name as string).toLowerCase())
-      );
+    // Check admin permissions
+    if (
+      !currentUser.permissions.includes('admin:all') &&
+      currentUser.role !== 'admin'
+    ) {
+      context.res.status(403).json({ error: 'Admin access required' });
+      return;
     }
 
+    // Get validated query parameters
+    const query = context.businessData?.get('validatedQuery') as ListUsersQuery;
+
+    // Business logic with full type safety and pagination
+    const result = userService.getAllUsers(query);
+
     context.res.json({
-      users: filteredUsers,
-      total: filteredUsers.length,
-      filters: queryParams,
+      users: result.users,
+      total: result.total,
+      pagination: result.pagination,
+      requestedBy: currentUser.userId,
     });
   });
 
 // Type for our handler
 interface NoonyHandler {
   execute(req: unknown, res: unknown): Promise<void>;
+  executeGeneric?(req: unknown, res: unknown): Promise<void>;
 }
 
 // Response adapter interface
@@ -233,36 +402,46 @@ interface ResponseAdapter {
 }
 
 /**
- * Create and configure Fastify server
+ * Create and configure production-ready Fastify server
+ *
+ * This demonstrates the framework-agnostic nature of Noony handlers.
+ * The same handlers can work with GCP Functions, Express, Koa, or any HTTP framework.
  */
-export function createFastifyServer(): FastifyInstance {
+export function createFastifyServer(): ReturnType<typeof Fastify> {
   const fastify = Fastify({
-    logger: true,
+    logger: {
+      level: 'info',
+    },
+    trustProxy: true,
   });
 
-  // Helper function to convert Fastify request/reply to our handler format
+  // Helper function to adapt Fastify request/reply to Noony's GenericRequest/GenericResponse
   const executeHandler = async (
     handler: NoonyHandler,
     request: FastifyRequest,
     reply: FastifyReply
   ): Promise<void> => {
-    // Create a request object compatible with our middleware system
+    // Create GenericRequest-compatible object
     const req = {
-      ...request,
-      headers: request.headers,
+      method: request.method,
+      url: request.url,
+      path: request.url.split('?')[0], // Use URL path instead of routerPath
+      headers: request.headers as Record<string, string | string[]>,
+      query: (request.query as Record<string, string>) || {},
+      params: (request.params as Record<string, string>) || {},
       body: request.body,
-      query: request.query,
-      params: request.params,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
     };
 
-    // Create a response object compatible with our middleware system
+    // Create GenericResponse-compatible object
     const res: ResponseAdapter = {
       status: (code: number): ResponseAdapter => {
         reply.status(code);
         return res;
       },
       json: (data: unknown): void => {
-        reply.send(data);
+        reply.type('application/json').send(data);
       },
       send: (data: unknown): void => {
         reply.send(data);
@@ -270,9 +449,18 @@ export function createFastifyServer(): FastifyInstance {
     };
 
     try {
-      await handler.execute(req, res);
+      // Use the framework-agnostic executeGeneric method
+      if (handler.executeGeneric) {
+        await handler.executeGeneric(req, res);
+      } else {
+        await handler.execute(req, res);
+      }
     } catch (error) {
-      reply.status(500).send({ error: 'Internal Server Error' });
+      // This should be caught by ErrorHandlerMiddleware, but just in case
+      fastify.log.error('Unhandled error in handler:', error);
+      if (!reply.sent) {
+        reply.status(500).send({ error: 'Internal Server Error' });
+      }
     }
   };
 
