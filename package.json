@@ -18,7 +18,7 @@
     "test:coverage": "jest --config jest.config.js --coverage",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format": "prettier --write \"**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
   },
   "dependencies": {

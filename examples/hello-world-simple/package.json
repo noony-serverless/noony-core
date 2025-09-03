@@ -1,0 +1,47 @@
+{
+  "name": "noony-hello-world-simple",
+  "version": "1.0.0",
+  "description": "Simple Hello World example using Noony Serverless Framework with Google Cloud Functions",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "functions-framework --target=helloWorld --source=src --watch",
+    "start": "functions-framework --target=helloWorld --source=src",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "deploy": "gcloud functions deploy helloWorld --runtime nodejs18 --trigger-http --allow-unauthenticated --source=.",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\""
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.3.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.2",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3",
+    "@types/jest": "^29.5.11",
+    "ts-jest": "^29.1.1"
+  },
+  "keywords": [
+    "noony",
+    "serverless",
+    "google-cloud-functions",
+    "typescript",
+    "middleware",
+    "zod",
+    "validation"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

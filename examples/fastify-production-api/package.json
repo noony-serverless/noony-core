@@ -1,0 +1,73 @@
+{
+  "name": "noony-fastify-production-api",
+  "version": "1.0.0",
+  "description": "Production-ready API example using Noony Serverless Framework with dual Fastify/GCP Functions support",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "npm run dev:both",
+    "dev:fastify": "nodemon --exec tsx src/server.ts",
+    "dev:functions": "functions-framework --target=createUser,getUser,listUsers,health --source=src --watch",
+    "dev:both": "concurrently \"npm run dev:fastify\" \"npm run dev:functions\"",
+    "start": "node dist/server.js",
+    "start:functions": "functions-framework --target=createUser,getUser,listUsers,health --source=src",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "jest --config jest.e2e.config.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "deploy:functions": "gcloud functions deploy createUser --runtime nodejs18 --trigger-http --allow-unauthenticated && gcloud functions deploy getUser --runtime nodejs18 --trigger-http --allow-unauthenticated && gcloud functions deploy listUsers --runtime nodejs18 --trigger-http --allow-unauthenticated",
+    "deploy:run": "gcloud run deploy fastify-api --source . --port 3000 --allow-unauthenticated"
+  },
+  "dependencies": {
+    "@noony-serverless/core": "^0.1.0",
+    "@google-cloud/functions-framework": "^3.3.0",
+    "fastify": "^5.3.3",
+    "zod": "^3.22.4",
+    "typedi": "^0.10.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcrypt": "^5.1.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/jest": "^29.5.11",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/bcrypt": "^5.0.2",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.2",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.6.2",
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2",
+    "supertest": "^6.3.3",
+    "@types/supertest": "^6.0.2"
+  },
+  "keywords": [
+    "noony",
+    "serverless",
+    "fastify",
+    "google-cloud-functions",
+    "typescript",
+    "middleware",
+    "authentication",
+    "crud-api",
+    "production-ready",
+    "dual-mode"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

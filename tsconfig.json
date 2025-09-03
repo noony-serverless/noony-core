@@ -8,13 +8,8 @@
     "sourceMap": true,
     "strict": true,
     "target": "ES2022",
-    "types": [
-      "node",
-      "jest"
-    ],
-    "lib": [
-      "ES2022"
-    ],
+    "types": ["node", "jest"],
+    "lib": ["ES2022"],
     "outDir": "build",
     "rootDir": "./src",
     "skipLibCheck": true,
@@ -26,10 +21,6 @@
     "declarationMap": true,
     "baseUrl": "."
   },
-    "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "build",
-    "**/*.test.ts"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "build", "**/*.test.ts"]
 }
