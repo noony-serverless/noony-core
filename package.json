@@ -4,9 +4,26 @@
   "description": "A Middy base framework compatible with Firebase and GCP Cloud Functions with TypeScript",
   "main": "build/index.js",
   "types": "build/index.d.ts",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
+  "keywords": [
+    "serverless",
+    "middleware",
+    "google-cloud-functions",
+    "firebase",
+    "gcp",
+    "typescript",
+    "middy"
+  ],
+  "author": "Noony Serverless",
+  "license": "MIT",
+  "files": [
+    "build/core/**/*.js",
+    "build/core/**/*.d.ts",
+    "build/middlewares/**/*.js", 
+    "build/middlewares/**/*.d.ts",
+    "build/index.js",
+    "build/index.d.ts",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/noony-serverless/noony-core.git"

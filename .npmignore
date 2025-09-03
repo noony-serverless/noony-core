@@ -1,0 +1,47 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Development and testing
+examples/
+build/examples/
+jest.config.js
+*.test.ts
+*.spec.ts
+coverage/
+
+# Build artifacts (except the main build directory)
+dist/
+
+# Configuration files
+.eslintrc.json
+.prettierrc
+tsconfig.json
+nodemon.json
+
+# Development dependencies
+.vscode/
+.idea/
+
+# Git and version control
+.git/
+.gitignore
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (keep README.md)
+CLAUDE.md

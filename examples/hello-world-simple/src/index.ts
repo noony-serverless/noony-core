@@ -100,6 +100,7 @@ import {
   Handler,
   ResponseWrapperMiddleware,
   BodyValidationMiddleware,
+  BodyParserMiddleware,
   Context,
 } from '@noony-serverless/core';
 
@@ -221,7 +222,7 @@ async function validateBusinessRules(context: Context): Promise<void> {
     validatedRequest: request,
     requestId: generateRequestId(),
     startTime: new Date(),
-    preferredLanguage: request.language,
+    preferredLanguage: request.language ?? '',
   };
 
   context.businessData?.set('helloWorldContext', businessContext);
@@ -307,6 +308,10 @@ const helloWorldHandler = new Handler()
   // 🛡️ Error handling - ALWAYS FIRST
   // Catches all errors from subsequent middleware and formats them consistently
   .use(new ErrorHandlerMiddleware())
+
+  // 📋 Body parsing - BEFORE VALIDATION
+  // Parses JSON request body and makes it available for validation
+  .use(new BodyParserMiddleware())
 
   // ✅ Schema validation - EARLY IN CHAIN
   // Validates request body against Zod schema and makes validated data available
