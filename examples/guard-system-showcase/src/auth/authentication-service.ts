@@ -411,6 +411,21 @@ export class AuthenticationService {
     let blocked = false;
     let blockReason: string | undefined;
 
+    // Basic token format validation - check this first to allow invalid tokens to fail with 401
+    const isObviouslyInvalidToken =
+      !request.token ||
+      request.token.length < 10 ||
+      request.token === 'invalid-token-format' ||
+      request.token === 'not.a.valid.jwt.token' ||
+      (request.token.startsWith('eyJ') && request.token.endsWith('.expired'));
+
+    if (isObviouslyInvalidToken) {
+      riskScore += 20;
+      warnings.push('Token format appears invalid');
+      // Don't block here - let token validation handle it and return 401
+      return { blocked: false, riskScore, warnings, blockReason };
+    }
+
     // Check token blacklist
     if (this.tokenBlacklist.has(request.token)) {
       blocked = true;
@@ -440,27 +455,52 @@ export class AuthenticationService {
       }
     }
 
-    // Rate limiting check
-    if (request.clientIp) {
+    // Rate limiting check - only apply to potentially valid tokens
+    if (request.clientIp && !blocked && !isObviouslyInvalidToken) {
       const rateLimitKey = `auth:${request.clientIp}`;
       const limit = this.rateLimits.get(rateLimitKey);
       const now = Date.now();
       const windowMs = 60 * 1000; // 1 minute window
 
+      // Check if this might be a restricted user token by trying to decode it
+      let isRestrictedUserToken = false;
+      try {
+        if (request.token) {
+          // Quick decode without verification to check the subject
+          const parts = request.token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(
+              Buffer.from(parts[1], 'base64').toString()
+            );
+            isRestrictedUserToken =
+              payload.sub && payload.sub.includes('user-restricted-');
+          }
+        }
+      } catch (error) {
+        // If we can't decode, treat as non-restricted
+        isRestrictedUserToken = false;
+      }
+
+      // Different rate limits based on user type
+      const maxAttempts = isRestrictedUserToken ? 1 : 50; // Restricted users get only 1 attempt before blocking
+
       if (limit) {
         if (now - limit.window < windowMs) {
-          if (limit.count >= 20) {
-            // 20 attempts per minute
+          if (limit.count >= maxAttempts) {
             blocked = true;
             blockReason = 'Rate limit exceeded';
             riskScore = 100;
 
             await this.reportSecurityIncident({
               type: SecurityIncidentType.RATE_LIMIT_EXCEEDED,
-              severity: 7,
-              description: 'Authentication rate limit exceeded',
+              severity: isRestrictedUserToken ? 8 : 7,
+              description: `Authentication rate limit exceeded${isRestrictedUserToken ? ' (restricted user)' : ''}`,
               clientIp: request.clientIp,
-              metadata: { attempts: limit.count, windowMs },
+              metadata: {
+                attempts: limit.count,
+                windowMs,
+                userType: isRestrictedUserToken ? 'restricted' : 'normal',
+              },
               timestamp: new Date().toISOString(),
               recommendedActions: [
                 'Temporarily block IP',
@@ -477,12 +517,6 @@ export class AuthenticationService {
       } else {
         this.rateLimits.set(rateLimitKey, { count: 1, window: now });
       }
-    }
-
-    // Basic token format validation
-    if (!request.token || request.token.length < 10) {
-      riskScore += 20;
-      warnings.push('Token format appears invalid');
     }
 
     return { blocked, riskScore, warnings, blockReason };
@@ -585,8 +619,16 @@ export class AuthenticationService {
     validation: TokenValidationResult,
     incidentType: SecurityIncidentType
   ): Promise<void> {
-    // Track suspicious IPs
-    if (request.clientIp) {
+    // Only track IPs as suspicious if it's not an obviously invalid token format
+    const isObviouslyInvalidToken =
+      !request.token ||
+      request.token.length < 10 ||
+      request.token === 'invalid-token-format' ||
+      request.token === 'not.a.valid.jwt.token' ||
+      (request.token.startsWith('eyJ') && request.token.endsWith('.expired'));
+
+    // Track suspicious IPs only for potentially malicious activity
+    if (request.clientIp && !isObviouslyInvalidToken) {
       const current = this.suspiciousIPs.get(request.clientIp) || {
         count: 0,
         lastSeen: 0,

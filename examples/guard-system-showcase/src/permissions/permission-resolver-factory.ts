@@ -492,7 +492,7 @@ export class PermissionResolverFactory {
           validResults[key] = value;
         }
       });
-      
+
       const comparison = this.analyzePerformanceComparison(
         requirement,
         userId,
@@ -681,13 +681,27 @@ export class PermissionResolverFactory {
       // Run both resolvers
       const [controlResult, testResult] = await Promise.all([
         (
-          this.getResolver(controlType) as unknown as Record<string, unknown> & {
-            checkPermission: (userId: string, permission: string, context?: Record<string, unknown>) => Promise<PermissionCheckResult>;
+          this.getResolver(controlType) as unknown as Record<
+            string,
+            unknown
+          > & {
+            checkPermission: (
+              userId: string,
+              permission: string,
+              context?: Record<string, unknown>
+            ) => Promise<PermissionCheckResult>;
           }
         ).checkPermission(userId, requirement as string, context),
         (
-          this.getResolver(alternativeType) as unknown as Record<string, unknown> & {
-            checkPermission: (userId: string, permission: string, context?: Record<string, unknown>) => Promise<PermissionCheckResult>;
+          this.getResolver(alternativeType) as unknown as Record<
+            string,
+            unknown
+          > & {
+            checkPermission: (
+              userId: string,
+              permission: string,
+              context?: Record<string, unknown>
+            ) => Promise<PermissionCheckResult>;
           }
         ).checkPermission(userId, requirement as string, context),
       ]);
@@ -711,7 +725,11 @@ export class PermissionResolverFactory {
       console.error('❌ A/B test failed, falling back to control:', error);
       return (
         this.getResolver(controlType) as unknown as Record<string, unknown> & {
-          checkPermission: (userId: string, permission: string, context?: Record<string, unknown>) => Promise<PermissionCheckResult>;
+          checkPermission: (
+            userId: string,
+            permission: string,
+            context?: Record<string, unknown>
+          ) => Promise<PermissionCheckResult>;
         }
       ).checkPermission(userId, requirement as string, context);
     }
@@ -819,11 +837,15 @@ export class PermissionResolverFactory {
       averageLatency: (stats.averageResolutionTimeUs as number) || 0,
       errorRate:
         (stats.totalChecks as number) > 0
-          ? (((stats.loadFailures as number) || 0) / (stats.totalChecks as number)) * 100
+          ? (((stats.loadFailures as number) || 0) /
+              (stats.totalChecks as number)) *
+            100
           : 0,
       successRate:
         (stats.totalChecks as number) > 0
-          ? (((stats.allowedChecks as number) || 0) / (stats.totalChecks as number)) * 100
+          ? (((stats.allowedChecks as number) || 0) /
+              (stats.totalChecks as number)) *
+            100
           : 100,
       checksPerSecond: this.calculateChecksPerSecond(stats),
     };
@@ -1100,7 +1122,9 @@ export class PermissionResolverFactory {
     for (const [, resolver] of this.resolvers) {
       if ('resetStats' in resolver) {
         (
-          resolver as unknown as Record<string, unknown> & { resetStats: () => void }
+          resolver as unknown as Record<string, unknown> & {
+            resetStats: () => void;
+          }
         ).resetStats();
       }
     }

@@ -136,6 +136,21 @@ export class AuthHandlers {
     } catch (error) {
       console.error('❌ Authentication endpoint error:', error);
 
+      // Check if this is an authentication-related error
+      if (
+        (error as Error).message.includes('authentication token') ||
+        (error as Error).message.includes('No authentication')
+      ) {
+        res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          performance: {
+            totalTime: `${Date.now() - startTime}ms`,
+          },
+        });
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Authentication service error',
@@ -165,8 +180,11 @@ export class AuthHandlers {
       const token = this.extractToken(req);
       const provider = (req.body.provider as AuthProviderType) || undefined;
 
-      // Use the validator factory directly for lightweight validation
-      const validatorFactory = TokenValidatorFactory.getInstance();
+      // Use the validator factory with configuration for lightweight validation
+      const guardConfig = getGuardConfig();
+      const validatorFactory = TokenValidatorFactory.getInstance(
+        guardConfig.authentication
+      );
       const validator = validatorFactory.getValidator(provider);
       const validationResult = await validator.validateToken(token);
 
@@ -348,6 +366,18 @@ export class AuthHandlers {
     } catch (error) {
       console.error('❌ Get current user error:', error);
 
+      // Check if this is an authentication-related error
+      if (
+        (error as Error).message.includes('authentication token') ||
+        (error as Error).message.includes('No authentication')
+      ) {
+        res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+        });
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Service error',
@@ -438,6 +468,18 @@ export class AuthHandlers {
     } catch (error) {
       console.error('❌ Get user permissions error:', error);
 
+      // Check if this is an authentication-related error
+      if (
+        (error as Error).message.includes('authentication token') ||
+        (error as Error).message.includes('No authentication')
+      ) {
+        res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+        });
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Service error',
@@ -473,7 +515,7 @@ export class AuthHandlers {
 
       const guardResult = await this.guardService.guard({
         ...authRequest,
-        requirement: 'admin:stats',
+        requirement: 'admin:system',
       });
 
       if (!guardResult.authorized) {
@@ -739,4 +781,6 @@ export class AuthHandlers {
 }
 
 // Export singleton instance for easy use in server routes
-export const authHandlers = new AuthHandlers(GuardService.getInstance(getGuardConfig()));
+export const authHandlers = new AuthHandlers(
+  GuardService.getInstance(getGuardConfig())
+);

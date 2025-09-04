@@ -106,9 +106,7 @@ export class DemoPermissionSource extends BasePermissionSource {
       this.trackCacheMiss();
 
       // Find user in demo data
-      const user = this.demoUsers.find(
-        (u) => u.userId === userId
-      );
+      const user = this.demoUsers.find((u) => u.userId === userId);
       if (!user) {
         throw this.createError(`User not found: ${userId}`, 'USER_NOT_FOUND');
       }
@@ -188,9 +186,7 @@ export class DemoPermissionSource extends BasePermissionSource {
       this.trackCacheMiss();
 
       // Find user in demo data
-      const user = this.demoUsers.find(
-        (u) => u.userId === userId
-      );
+      const user = this.demoUsers.find((u) => u.userId === userId);
       if (!user) {
         throw this.createError(`User not found: ${userId}`, 'USER_NOT_FOUND');
       }
@@ -213,7 +209,10 @@ export class DemoPermissionSource extends BasePermissionSource {
       this.storeInCache(cacheKey, roles);
 
       this.trackQuery(startTime, true);
-      this.log(`Retrieved ${roles.length} roles for user ${userId}`, roles as unknown as Record<string, unknown>);
+      this.log(
+        `Retrieved ${roles.length} roles for user ${userId}`,
+        roles as unknown as Record<string, unknown>
+      );
 
       return roles;
     } catch (error) {
@@ -258,7 +257,10 @@ export class DemoPermissionSource extends BasePermissionSource {
       this.storeInCache(cacheKey, role);
 
       this.trackQuery(startTime, true);
-      this.log(`Retrieved role: ${roleId}`, role?.name as unknown as Record<string, unknown>);
+      this.log(
+        `Retrieved role: ${roleId}`,
+        role?.name as unknown as Record<string, unknown>
+      );
 
       return role;
     } catch (error) {
@@ -323,7 +325,10 @@ export class DemoPermissionSource extends BasePermissionSource {
         this.demoPermissions.find((p) => p.id === permissionId) || null;
 
       this.trackQuery(startTime, true);
-      this.log(`Retrieved permission: ${permissionId}`, permission?.name as unknown as Record<string, unknown>);
+      this.log(
+        `Retrieved permission: ${permissionId}`,
+        permission?.name as unknown as Record<string, unknown>
+      );
 
       return permission;
     } catch (error) {

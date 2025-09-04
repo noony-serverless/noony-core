@@ -11,6 +11,12 @@
 import express from 'express';
 import cors from 'cors';
 import { authHandlers } from './api/handlers/auth-handlers';
+import {
+  demoPlainPermissions,
+  demoWildcardPermissions,
+  demoExpressionPermissions,
+  demoCompleteGuard,
+} from './functions/index';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -22,10 +28,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     service: 'guard-system-showcase',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -33,24 +39,41 @@ app.get('/health', (req, res) => {
 app.post('/api/auth/authenticate', authHandlers.authenticate);
 app.post('/api/auth/validate', authHandlers.validateToken);
 app.get('/api/auth/user', authHandlers.getCurrentUser);
-app.get('/api/permissions/user/:userId', authHandlers.getUserPermissions);
+app.get('/api/auth/permissions', authHandlers.getUserPermissions);
+app.post('/api/auth/refresh-context', authHandlers.refreshUserContext);
 app.get('/api/auth/stats', authHandlers.getAuthStats);
 app.get('/api/security/incidents', authHandlers.getSecurityIncidents);
 
+// Demo permission resolver endpoints
+app.post('/api/demo/plain', demoPlainPermissions);
+app.post('/api/demo/wildcard', demoWildcardPermissions);
+app.post('/api/demo/expression', demoExpressionPermissions);
+app.post('/api/demo/guard', demoCompleteGuard);
+
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Server error:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
-  });
-});
+app.use(
+  (
+    err: Error,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    console.error('Server error:', err);
+    res.status(500).json({
+      error: 'Internal server error',
+      message:
+        process.env.NODE_ENV === 'development'
+          ? err.message
+          : 'Something went wrong',
+    });
+  }
+);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Not found',
-    message: `Route ${req.method} ${req.path} not found`
+    message: `Route ${req.method} ${req.path} not found`,
   });
 });
 
@@ -58,7 +81,9 @@ app.use((req, res) => {
 app.listen(port, () => {
   console.log(`🚀 Guard System Showcase server running on port ${port}`);
   console.log(`📖 API documentation: http://localhost:${port}/health`);
-  console.log(`🔐 Authentication endpoint: http://localhost:${port}/api/auth/token`);
+  console.log(
+    `🔐 Authentication endpoint: http://localhost:${port}/api/auth/token`
+  );
   console.log(`🛡️ Guard endpoint: http://localhost:${port}/api/auth/guard`);
   console.log(`📊 Stats endpoint: http://localhost:${port}/api/stats`);
 });

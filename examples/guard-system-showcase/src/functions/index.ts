@@ -11,7 +11,6 @@
 import { Request, Response } from '@google-cloud/functions-framework';
 import { getGuardConfig } from '@/config/guard.config';
 import { GuardService } from '@/services/guard-service';
-import { AuthProviderType } from '@/types/auth.types';
 import { PermissionResolverType } from '@noony-serverless/core';
 
 // Initialize Guard Service with configuration
@@ -20,7 +19,10 @@ const guardService = GuardService.getInstance(getGuardConfig());
 /**
  * Demo function using Plain Permission Resolver
  */
-export const demoPlainPermissions = async (req: Request, res: Response): Promise<void> => {
+export const demoPlainPermissions = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { authorization } = req.headers;
     const { userId, permissions } = req.body;
@@ -28,7 +30,7 @@ export const demoPlainPermissions = async (req: Request, res: Response): Promise
     if (!authorization || !userId || !permissions) {
       res.status(400).json({
         error: 'Missing required fields',
-        required: ['authorization header', 'userId', 'permissions']
+        required: ['authorization header', 'userId', 'permissions'],
       });
       return;
     }
@@ -38,13 +40,27 @@ export const demoPlainPermissions = async (req: Request, res: Response): Promise
 
     // Authenticate first
     const authResult = await guardService.authenticate({
-      token
+      token,
     });
 
     if (!authResult.authenticated) {
       res.status(401).json({
         error: 'Authentication failed',
-        details: authResult.tokenValidation?.error
+        details: authResult.tokenValidation?.error,
+      });
+      return;
+    }
+
+    // Plain resolver only supports single permission checks
+    // If multiple permissions provided, use the first one
+    const singlePermission = Array.isArray(permissions)
+      ? permissions[0]
+      : permissions;
+
+    if (!singlePermission) {
+      res.status(400).json({
+        error: 'Plain resolver requires at least one permission',
+        received: permissions,
       });
       return;
     }
@@ -52,7 +68,7 @@ export const demoPlainPermissions = async (req: Request, res: Response): Promise
     // Check permissions using Plain resolver
     const permissionResult = await guardService.checkPermissions(
       userId,
-      permissions,
+      singlePermission,
       {},
       PermissionResolverType.PLAIN
     );
@@ -62,22 +78,22 @@ export const demoPlainPermissions = async (req: Request, res: Response): Promise
       resolver: 'Plain Permission Resolver',
       authentication: {
         validatorType: authResult.tokenValidation?.metadata?.validatorType,
-        userId: authResult.user?.userId
+        userId: authResult.user?.userId,
       },
       permissions: {
         allowed: permissionResult.allowed,
         checked: permissions,
         matched: permissionResult.matchedPermissions,
         resolutionTime: `${permissionResult.resolutionTimeUs}μs`,
-        cached: permissionResult.cached
+        cached: permissionResult.cached,
       },
-      metadata: permissionResult.metadata
+      metadata: permissionResult.metadata,
     });
   } catch (error) {
     console.error('Plain permissions demo error:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: (error as Error).message
+      message: (error as Error).message,
     });
   }
 };
@@ -85,7 +101,10 @@ export const demoPlainPermissions = async (req: Request, res: Response): Promise
 /**
  * Demo function using Wildcard Permission Resolver
  */
-export const demoWildcardPermissions = async (req: Request, res: Response): Promise<void> => {
+export const demoWildcardPermissions = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { authorization } = req.headers;
     const { userId, permissions } = req.body;
@@ -93,7 +112,7 @@ export const demoWildcardPermissions = async (req: Request, res: Response): Prom
     if (!authorization || !userId || !permissions) {
       res.status(400).json({
         error: 'Missing required fields',
-        required: ['authorization header', 'userId', 'permissions']
+        required: ['authorization header', 'userId', 'permissions'],
       });
       return;
     }
@@ -101,13 +120,13 @@ export const demoWildcardPermissions = async (req: Request, res: Response): Prom
     const token = authorization.replace('Bearer ', '');
 
     const authResult = await guardService.authenticate({
-      token
+      token,
     });
 
     if (!authResult.authenticated) {
       res.status(401).json({
         error: 'Authentication failed',
-        details: authResult.tokenValidation?.error
+        details: authResult.tokenValidation?.error,
       });
       return;
     }
@@ -125,7 +144,7 @@ export const demoWildcardPermissions = async (req: Request, res: Response): Prom
       resolver: 'Wildcard Permission Resolver',
       authentication: {
         validatorType: authResult.tokenValidation?.metadata?.validatorType,
-        userId: authResult.user?.userId
+        userId: authResult.user?.userId,
       },
       permissions: {
         allowed: permissionResult.allowed,
@@ -133,15 +152,15 @@ export const demoWildcardPermissions = async (req: Request, res: Response): Prom
         matched: permissionResult.matchedPermissions,
         patterns: permissionResult.metadata?.patterns,
         resolutionTime: `${permissionResult.resolutionTimeUs}μs`,
-        cached: permissionResult.cached
+        cached: permissionResult.cached,
       },
-      metadata: permissionResult.metadata
+      metadata: permissionResult.metadata,
     });
   } catch (error) {
     console.error('Wildcard permissions demo error:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: (error as Error).message
+      message: (error as Error).message,
     });
   }
 };
@@ -149,7 +168,10 @@ export const demoWildcardPermissions = async (req: Request, res: Response): Prom
 /**
  * Demo function using Expression Permission Resolver
  */
-export const demoExpressionPermissions = async (req: Request, res: Response): Promise<void> => {
+export const demoExpressionPermissions = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { authorization } = req.headers;
     const { userId, expression } = req.body;
@@ -157,7 +179,7 @@ export const demoExpressionPermissions = async (req: Request, res: Response): Pr
     if (!authorization || !userId || !expression) {
       res.status(400).json({
         error: 'Missing required fields',
-        required: ['authorization header', 'userId', 'expression']
+        required: ['authorization header', 'userId', 'expression'],
       });
       return;
     }
@@ -165,13 +187,13 @@ export const demoExpressionPermissions = async (req: Request, res: Response): Pr
     const token = authorization.replace('Bearer ', '');
 
     const authResult = await guardService.authenticate({
-      token
+      token,
     });
 
     if (!authResult.authenticated) {
       res.status(401).json({
         error: 'Authentication failed',
-        details: authResult.tokenValidation?.error
+        details: authResult.tokenValidation?.error,
       });
       return;
     }
@@ -189,7 +211,7 @@ export const demoExpressionPermissions = async (req: Request, res: Response): Pr
       resolver: 'Expression Permission Resolver',
       authentication: {
         validatorType: authResult.tokenValidation?.metadata?.validatorType,
-        userId: authResult.user?.userId
+        userId: authResult.user?.userId,
       },
       permissions: {
         allowed: permissionResult.allowed,
@@ -197,15 +219,15 @@ export const demoExpressionPermissions = async (req: Request, res: Response): Pr
         complexity: permissionResult.metadata?.expressionComplexity,
         evaluationTime: permissionResult.metadata?.expressionEvaluationTimeUs,
         resolutionTime: `${permissionResult.resolutionTimeUs}μs`,
-        cached: permissionResult.cached
+        cached: permissionResult.cached,
       },
-      metadata: permissionResult.metadata
+      metadata: permissionResult.metadata,
     });
   } catch (error) {
     console.error('Expression permissions demo error:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: (error as Error).message
+      message: (error as Error).message,
     });
   }
 };
@@ -213,7 +235,10 @@ export const demoExpressionPermissions = async (req: Request, res: Response): Pr
 /**
  * Complete guard demo with authentication and authorization
  */
-export const demoCompleteGuard = async (req: Request, res: Response): Promise<void> => {
+export const demoCompleteGuard = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { authorization } = req.headers;
     const { userId, permissions, context } = req.body;
@@ -221,7 +246,7 @@ export const demoCompleteGuard = async (req: Request, res: Response): Promise<vo
     if (!authorization || !userId || !permissions) {
       res.status(400).json({
         error: 'Missing required fields',
-        required: ['authorization header', 'userId', 'permissions']
+        required: ['authorization header', 'userId', 'permissions'],
       });
       return;
     }
@@ -232,7 +257,7 @@ export const demoCompleteGuard = async (req: Request, res: Response): Promise<vo
     const guardResult = await guardService.guard({
       token,
       requirement: permissions,
-      permissionContext: context || {}
+      permissionContext: context || {},
     });
 
     res.json({
@@ -248,22 +273,22 @@ export const demoCompleteGuard = async (req: Request, res: Response): Promise<vo
           checked: permissions,
           matched: guardResult.permissionCheck?.matchedPermissions,
           resolver: guardResult.permissionCheck?.resolverType,
-          resolutionTime: guardResult.permissionCheck?.resolutionTimeUs
+          resolutionTime: guardResult.permissionCheck?.resolutionTimeUs,
         },
         performance: {
           totalTime: `${guardResult.performanceBreakdown.totalTimeUs}μs`,
           authTime: `${guardResult.performanceBreakdown.authenticationTimeUs}μs`,
           permissionTime: `${guardResult.performanceBreakdown.permissionCheckTimeUs}μs`,
-          securityTime: `${guardResult.performanceBreakdown.securityAnalysisTimeUs}μs`
+          securityTime: `${guardResult.performanceBreakdown.securityAnalysisTimeUs}μs`,
         },
-        security: guardResult.security
-      }
+        security: guardResult.security,
+      },
     });
   } catch (error) {
     console.error('Complete guard demo error:', error);
     res.status(500).json({
       error: 'Internal server error',
-      message: (error as Error).message
+      message: (error as Error).message,
     });
   }
 };

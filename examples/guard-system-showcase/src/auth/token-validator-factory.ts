@@ -573,7 +573,10 @@ export class TokenValidatorFactory {
     const stats: Record<string, Record<string, unknown>> = {};
 
     for (const [provider, validator] of this.validators) {
-      stats[provider] = validator.getStats() as unknown as Record<string, unknown>;
+      stats[provider] = validator.getStats() as unknown as Record<
+        string,
+        unknown
+      >;
     }
 
     return stats;

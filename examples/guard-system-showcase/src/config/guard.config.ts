@@ -79,9 +79,14 @@ export function getGuardConfig(): GuardServiceConfig {
     // Environment-specific overrides can be added here
     guard: {
       ...defaultGuardConfig.guard,
-      enableProfiling: process.env.ENABLE_PROFILING === 'true' || process.env.NODE_ENV === 'development',
-      enableSecurityMonitoring: process.env.ENABLE_SECURITY_MONITORING !== 'false',
-      maxConcurrentOperations: parseInt(process.env.MAX_CONCURRENT_OPERATIONS || '100'),
+      enableProfiling:
+        process.env.ENABLE_PROFILING === 'true' ||
+        process.env.NODE_ENV === 'development',
+      enableSecurityMonitoring:
+        process.env.ENABLE_SECURITY_MONITORING !== 'false',
+      maxConcurrentOperations: parseInt(
+        process.env.MAX_CONCURRENT_OPERATIONS || '100'
+      ),
     },
   };
 }
