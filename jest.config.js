@@ -16,5 +16,6 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/**/*.test.ts',
     '!src/**/index.ts', // Add this line to ignore all index.ts files
+    '!examples/**', // Exclude examples directory from coverage
   ],
 };

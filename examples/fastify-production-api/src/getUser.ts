@@ -1,25 +1,25 @@
 /**
  * Google Cloud Function: Get User by ID
- * 
+ *
  * This function retrieves a specific user by their unique ID.
  * It demonstrates how to handle URL parameters and implement proper authorization.
- * 
+ *
  * Endpoint: GET /{userId}
  * Function name: getUser
  * URL Parameter: userId (UUID format)
- * 
+ *
  * Authorization Rules:
  * - Users can always view their own profile
  * - Users with 'user:read' permission can view any profile
  * - Admin users can view any profile
- * 
+ *
  * How it works:
  * 1. Extracts user ID from URL path (e.g., /123e4567-e89b-12d3-a456-426614174000)
  * 2. Validates the user ID format (must be valid UUID)
  * 3. Checks if current user has permission to view the requested profile
  * 4. Retrieves user data from the database
  * 5. Returns user information in standardized format
- * 
+ *
  * Example successful response:
  * {
  *   "success": true,
@@ -38,7 +38,7 @@ import { getUserHandler } from './handlers/user.handlers';
 
 /**
  * Export the Google Cloud Function for getting a user by ID
- * 
+ *
  * This function handles GET requests to retrieve user information.
  * The user ID should be passed as part of the URL path.
  */

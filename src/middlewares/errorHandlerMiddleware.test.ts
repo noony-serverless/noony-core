@@ -13,7 +13,10 @@ describe('ErrorHandlerMiddleware', () => {
 
   beforeEach(() => {
     context = {
-      req: {},
+      req: {
+        headers: {},
+        ip: 'unknown',
+      },
       res: {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
@@ -21,6 +24,7 @@ describe('ErrorHandlerMiddleware', () => {
       container: null,
       error: null,
       businessData: new Map(),
+      requestId: undefined,
     } as unknown as Context;
     middleware = new ErrorHandlerMiddleware();
   });
@@ -32,6 +36,9 @@ describe('ErrorHandlerMiddleware', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: error.message,
       errorStack: error.stack,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -45,6 +52,10 @@ describe('ErrorHandlerMiddleware', () => {
   });
 
   it('logs the error and returns the correct status and message for HttpError', async () => {
+    // Set development environment to include error details
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
     const error = new HttpError(
       404,
       'Not Found',
@@ -56,6 +67,9 @@ describe('ErrorHandlerMiddleware', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: error.message,
       errorStack: error.stack,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(404);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -66,6 +80,9 @@ describe('ErrorHandlerMiddleware', () => {
       },
       timestamp: expect.any(String),
     });
+
+    // Restore original NODE_ENV
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it('handles errors without a stack trace', async () => {
@@ -76,6 +93,9 @@ describe('ErrorHandlerMiddleware', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: error.message,
       errorStack: undefined,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -96,6 +116,9 @@ describe('ErrorHandlerMiddleware', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: '',
       errorStack: error.stack,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -115,7 +138,10 @@ describe('errorHandler', () => {
 
   beforeEach(() => {
     context = {
-      req: {},
+      req: {
+        headers: {},
+        ip: 'unknown',
+      },
       res: {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
@@ -123,6 +149,7 @@ describe('errorHandler', () => {
       container: null,
       error: null,
       businessData: new Map(),
+      requestId: undefined,
     } as unknown as Context;
     middleware = errorHandler();
   });
@@ -136,6 +163,9 @@ describe('errorHandler', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: error.message,
       errorStack: error.stack,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -149,6 +179,10 @@ describe('errorHandler', () => {
   });
 
   it('logs the error and returns the correct status and message for HttpError', async () => {
+    // Set development environment to include error details
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
     const error = new HttpError(
       404,
       'Not Found',
@@ -162,6 +196,9 @@ describe('errorHandler', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: error.message,
       errorStack: error.stack,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(404);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -172,6 +209,9 @@ describe('errorHandler', () => {
       },
       timestamp: expect.any(String),
     });
+
+    // Restore original NODE_ENV
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it('handles errors without a stack trace', async () => {
@@ -184,6 +224,9 @@ describe('errorHandler', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: error.message,
       errorStack: undefined,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({
@@ -206,6 +249,9 @@ describe('errorHandler', () => {
     expect(logger.error).toHaveBeenCalledWith('Error processing request', {
       errorMessage: '',
       errorStack: error.stack,
+      requestId: undefined,
+      userAgent: undefined,
+      ip: 'unknown',
     });
     expect(context.res.status).toHaveBeenCalledWith(500);
     expect(context.res.json).toHaveBeenCalledWith({

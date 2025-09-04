@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Watch**: `npm run watch` - Continuous TypeScript compilation with watch mode
 - **Test**: `npm run test` - Run all Jest tests
 - **Test with Coverage**: `npm run test:coverage` - Run tests with coverage report
+- **Test Single File**: `npm run test -- <filename>` - Run specific test file
 - **Lint**: `npm run lint` - ESLint check for TypeScript files
 - **Lint Fix**: `npm run lint:fix` - ESLint with auto-fix
 - **Format**: `npm run format` - Prettier formatting for TypeScript, JS, JSON files
@@ -101,12 +102,31 @@ const handler = new Handler<RequestType, UserType>()
 - All `*.test.ts` files in src/ are automatically discovered
 - Coverage excludes index.ts files and test files
 - Path mapping: `@/` maps to `src/`
+- Run single test: `npm run test -- handler.test.ts`
+- Test examples are available in examples/ directory
 
 ## Key Dependencies
 - **@google-cloud/functions-framework**: Core GCP Functions runtime
+- **@google-cloud/firestore**: Firestore database client
+- **@google-cloud/pubsub**: Pub/Sub messaging
 - **zod**: Schema validation
 - **typedi**: Dependency injection
 - **jsonwebtoken**: JWT handling
 - **firebase-admin**: Firebase integration
+- **firebase-functions**: Firebase Functions SDK
 - **axios**: HTTP client for external API calls
 - **fastify**: Optional Fastify integration support
+
+## Project Structure
+```
+src/
+├── core/           # Core framework components
+│   ├── handler.ts  # Main Handler class and middleware pipeline
+│   ├── core.ts     # Context interfaces and type definitions
+│   └── errors.ts   # Built-in error classes
+├── middlewares/    # Built-in middleware implementations
+└── index.ts        # Main exports
+examples/
+├── hello-world-simple/      # Basic usage examples
+└── fastify-production-api/  # Production-ready Fastify integration
+```

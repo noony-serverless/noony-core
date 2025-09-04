@@ -18,7 +18,7 @@
   "files": [
     "build/core/**/*.js",
     "build/core/**/*.d.ts",
-    "build/middlewares/**/*.js", 
+    "build/middlewares/**/*.js",
     "build/middlewares/**/*.d.ts",
     "build/index.js",
     "build/index.d.ts",
