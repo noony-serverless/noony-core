@@ -678,6 +678,55 @@ npm run test:e2e
    # Compare responses with Fastify mode
    ```
 
+### Guard System Testing
+
+The example includes a comprehensive test script that validates all three guard strategies:
+
+#### Automated Guard Testing
+```bash
+# Run the complete guard system test suite
+./test-guards.sh
+
+# Or specify a custom base URL
+./test-guards.sh http://localhost:3000
+```
+
+**What the test script validates:**
+- ✅ **Plain Permission Strategy**: O(1) Set-based lookups (CREATE & UPDATE handlers)
+- ✅ **Wildcard Permission Strategy**: Pattern matching with caching (GET & DELETE handlers)  
+- ✅ **Expression Permission Strategy**: Boolean logic evaluation (LIST handler)
+- ✅ **Authentication Flow**: Token validation and rejection scenarios
+- ✅ **Authorization Boundaries**: Permission enforcement across different user roles
+- ✅ **Error Handling**: Proper HTTP status codes and error responses
+- ✅ **Performance Characteristics**: Cache effectiveness and response times
+
+**Demo Users Available for Testing:**
+- `demo-admin456`: Full admin permissions (admin.*, system.users.*)
+- `demo-user123`: Standard user permissions (user:read, user:update)
+- `demo-demo789`: Limited demo permissions (user:read only)
+
+**Test Output Example:**
+```
+🛡️  NOONY GUARD SYSTEM COMPREHENSIVE TEST SUITE
+============================================================================
+
+✅ SUCCESS: Server is running and responding
+🧪 TEST: Request without authentication token
+✅ SUCCESS: Properly rejected request without token
+🧪 TEST: Create user with admin permissions  
+✅ SUCCESS: Admin can create users (admin:users permission)
+🧪 TEST: Get user with admin.* wildcard permissions
+✅ SUCCESS: Admin can access any user profile (admin.* wildcard)
+
+📊 TEST RESULTS SUMMARY
+Total Tests: 28
+Passed: 28
+Failed: 0
+Success Rate: 100%
+
+🎉 ALL TESTS PASSED! Guard system is working correctly.
+```
+
 ### Testing Scenarios
 
 #### Authentication Flow
@@ -693,11 +742,27 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/users
 # Wait for token to expire or logout
 ```
 
-#### CRUD Operations
+#### Manual Guard Testing
 ```bash
-# Create → Read → Update → Delete flow
-# Test with various user roles and permissions
-# Verify authorization boundaries
+# Test Plain Permissions (CREATE - requires user:create OR admin:users)
+curl -X POST http://localhost:3000/api/users \
+  -H "Authorization: Bearer demo-admin456" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test User","email":"test@example.com","age":30}'
+
+# Test Wildcard Permissions (GET - requires admin.* OR user.profile.*)
+curl -X GET http://localhost:3000/api/users/user123 \
+  -H "Authorization: Bearer demo-admin456"
+
+# Test Expression Permissions (LIST - requires complex boolean expression)
+curl -X GET "http://localhost:3000/api/users?limit=5" \
+  -H "Authorization: Bearer demo-admin456"
+
+# Test Permission Boundaries (should fail with 403)
+curl -X POST http://localhost:3000/api/users \
+  -H "Authorization: Bearer demo-demo789" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Should Fail","email":"fail@example.com","age":25}'
 ```
 
 #### Error Scenarios

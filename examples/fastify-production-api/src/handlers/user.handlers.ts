@@ -38,11 +38,7 @@ import {
   ResponseWrapperMiddleware,
   Context,
 } from '@noony-serverless/core';
-import {
-  RouteGuards,
-  GuardSetup,
-  GuardConfiguration,
-} from '@noony-serverless/core';
+import { RouteGuards, GuardSetup } from '@noony-serverless/core';
 import {
   createUserSchema,
   updateUserSchema,
@@ -56,7 +52,6 @@ import {
   User,
   AuthenticatedUser,
   IUserService,
-  IAuthService,
   NotFoundError,
   ValidationError,
   AuthorizationError,
@@ -82,31 +77,120 @@ Container.set('authService', new AuthService(Container.get(UserService)));
  * - 15-minute cache TTL for optimal memory usage
  * - Performance monitoring enabled for optimization
  */
-const guardConfig = GuardConfiguration.fromEnvironmentProfile(
-  GuardSetup.production()
-);
+// Configure RouteGuards with our authentication service integration
+// This should be done during application startup
+const configureGuards = async (): Promise<void> => {
+  const profile = GuardSetup.production();
 
-// Initialize RouteGuards with our authentication service integration
-const routeGuards = new RouteGuards(guardConfig);
+  // Mock user permission source for demo
+  const mockUserPermissionSource = {
+    async getUserPermissions(userId: string): Promise<{
+      permissions: string[];
+      roles: string[];
+      metadata?: Record<string, unknown>;
+    } | null> {
+      // This would normally query your user database
+      const userData = {
+        user123: {
+          permissions: ['user:create', 'user:read', 'user:update'],
+          roles: ['user'],
+          metadata: { department: 'engineering' },
+        },
+        admin456: {
+          permissions: ['user:*', 'admin:*', 'system:*'],
+          roles: ['admin', 'user'],
+          metadata: { department: 'administration' },
+        },
+        demo789: {
+          permissions: ['user:read'],
+          roles: ['demo'],
+          metadata: { department: 'demo' },
+        },
+      };
+      return userData[userId as keyof typeof userData] || null;
+    },
 
-/**
- * Enhanced Token Verifier for RouteGuards Integration
- *
- * This adapter integrates our AuthService with the RouteGuards system,
- * providing both authentication and user context resolution.
- */
-const tokenVerifier = {
-  async verifyToken(token: string): Promise<AuthenticatedUser> {
-    const authService = Container.get('authService') as IAuthService;
-    const authenticatedUser = await authService.verifyToken(token);
+    async getRolePermissions(roles: string[]): Promise<string[]> {
+      const rolePermissions: Record<string, string[]> = {
+        admin: ['admin:*', 'user:*', 'system:*'],
+        user: ['user:read', 'user:update'],
+        demo: ['user:read'],
+      };
 
-    // Enhanced user context with permissions as Set for O(1) lookups
-    return {
-      ...authenticatedUser,
-      permissions: new Set(authenticatedUser.permissions) as any,
-    };
-  },
+      const permissions = new Set<string>();
+      for (const role of roles) {
+        const rolePerms = rolePermissions[role] || [];
+        rolePerms.forEach((perm) => permissions.add(perm));
+      }
+      return Array.from(permissions);
+    },
+
+    async isUserContextStale(
+      userId: string,
+      lastUpdated: string
+    ): Promise<boolean> {
+      // Simple staleness check - in production this would check database timestamps
+      const updateTime = new Date(lastUpdated).getTime();
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      return now - updateTime > fiveMinutes;
+    },
+  };
+
+  // Mock token validator for demo
+  const mockTokenValidator = {
+    async validateToken(token: string): Promise<{
+      valid: boolean;
+      decoded?: {
+        userId: string;
+        sub: string;
+        iat: number;
+        exp: number;
+      };
+      error?: string;
+    }> {
+      if (token.startsWith('demo-')) {
+        const userId = token.substring(5);
+        return {
+          valid: true,
+          decoded: {
+            userId,
+            sub: userId,
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 3600,
+          },
+        };
+      }
+      return { valid: false, error: 'Invalid token format' };
+    },
+
+    extractUserId(decoded: { userId?: string; sub?: string }): string {
+      return decoded?.userId || decoded?.sub || '';
+    },
+
+    isTokenExpired(decoded: { exp?: number }): boolean {
+      if (!decoded?.exp) return true;
+      return Date.now() / 1000 > decoded.exp;
+    },
+  };
+
+  const authConfig = {
+    tokenHeader: 'authorization',
+    tokenPrefix: 'Bearer ',
+    requireEmailVerification: false,
+    allowInactiveUsers: false,
+  };
+
+  await RouteGuards.configure(
+    profile,
+    mockUserPermissionSource,
+    mockTokenValidator,
+    authConfig
+  );
 };
+
+// Call this during server initialization
+configureGuards().catch(console.error);
 
 /**
  * Request logging and performance monitoring middleware
@@ -205,9 +289,8 @@ const createUserHandler = new Handler()
   // 🛡️ Advanced Guard Protection - Plain Permission Strategy
   // Uses high-performance Set-based lookups with intelligent caching
   .use(
-    routeGuards.requirePlainPermissions(
-      ['user:create', 'admin:users'], // OR logic: user needs ONE of these
-      { tokenVerifier }
+    RouteGuards.requirePermissions(
+      ['user:create', 'admin:users'] // OR logic: user needs ONE of these
     )
   )
 
@@ -223,10 +306,12 @@ const createUserHandler = new Handler()
       // Clean undefined values for exactOptionalPropertyTypes compatibility
       const cleanUserData = Object.fromEntries(
         Object.entries(userData).filter(([_, value]) => value !== undefined)
-      );
+      ) as CreateUserRequest;
 
       // Execute business logic - create the user
-      const result = await userService.createUser(cleanUserData as any);
+      const result = await userService.createUser(
+        cleanUserData as Parameters<IUserService['createUser']>[0]
+      );
 
       // Log successful creation for audit trail
       console.log(`👤 User created successfully`, {
@@ -302,9 +387,8 @@ const getUserHandler = new Handler()
   // 🛡️ Advanced Guard Protection - Wildcard Permission Strategy
   // Uses pattern matching with pre-expansion caching for optimal performance
   .use(
-    routeGuards.requireWildcardPermissions(
-      ['admin.*', 'user.profile.*'], // Hierarchical wildcard patterns
-      { tokenVerifier }
+    RouteGuards.requireWildcardPermissions(
+      ['admin.*', 'user.profile.*'] // Hierarchical wildcard patterns
     )
   )
 
@@ -316,7 +400,7 @@ const getUserHandler = new Handler()
     const currentUser = context.user as AuthenticatedUser;
 
     // Extract and validate URL parameters
-    const params = context.req.params as any;
+    const params = context.req.params as Record<string, string>;
     if (!params?.id) {
       throw new ValidationError('User ID is required');
     }
@@ -414,10 +498,21 @@ const listUsersHandler = new Handler()
   // 🛡️ Advanced Guard Protection - Expression Permission Strategy
   // Uses boolean logic evaluation with intelligent caching and optimization
   .use(
-    routeGuards.requireExpressionPermissions(
+    RouteGuards.requireComplexPermissions(
       // Complex permission expression with 2-level nesting
-      '(admin.users AND admin.read) OR (user.list AND user.department)',
-      { tokenVerifier }
+      {
+        or: [
+          {
+            and: [{ permission: 'admin.users' }, { permission: 'admin.read' }],
+          },
+          {
+            and: [
+              { permission: 'user.list' },
+              { permission: 'user.department' },
+            ],
+          },
+        ],
+      }
     )
   )
 
@@ -475,7 +570,9 @@ const listUsersHandler = new Handler()
         includeDeleted: query.includeDeleted,
       }).filter(([_, value]) => value !== undefined)
     );
-    const result = await userService.getAllUsers(cleanQuery as any);
+    const result = await userService.getAllUsers(
+      cleanQuery as Parameters<IUserService['getAllUsers']>[0]
+    );
 
     // Build comprehensive response with metadata
     const response: PaginatedResponse<User> = {
@@ -490,7 +587,14 @@ const listUsersHandler = new Handler()
           minAge: query.minAge,
           maxAge: query.maxAge,
         }).filter(([_, value]) => value !== undefined)
-      ) as any,
+      ) as {
+        search?: string;
+        department?: string;
+        sortBy: string;
+        sortOrder: string;
+        minAge?: number;
+        maxAge?: number;
+      },
     };
 
     // Add request metadata for debugging/monitoring
@@ -554,9 +658,8 @@ const updateUserHandler = new Handler()
   // 🛡️ Advanced Guard Protection - Plain Permission Strategy (Optimized)
   // Uses O(1) Set-based lookups optimized for high-frequency operations
   .use(
-    routeGuards.requirePlainPermissions(
-      ['user:update', 'admin:users'], // Simple OR logic for maximum performance
-      { tokenVerifier }
+    RouteGuards.requirePermissions(
+      ['user:update', 'admin:users'] // Simple OR logic for maximum performance
     )
   )
 
@@ -569,7 +672,7 @@ const updateUserHandler = new Handler()
     const currentUser = context.user as AuthenticatedUser;
 
     // Extract and validate URL parameters
-    const params = context.req.params as any;
+    const params = context.req.params as Record<string, string>;
     if (!params?.id) {
       throw new ValidationError('User ID is required');
     }
@@ -601,10 +704,14 @@ const updateUserHandler = new Handler()
     // Restrict non-admin users from changing certain fields
     if (!hasAdminPermission) {
       // Remove sensitive fields that regular users shouldn't change
-      const restrictedUpdate = { ...updateData };
-      delete (restrictedUpdate as any).role;
-      delete (restrictedUpdate as any).permissions;
-      delete (restrictedUpdate as any).status;
+      const restrictedUpdate = { ...updateData } as UpdateUserRequest & {
+        role?: unknown;
+        permissions?: unknown;
+        status?: unknown;
+      };
+      delete restrictedUpdate.role;
+      delete restrictedUpdate.permissions;
+      delete restrictedUpdate.status;
 
       // Use the restricted update data
       Object.assign(updateData, restrictedUpdate);
@@ -619,7 +726,7 @@ const updateUserHandler = new Handler()
       // Execute the update
       const updatedUser = await userService.updateUser(
         targetUserId,
-        cleanUpdateData as any
+        cleanUpdateData as Parameters<IUserService['updateUser']>[1]
       );
 
       if (!updatedUser) {
@@ -708,9 +815,8 @@ const deleteUserHandler = new Handler()
   // 🛡️ Advanced Guard Protection - Wildcard Permission Strategy (Administrative)
   // Uses hierarchical wildcard patterns for administrative operations
   .use(
-    routeGuards.requireWildcardPermissions(
-      ['admin.*', 'system.users.*'], // Hierarchical administrative patterns
-      { tokenVerifier }
+    RouteGuards.requireWildcardPermissions(
+      ['admin.*', 'system.users.*'] // Hierarchical administrative patterns
     )
   )
 
@@ -721,7 +827,7 @@ const deleteUserHandler = new Handler()
     const currentUser = context.user as AuthenticatedUser;
 
     // Extract and validate URL parameters
-    const params = context.req.params as any;
+    const params = context.req.params as Record<string, string>;
     if (!params?.id) {
       throw new ValidationError('User ID is required');
     }
@@ -913,22 +1019,17 @@ export const userHandlersMetadata = {
  */
 
 /**
- * Export guard configuration and system for external monitoring
- */
-export { routeGuards, guardConfig };
-
-/**
  * Helper function to get system performance metrics
  */
-export function getGuardSystemMetrics() {
+export function getGuardSystemMetrics(): Record<string, unknown> {
   return {
-    systemStats: routeGuards.getSystemStats(),
+    systemStats: RouteGuards.getSystemStats(),
     configuration: {
-      environment: guardConfig.monitoring.logLevel,
+      environment: process.env.NODE_ENV || 'development',
       cacheStrategy: 'conservative-invalidation',
       permissionResolution: 'pre-expansion',
-      cacheMaxEntries: guardConfig.cache.maxEntries,
-      defaultTTL: guardConfig.cache.defaultTtlMs,
+      cacheMaxEntries: 2000,
+      defaultTTL: 15 * 60 * 1000,
     },
     handlerStrategies: userHandlersMetadata,
   };

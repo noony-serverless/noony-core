@@ -6,6 +6,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "functions-framework --target=helloWorld --source=dist --watch",
+    "dev:system": "functions-framework --target=systemStatus --source=dist/index-with-guards.js --watch",
+    "dev:guards": "functions-framework --target=guardedHelloWorld --source=dist/index-with-guards.js --watch",
+    "dev:auth": "functions-framework --target=authTest --source=dist/index-with-guards.js --watch",
     "start": "functions-framework --target=helloWorld --source=dist",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -14,7 +17,7 @@
     "format": "prettier --write \"src/**/*.{ts,js,json}\""
   },
   "dependencies": {
-    "@noony-serverless/core": "^0.1.0",
+    "@noony-serverless/core": "^0.1.1",
     "@google-cloud/functions-framework": "^3.3.0",
     "zod": "^3.22.4"
   },

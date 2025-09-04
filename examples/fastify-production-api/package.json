@@ -27,7 +27,7 @@
     "deploy:run": "gcloud run deploy fastify-api --source . --port 3000 --allow-unauthenticated"
   },
   "dependencies": {
-    "@noony-serverless/core": "^0.1.0",
+    "@noony-serverless/core": "^0.1.1",
     "@google-cloud/functions-framework": "^3.3.0",
     "fastify": "^5.3.3",
     "@fastify/cors": "^10.0.0",
