@@ -126,9 +126,9 @@ export class UserService implements IUserService {
         name: userData.name,
         email: userData.email,
         age: userData.age,
-        department: userData.department,
-        phoneNumber: userData.phoneNumber,
-        bio: userData.bio,
+        ...(userData.department !== undefined && { department: userData.department }),
+        ...(userData.phoneNumber !== undefined && { phoneNumber: userData.phoneNumber }),
+        ...(userData.bio !== undefined && { bio: userData.bio }),
         status: 'active' as UserStatus,
         createdAt: now,
         role: 'user' as UserRole, // Default role for new users

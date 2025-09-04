@@ -328,7 +328,7 @@ export class AuthService implements IAuthService {
     if (typeof this.jwtConfig.expiresIn === 'string') {
       const match = this.jwtConfig.expiresIn.match(/^(\d+)([hdm])$/);
       if (match) {
-        const value = parseInt(match[1]);
+        const value = parseInt(match[1] || '0');
         const unit = match[2];
 
         switch (unit) {

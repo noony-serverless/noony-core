@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+
 /**
  * User Handlers - Production-Ready CRUD API Endpoints
  *
@@ -187,7 +189,7 @@ const auditLoggingMiddleware = {
  * - 409 Conflict: Email address already in use
  * - 500 Internal Server Error: Unexpected server error
  */
-export const createUserHandler = new Handler()
+const createUserHandler = new Handler()
   .use(new ErrorHandlerMiddleware())
   .use(new AuthenticationMiddleware(tokenVerifier))
   .use(createAuthorizationMiddleware(['user:create', 'admin:users']))
@@ -200,8 +202,13 @@ export const createUserHandler = new Handler()
     const currentUser = context.user as AuthenticatedUser;
 
     try {
+      // Clean undefined values for exactOptionalPropertyTypes compatibility
+      const cleanUserData = Object.fromEntries(
+        Object.entries(userData).filter(([_, value]) => value !== undefined)
+      );
+      
       // Execute business logic - create the user
-      const result = await userService.createUser(userData);
+      const result = await userService.createUser(cleanUserData as any);
 
       // Log successful creation for audit trail
       console.log(`👤 User created successfully`, {
@@ -259,7 +266,7 @@ export const createUserHandler = new Handler()
  * - 403 Forbidden: Insufficient permissions
  * - 404 Not Found: User doesn't exist or is soft-deleted
  */
-export const getUserHandler = new Handler()
+const getUserHandler = new Handler()
   .use(new ErrorHandlerMiddleware())
   .use(new AuthenticationMiddleware(tokenVerifier))
   .use(new QueryParametersMiddleware())
@@ -355,7 +362,7 @@ export const getUserHandler = new Handler()
  * - 401 Unauthorized: Missing or invalid authentication
  * - 403 Forbidden: Insufficient permissions
  */
-export const listUsersHandler = new Handler()
+const listUsersHandler = new Handler()
   .use(new ErrorHandlerMiddleware())
   .use(new AuthenticationMiddleware(tokenVerifier))
   .use(createAuthorizationMiddleware(['user:list', 'admin:users']))
@@ -399,31 +406,36 @@ export const listUsersHandler = new Handler()
       requestId: context.businessData?.get('requestId'),
     });
 
-    // Execute the query
-    const result = await userService.getAllUsers({
-      page: query.page,
-      limit: query.limit,
-      search: query.search,
-      department: query.department,
-      sortBy: query.sortBy,
-      sortOrder: query.sortOrder,
-      minAge: query.minAge,
-      maxAge: query.maxAge,
-      includeDeleted: query.includeDeleted,
-    });
-
-    // Build comprehensive response with metadata
-    const response: PaginatedResponse<User> = {
-      items: result.users,
-      pagination: result.pagination,
-      filters: {
+    // Execute the query - clean undefined values
+    const cleanQuery = Object.fromEntries(
+      Object.entries({
+        page: query.page,
+        limit: query.limit,
         search: query.search,
         department: query.department,
         sortBy: query.sortBy,
         sortOrder: query.sortOrder,
         minAge: query.minAge,
         maxAge: query.maxAge,
-      },
+        includeDeleted: query.includeDeleted,
+      }).filter(([_, value]) => value !== undefined)
+    );
+    const result = await userService.getAllUsers(cleanQuery as any);
+
+    // Build comprehensive response with metadata
+    const response: PaginatedResponse<User> = {
+      items: result.users,
+      pagination: { ...result.pagination, total: result.total || 0 },
+      filters: Object.fromEntries(
+        Object.entries({
+          search: query.search,
+          department: query.department,
+          sortBy: query.sortBy,
+          sortOrder: query.sortOrder,
+          minAge: query.minAge,
+          maxAge: query.maxAge,
+        }).filter(([_, value]) => value !== undefined)
+      ) as any,
     };
 
     // Add request metadata for debugging/monitoring
@@ -467,7 +479,7 @@ export const listUsersHandler = new Handler()
  * - 404 Not Found: User doesn't exist
  * - 409 Conflict: Email address already in use (when changing email)
  */
-export const updateUserHandler = new Handler()
+const updateUserHandler = new Handler()
   .use(new ErrorHandlerMiddleware())
   .use(new AuthenticationMiddleware(tokenVerifier))
   .use(new BodyValidationMiddleware(updateUserSchema))
@@ -521,10 +533,15 @@ export const updateUserHandler = new Handler()
     }
 
     try {
+      // Clean undefined values for exactOptionalPropertyTypes compatibility
+      const cleanUpdateData = Object.fromEntries(
+        Object.entries(updateData).filter(([_, value]) => value !== undefined)
+      );
+      
       // Execute the update
       const updatedUser = await userService.updateUser(
         targetUserId,
-        updateData
+        cleanUpdateData as any
       );
 
       if (!updatedUser) {
@@ -592,7 +609,7 @@ export const updateUserHandler = new Handler()
  * - 403 Forbidden: Insufficient permissions or self-deletion attempt
  * - 404 Not Found: User doesn't exist or already deleted
  */
-export const deleteUserHandler = new Handler()
+const deleteUserHandler = new Handler()
   .use(new ErrorHandlerMiddleware())
   .use(new AuthenticationMiddleware(tokenVerifier))
   .use(createAuthorizationMiddleware(['user:delete', 'admin:users']))

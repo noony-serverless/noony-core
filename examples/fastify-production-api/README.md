@@ -327,6 +327,10 @@ fastify-production-api/
 │   │   └── custom.middleware.ts  # Application-specific middleware
 │   ├── utils/             # Utility functions
 │   │   └── validation.utils.ts   # Validation helpers
+│   ├── createUser.ts      # GCP Function: Create user endpoint
+│   ├── getUser.ts         # GCP Function: Get user by ID endpoint  
+│   ├── listUsers.ts       # GCP Function: List users with pagination
+│   ├── health.ts          # GCP Function: Health check endpoint
 │   ├── server.ts          # Fastify server setup
 │   └── index.ts           # GCP Functions exports
 ├── docs/                  # Additional documentation
@@ -335,6 +339,162 @@ fastify-production-api/
 ├── tsconfig.json          # TypeScript configuration
 ├── .env.example           # Environment variables template
 └── README.md             # This file
+```
+
+### Google Cloud Function Files
+
+The project includes four Google Cloud Function wrapper files that demonstrate how to deploy individual endpoints as serverless functions. These files act as entry points that integrate with the Google Cloud Functions runtime while leveraging our Noony handler pipeline.
+
+#### **src/createUser.ts** - User Creation Function
+Creates a new user in the system with comprehensive validation and authorization.
+
+```typescript
+export const createUser = http('createUser', (req, res) => {
+  return createUserHandler.execute(req, res);
+});
+```
+
+**Key Features:**
+- **Endpoint**: `POST /` (when deployed as GCP Function)
+- **Authentication**: JWT token required via `Authorization: Bearer <token>` header
+- **Authorization**: Requires `user:create` or `admin:users` permission
+- **Validation**: Full Zod schema validation for request body
+- **Middleware Pipeline**: Error handling → Auth → Authorization → Body parsing → Validation → Business logic → Response wrapping
+
+**Expected Payload:**
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "age": 30,
+  "department": "Engineering",
+  "phoneNumber": "+1-555-0123",
+  "bio": "Software engineer with 5 years experience"
+}
+```
+
+#### **src/getUser.ts** - User Retrieval Function
+Retrieves a specific user by their unique ID with smart authorization rules.
+
+```typescript
+export const getUser = http('getUser', (req, res) => {
+  return getUserHandler.execute(req, res);
+});
+```
+
+**Key Features:**
+- **Endpoint**: `GET /{userId}` (user ID from URL path)
+- **URL Parameter**: `userId` in UUID format extracted from request path
+- **Smart Authorization**: Users can view their own profile OR need `user:read` permission for others
+- **Validation**: UUID format validation for user ID parameter
+- **Response**: Includes user data plus metadata about who requested it
+
+**Authorization Logic:**
+- ✅ Users can **always** view their own profile
+- ✅ Users with `user:read` permission can view **any** profile  
+- ✅ Admin users can view **any** profile
+- ❌ Regular users **cannot** view other users' profiles without permission
+
+#### **src/listUsers.ts** - User Listing Function
+Advanced user listing with pagination, filtering, and sorting capabilities.
+
+```typescript
+export const listUsers = http('listUsers', (req, res) => {
+  return listUsersHandler.execute(req, res);
+});
+```
+
+**Key Features:**
+- **Endpoint**: `GET /` with comprehensive query parameters
+- **Authorization**: Requires `user:list` OR `admin:users` permission
+- **Pagination**: Page-based pagination with configurable limits
+- **Filtering**: Text search, department filtering, age ranges
+- **Sorting**: Multiple sort fields with ascending/descending order
+- **Admin Features**: Include soft-deleted users (admin only)
+
+**Query Parameters:**
+- `page`: Page number (default: 1)
+- `limit`: Users per page (default: 10, max: 100)  
+- `search`: Text search in name, email, department, bio
+- `department`: Filter by specific department
+- `sortBy`: Sort field (`name`, `email`, `age`, `department`, `createdAt`, `updatedAt`)
+- `sortOrder`: Sort direction (`asc`, `desc`)
+- `minAge`, `maxAge`: Age range filtering
+- `includeDeleted`: Include soft-deleted users (admin only)
+
+**Example Request:**
+```bash
+GET /?page=2&limit=20&search=engineer&department=tech&sortBy=name&sortOrder=asc
+```
+
+#### **src/health.ts** - Health Check Function
+Simple health check endpoint for monitoring and load balancer integration.
+
+```typescript
+export const health = http('health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'noony-fastify-production-api'
+  });
+});
+```
+
+**Key Features:**
+- **Endpoint**: `GET /` (public endpoint, no authentication required)
+- **Purpose**: Service health verification for monitoring systems
+- **No Middleware**: Bypasses authentication for availability checking
+- **Fast Response**: Minimal processing for quick health verification
+- **Standard Format**: Returns consistent JSON health status
+
+**Use Cases:**
+- Kubernetes liveness probes: `GET /health`
+- Load balancer health checks
+- Uptime monitoring services (Pingdom, DataDog, etc.)
+- Quick smoke tests after deployment
+- CI/CD pipeline verification
+
+**Response Format:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-09-04T01:15:30.123Z",
+  "service": "noony-fastify-production-api"
+}
+```
+
+#### **Dual-Mode Integration**
+
+These Google Cloud Function files work seamlessly with the dual-mode development approach:
+
+**Development Mode (Fastify)**:
+- Functions are accessible via Fastify routes at `/api/*`
+- Full debugging capabilities with hot reload
+- Integrated with development server at `localhost:3000`
+
+**Functions Mode (GCP Functions Framework)**:
+- Each function runs as an individual endpoint
+- Exact production Google Cloud Functions environment
+- Individual function testing at `localhost:8080`
+
+**Production Deployment**:
+- Each file becomes a separate Google Cloud Function
+- Independent scaling and resource allocation
+- Cold start optimization per function
+
+#### **Development Commands**
+
+```bash
+# Test individual functions in Functions Framework mode
+npm run dev:functions
+
+# Access specific function endpoints
+curl http://localhost:8080  # Health check
+curl -X POST http://localhost:8080 -H "Authorization: Bearer $TOKEN" -d '{...}'  # Create user
+
+# Compare with Fastify integration
+curl http://localhost:3000/api/users  # Same handler, Fastify mode
+curl http://localhost:8080           # Same handler, Functions mode
 ```
 
 ### Middleware Pipeline
@@ -667,4 +827,4 @@ Found an issue or want to improve this example?
 
 ---
 
-**Ready to build production APIs?** 🚀 This example provides a solid foundation for building scalable, secure, and maintainable serverless APIs with the Noony framework!
+**Ready to build production APIs?** 🚀 This example provides a solid foundation for building scalable, secure, and maintainable serverless APIs with the Noony framework 

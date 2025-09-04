@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+
 /**
  * Fastify Production Server - Dual-Mode Development Setup
  *
@@ -136,7 +138,7 @@ export function createFastifyServer(): FastifyInstance {
       send: (data: unknown): void => {
         reply.send(data);
       },
-      statusCode: undefined,
+      statusCode: 200,
     };
 
     try {
@@ -148,7 +150,7 @@ export function createFastifyServer(): FastifyInstance {
       }
     } catch (error) {
       // This should be caught by ErrorHandlerMiddleware, but just in case
-      fastify.log.error('Unhandled error in handler:', error);
+      fastify.log.error(`Unhandled error in handler: ${error}`);
       if (!reply.sent) {
         reply.status(500).send({
           success: false,
@@ -323,13 +325,7 @@ export function createFastifyServer(): FastifyInstance {
    * Catches any errors not handled by individual routes
    */
   fastify.setErrorHandler(async (error, request, reply) => {
-    fastify.log.error(`💥 Unhandled server error:`, {
-      error: error.message,
-      stack: error.stack,
-      url: request.url,
-      method: request.method,
-      headers: request.headers,
-    });
+    fastify.log.error(`💥 Unhandled server error: ${error.message} - URL: ${request.url} - Method: ${request.method}`);
 
     const isDevelopment = config.environment === 'development';
 
@@ -433,7 +429,7 @@ export async function startServer(
 
     return server;
   } catch (err) {
-    server.log.error('Failed to start server:', err);
+    server.log.error(`Failed to start server: ${err}`);
     process.exit(1);
   }
 }
