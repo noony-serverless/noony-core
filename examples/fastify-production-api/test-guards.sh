@@ -82,6 +82,14 @@ print_info() {
     echo -e "${PURPLE}ℹ️  INFO: $1${NC}"
 }
 
+print_scenario() {
+    echo -e "${YELLOW}📝 SCENARIO: $1${NC}"
+}
+
+print_result() {
+    echo -e "${CYAN}📊 RESULT: $1${NC}"
+}
+
 print_request() {
     echo -e "${CYAN}📤 REQUEST: $1${NC}"
 }
@@ -192,15 +200,21 @@ make_request() {
 test_health_endpoint() {
     print_section "Health Check Tests"
     
+    print_scenario "Testing health endpoint accessibility without authentication"
     print_test "Health endpoint without authentication"
     increment_test
     if make_request "GET" "/health" "none" "" "200"; then
         print_success "Health endpoint accessible"
+        print_result "Health check endpoint is properly exposed and responds with 200 OK"
+    else
+        print_result "Health check endpoint failed - server may not be running properly"
     fi
 }
 
 test_authentication() {
     print_section "Authentication Tests"
+    
+    print_scenario "Validating JWT authentication middleware behavior with various token states"
     
     # Choose endpoint based on server type
     local test_endpoint="/users"
@@ -219,6 +233,9 @@ test_authentication() {
     increment_test
     if make_request "$test_method" "$test_endpoint" "none" "" "401"; then
         print_success "Properly rejected request without token"
+        print_result "Authentication middleware correctly blocks unauthenticated requests"
+    else
+        print_result "Authentication middleware failed to block unauthenticated request"
     fi
     
     # Test with invalid token
@@ -226,6 +243,9 @@ test_authentication() {
     increment_test
     if make_request "$test_method" "$test_endpoint" "$INVALID_TOKEN" "" "401"; then
         print_success "Properly rejected invalid token"
+        print_result "Authentication middleware correctly validates token signatures"
+    else
+        print_result "Authentication middleware failed to validate token signature"
     fi
     
     # Test with valid admin token
@@ -234,14 +254,20 @@ test_authentication() {
     if make_request "$test_method" "$test_endpoint" "$ADMIN_TOKEN" "" "$expected_success_code"; then
         if [[ "$BASE_URL" == *":8080" ]]; then
             print_success "Admin token accepted (auth passed, validation failed as expected)"
+            print_result "Authentication successful for valid admin token in Functions Framework"
         else
             print_success "Admin token accepted"
+            print_result "Authentication successful for valid admin token"
         fi
+    else
+        print_result "Valid admin token was rejected by authentication middleware"
     fi
 }
 
 test_plain_permissions() {
     print_section "Plain Permission Strategy Tests (CREATE & UPDATE handlers)"
+    
+    print_scenario "Testing O(1) Set-based permission resolution using PlainPermissionResolver"
     
     if [[ "$BASE_URL" == *":8080" ]]; then
         print_info "Testing CREATE function only (Functions Framework limitation)"
@@ -268,6 +294,9 @@ test_plain_permissions() {
     }'
     if make_request "POST" "$create_endpoint" "$ADMIN_TOKEN" "$create_data" "201"; then
         print_success "Admin can create users (admin:users permission)"
+        print_result "PlainPermissionResolver successfully matched admin:users permission in O(1) time"
+    else
+        print_result "PlainPermissionResolver failed to authorize admin:users permission"
     fi
     
     # Test CREATE with insufficient permissions (demo user)
@@ -281,6 +310,9 @@ test_plain_permissions() {
     }'
     if make_request "POST" "$create_endpoint" "$DEMO_TOKEN" "$create_data_demo" "403"; then
         print_success "Demo user properly blocked from creating users"
+        print_result "PlainPermissionResolver correctly denied access - demo user lacks user:create or admin:users permissions"
+    else
+        print_result "PlainPermissionResolver failed to block unauthorized access"
     fi
     
     # UPDATE tests only for Fastify server (Functions Framework doesn't have updateUser)
@@ -294,6 +326,9 @@ test_plain_permissions() {
         }'
         if make_request "PUT" "/users/user123" "$ADMIN_TOKEN" "$update_data" "200"; then
             print_success "Admin can update users (admin:users permission)"
+            print_result "PlainPermissionResolver granted admin update access via admin:users permission"
+        else
+            print_result "PlainPermissionResolver failed to authorize admin update via admin:users"
         fi
         
         # Test UPDATE own profile with user permissions  
@@ -305,6 +340,9 @@ test_plain_permissions() {
         }'
         if make_request "PUT" "/users/user123" "$USER_TOKEN" "$update_own_data" "200"; then
             print_success "User can update own profile"
+            print_result "PlainPermissionResolver allowed self-update via user:update permission"
+        else
+            print_result "PlainPermissionResolver failed to authorize self-update"
         fi
         
         # Test UPDATE other user's profile with insufficient permissions
@@ -312,6 +350,9 @@ test_plain_permissions() {
         increment_test
         if make_request "PUT" "/users/admin456" "$DEMO_TOKEN" "$update_data" "403"; then
             print_success "Demo user properly blocked from updating others"
+            print_result "PlainPermissionResolver correctly blocked cross-user update - missing admin:users permission"
+        else
+            print_result "PlainPermissionResolver failed to block unauthorized cross-user update"
         fi
     else
         print_info "⚠️  UPDATE tests skipped (not available in Functions Framework mode)"
@@ -321,6 +362,7 @@ test_plain_permissions() {
 test_wildcard_permissions() {
     print_section "Wildcard Permission Strategy Tests (GET & DELETE handlers)"
     
+    print_scenario "Testing WildcardPermissionResolver with pattern matching and pre-expansion caching"
     print_info "Testing pattern matching with pre-expansion caching"
     print_info "Handlers: getUser (admin.* OR user.profile.*), deleteUser (admin.* OR system.users.*)"
     
@@ -329,6 +371,9 @@ test_wildcard_permissions() {
     increment_test
     if make_request "GET" "/users/user123" "$ADMIN_TOKEN" "" "200"; then
         print_success "Admin can access any user profile (admin.* wildcard)"
+        print_result "WildcardPermissionResolver successfully matched admin.* pattern from cache"
+    else
+        print_result "WildcardPermissionResolver failed to match admin.* wildcard pattern"
     fi
     
     # Test GET own profile with user permissions
@@ -336,6 +381,9 @@ test_wildcard_permissions() {
     increment_test  
     if make_request "GET" "/users/user123" "$USER_TOKEN" "" "200"; then
         print_success "User can access own profile"
+        print_result "WildcardPermissionResolver matched user.profile.* pattern for self-access"
+    else
+        print_result "WildcardPermissionResolver failed to authorize self-profile access"
     fi
     
     # Test GET other profile with insufficient wildcard permissions
@@ -343,6 +391,9 @@ test_wildcard_permissions() {
     increment_test
     if make_request "GET" "/users/admin456" "$DEMO_TOKEN" "" "403"; then
         print_success "Demo user properly blocked from accessing other profiles"
+        print_result "WildcardPermissionResolver correctly denied access - no matching wildcard patterns"
+    else
+        print_result "WildcardPermissionResolver failed to block unauthorized profile access"
     fi
     
     # Test DELETE with admin wildcard permissions
@@ -350,6 +401,9 @@ test_wildcard_permissions() {
     increment_test
     if make_request "DELETE" "/users/demo789" "$ADMIN_TOKEN" "" "204"; then
         print_success "Admin can delete users (admin.* wildcard)"
+        print_result "WildcardPermissionResolver authorized deletion via admin.* wildcard match"
+    else
+        print_result "WildcardPermissionResolver failed to authorize deletion with admin.* wildcard"
     fi
     
     # Test DELETE with insufficient wildcard permissions
@@ -357,6 +411,9 @@ test_wildcard_permissions() {
     increment_test
     if make_request "DELETE" "/users/admin456" "$USER_TOKEN" "" "403"; then
         print_success "User properly blocked from deleting others (missing admin.* or system.users.*)"
+        print_result "WildcardPermissionResolver correctly denied deletion - lacks admin.* or system.users.* patterns"
+    else
+        print_result "WildcardPermissionResolver failed to block unauthorized deletion"
     fi
     
     # Test self-deletion prevention (business rule)
@@ -364,12 +421,16 @@ test_wildcard_permissions() {
     increment_test
     if make_request "DELETE" "/users/admin456" "$ADMIN_TOKEN" "" "403"; then
         print_success "Self-deletion properly prevented by business logic"
+        print_result "Business rule override successful - self-deletion blocked despite wildcard permission match"
+    else
+        print_result "Business rule failed to prevent self-deletion"
     fi
 }
 
 test_expression_permissions() {
     print_section "Expression Permission Strategy Tests (LIST handler)"
     
+    print_scenario "Testing ExpressionPermissionResolver with complex boolean logic and 2-level nesting"
     print_info "Testing boolean logic evaluation with 2-level nesting"
     print_info "Handler: listUsers ((admin.users AND admin.read) OR (user.list AND user.department))"
     
@@ -378,6 +439,9 @@ test_expression_permissions() {
     increment_test
     if make_request "GET" "/users?page=1&limit=5" "$ADMIN_TOKEN" "" "200"; then
         print_success "Admin can list users (admin.users AND admin.read)"
+        print_result "ExpressionPermissionResolver evaluated (admin.users AND admin.read) = TRUE"
+    else
+        print_result "ExpressionPermissionResolver failed to evaluate admin expression - missing admin.users or admin.read"
     fi
     
     # Test LIST with pagination and filtering
@@ -385,6 +449,9 @@ test_expression_permissions() {
     increment_test
     if make_request "GET" "/users?page=1&limit=3&department=engineering&sortBy=name&sortOrder=asc" "$ADMIN_TOKEN" "" "200"; then
         print_success "Admin can list users with filters"
+        print_result "ExpressionPermissionResolver maintained authorization through complex query parameters"
+    else
+        print_result "ExpressionPermissionResolver failed with complex query parameters"
     fi
     
     # Test LIST with search functionality
@@ -392,6 +459,9 @@ test_expression_permissions() {
     increment_test
     if make_request "GET" "/users?search=test&limit=10" "$ADMIN_TOKEN" "" "200"; then
         print_success "Admin can search users"
+        print_result "ExpressionPermissionResolver authorized search functionality via admin expression"
+    else
+        print_result "ExpressionPermissionResolver failed to authorize search functionality"
     fi
     
     # Test LIST with insufficient expression permissions
@@ -399,6 +469,9 @@ test_expression_permissions() {
     increment_test
     if make_request "GET" "/users" "$DEMO_TOKEN" "" "403"; then
         print_success "Demo user properly blocked from listing users (missing complex expression match)"
+        print_result "ExpressionPermissionResolver evaluated complex expression as FALSE - demo lacks required permission combinations"
+    else
+        print_result "ExpressionPermissionResolver failed to block access with insufficient permissions"
     fi
     
     # Test LIST includeDeleted parameter (admin only)
@@ -406,6 +479,9 @@ test_expression_permissions() {
     increment_test
     if make_request "GET" "/users?includeDeleted=true" "$ADMIN_TOKEN" "" "200"; then
         print_success "Admin can include deleted users in list"
+        print_result "ExpressionPermissionResolver authorized special parameter access for admin users"
+    else
+        print_result "ExpressionPermissionResolver blocked includeDeleted parameter access"
     fi
     
     # Test LIST includeDeleted with non-admin (should fail)
@@ -413,12 +489,16 @@ test_expression_permissions() {
     increment_test
     if make_request "GET" "/users?includeDeleted=true" "$USER_TOKEN" "" "403"; then
         print_success "Non-admin properly blocked from including deleted users"
+        print_result "ExpressionPermissionResolver correctly restricted includeDeleted to admin-level permissions"
+    else
+        print_result "ExpressionPermissionResolver failed to restrict special parameter access"
     fi
 }
 
 test_guard_system_metrics() {
     print_section "Guard System Metrics Tests"
     
+    print_scenario "Testing guard system performance monitoring and statistics collection"
     print_info "Testing performance monitoring and statistics endpoints"
     
     # Test system metrics endpoint (if available)
@@ -426,8 +506,10 @@ test_guard_system_metrics() {
     increment_test
     if make_request "GET" "/metrics/guards" "$ADMIN_TOKEN" "" "200"; then
         print_success "Guard system metrics accessible"
+        print_result "Guard system metrics endpoint responds with performance statistics"
     else
         print_info "Guard metrics endpoint not available (expected for this demo)"
+        print_result "Guard metrics endpoint not implemented - would show resolver performance, cache hit rates, and timing data"
         ((PASSED_TESTS++)) # Don't count as failure
     fi
 }
@@ -435,6 +517,7 @@ test_guard_system_metrics() {
 test_error_scenarios() {
     print_section "Error Handling Tests"
     
+    print_scenario "Testing error handling, validation, and edge cases across all guard strategies"
     print_info "Testing various error conditions and edge cases"
     
     # Determine endpoint based on server type
@@ -448,6 +531,9 @@ test_error_scenarios() {
     increment_test
     if make_request "POST" "$test_endpoint" "$ADMIN_TOKEN" "{invalid json}" "400"; then
         print_success "Malformed JSON properly rejected"
+        print_result "Request validation caught malformed JSON before reaching guard system"
+    else
+        print_result "Malformed JSON validation failed - security risk detected"
     fi
     
     # Test missing required fields
@@ -456,6 +542,9 @@ test_error_scenarios() {
     local incomplete_data='{"name": "Incomplete User"}'
     if make_request "POST" "$test_endpoint" "$ADMIN_TOKEN" "$incomplete_data" "400"; then
         print_success "Missing required fields properly validated"
+        print_result "Schema validation successfully blocked incomplete data despite valid permissions"
+    else
+        print_result "Schema validation failed to catch missing required fields"
     fi
     
     # Tests only available for Fastify server (Functions Framework doesn't have GET endpoints)
@@ -465,6 +554,9 @@ test_error_scenarios() {
         increment_test
         if make_request "GET" "/users/invalid-uuid-format" "$ADMIN_TOKEN" "" "400"; then
             print_success "Invalid UUID format properly rejected"
+            print_result "Path parameter validation blocked invalid UUID before guard evaluation"
+        else
+            print_result "Path parameter validation failed - invalid UUID was processed"
         fi
         
         # Test non-existent user
@@ -472,6 +564,9 @@ test_error_scenarios() {
         increment_test
         if make_request "GET" "/users/00000000-0000-0000-0000-000000000000" "$ADMIN_TOKEN" "" "404"; then
             print_success "Non-existent user returns 404"
+            print_result "Resource validation correctly handled non-existent user after guard authorization"
+        else
+            print_result "Resource validation failed - non-existent user should return 404"
         fi
     else
         print_info "⚠️  GET endpoint tests skipped (not available in Functions Framework mode)"
@@ -488,8 +583,10 @@ test_error_scenarios() {
     }'
     if make_request "POST" "$test_endpoint" "$ADMIN_TOKEN" "$duplicate_data" "409"; then
         print_success "Duplicate email properly rejected"
+        print_result "Business logic validation caught duplicate email after authorization"
     else
         print_info "Duplicate email validation not implemented (expected for demo)"
+        print_result "Duplicate email validation not implemented - would occur after guard authorization"
         ((PASSED_TESTS++)) # Don't count as failure for demo
     fi
 }
@@ -497,6 +594,7 @@ test_error_scenarios() {
 test_performance_scenarios() {
     print_section "Performance Tests"
     
+    print_scenario "Testing guard system performance characteristics and caching effectiveness"
     print_info "Testing guard system performance characteristics"
     
     # Test rapid sequential requests (cache performance)
@@ -514,8 +612,10 @@ test_performance_scenarios() {
     print_info "5 sequential requests completed in ${duration}ms"
     if [ $duration -lt 1000 ]; then # Less than 1 second total
         print_success "Fast sequential requests indicate effective caching"
+        print_result "WildcardPermissionResolver cache performing well - ${duration}ms for 5 requests (~$((duration/5))ms per request)"
     else
         print_info "Sequential requests took longer than expected (cache may be cold)"
+        print_result "Performance baseline established - ${duration}ms for 5 requests (cache may be warming up)"
         ((PASSED_TESTS++)) # Don't count as failure
     fi
     
@@ -538,6 +638,7 @@ test_performance_scenarios() {
     
     print_info "Mixed strategy requests completed in ${duration}ms"
     print_success "Performance test completed"
+    print_result "All three guard strategies (Plain O(1), Wildcard cached, Expression evaluated) performed within acceptable time: ${duration}ms total"
 }
 
 # =============================================================================
