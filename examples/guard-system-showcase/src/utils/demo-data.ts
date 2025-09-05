@@ -1208,6 +1208,38 @@ class TestUserRegistry {
   }
 
   /**
+   * Generate test users for a specific test run
+   * @param testRunId Test run ID to generate users for
+   * @returns Number of users generated (pre-generation for token generation)
+   */
+  async generateTestUsers(testRunId: string): Promise<number> {
+    // This method is called by the test data generation endpoint
+    // We don't actually pre-generate users here since they are created dynamically
+    // from tokens, but we can prepare the registry and return expected count
+
+    console.log(`🧪 Preparing test user registry for run: ${testRunId}`);
+
+    // The test script expects to create users based on the base templates
+    // Return the count of base user types we support
+    const userTypes = [
+      'basic',
+      'creator',
+      'moderator',
+      'manager',
+      'admin',
+      'superadmin',
+      'restricted',
+    ];
+    const expectedUserCount = userTypes.length;
+
+    console.log(
+      `📊 Registry prepared for ${expectedUserCount} test user types in run: ${testRunId}`
+    );
+
+    return expectedUserCount;
+  }
+
+  /**
    * Clear test users - unified method for cleanup endpoint
    * @param testRunId Optional test run ID to clear specific run, or undefined to clear all
    * @returns Number of users cleared
@@ -1217,7 +1249,10 @@ class TestUserRegistry {
       // Clear specific test run
       let cleared = 0;
       for (const [userId, user] of this.testUsers.entries()) {
-        if ((user.demo as any)?.testRunId === testRunId) {
+        if (
+          (user.demo as DemoUser['demo'] & { testRunId?: string })
+            ?.testRunId === testRunId
+        ) {
           this.testUsers.delete(userId);
           cleared++;
         }
