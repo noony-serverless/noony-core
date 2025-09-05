@@ -78,26 +78,14 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 SKIPPED_TESTS=0
 
-# Demo user tokens (generated with valid JWT signatures)
-# Generated at: 2025-09-04T15:16:04.730Z using demo-secret-key-for-development
+# Array to track failed tests
+declare -a FAILED_TEST_DETAILS
+
+# Generate unique test run ID for isolated testing
+TEST_RUN_ID="test_$(date +%s)_$(openssl rand -hex 4 2>/dev/null || echo "$(( RANDOM % 9999 ))")"
 USER_TYPES_LIST="basic creator moderator manager admin superadmin restricted"
 
-TOKEN_basic="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWJhc2ljLTAwMSIsImlzcyI6Imd1YXJkLXN5c3RlbS1zaG93Y2FzZSIsImF1ZCI6ImRlbW8tdXNlcnMiLCJleHAiOjE3NTcwODUzNjQsImlhdCI6MTc1Njk5ODk2NCwibmFtZSI6IkpvaG4gVXNlciIsImVtYWlsIjoiam9obi51c2VyQGV4YW1wbGUuY29tIiwicm9sZXMiOlsidXNlciJdLCJwZXJtaXNzaW9ucyI6WyJ1c2VyOnByb2ZpbGU6cmVhZCIsInVzZXI6cHJvZmlsZTp1cGRhdGUiLCJjb250ZW50OmNyZWF0ZSJdLCJ0eXBlIjoiYWNjZXNzIn0.7ZVta3on3tssP_RyrJ2kf_tl65jY8u2CmbtrEKfywwo"
-TOKEN_creator="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWNyZWF0b3ItMDAxIiwiaXNzIjoiZ3VhcmQtc3lzdGVtLXNob3djYXNlIiwiYXVkIjoiZGVtby11c2VycyIsImV4cCI6MTc1NzA4NTM2NCwiaWF0IjoxNzU2OTk4OTY0LCJuYW1lIjoiU2FyYWggQ3JlYXRvciIsImVtYWlsIjoic2FyYWguY3JlYXRvckBleGFtcGxlLmNvbSIsInJvbGVzIjpbImNyZWF0b3IiXSwicGVybWlzc2lvbnMiOlsidXNlcjpwcm9maWxlOnJlYWQiLCJ1c2VyOnByb2ZpbGU6dXBkYXRlIiwiY29udGVudDpjcmVhdGUiLCJ1c2VyOnJlYWQiXSwidHlwZSI6ImFjY2VzcyJ9.Z5TKAA525KZ1H2-R1D_AK32x5gEANvP79Z-QTL_D55A"
-TOKEN_moderator="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLW1vZGVyYXRvci0wMDEiLCJpc3MiOiJndWFyZC1zeXN0ZW0tc2hvd2Nhc2UiLCJhdWQiOiJkZW1vLXVzZXJzIiwiZXhwIjoxNzU3MDg1MzY0LCJpYXQiOjE3NTY5OTg5NjQsIm5hbWUiOiJNaWtlIE1vZGVyYXRvciIsImVtYWlsIjoibWlrZS5tb2RlcmF0b3JAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJtb2RlcmF0b3IiXSwicGVybWlzc2lvbnMiOlsidXNlcjpwcm9maWxlOnJlYWQiLCJ1c2VyOnByb2ZpbGU6dXBkYXRlIiwidXNlcjpyZWFkIiwiY29udGVudDpjcmVhdGUiLCJjb250ZW50Om1vZGVyYXRlIiwidXNlcjp1cGRhdGUiXSwidHlwZSI6ImFjY2VzcyJ9.-Z0IJPYDp4VfQNsCFV0x1M6tOsLCAQP3mAw7eve6tSM"
-TOKEN_manager="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLW1hbmFnZXItMDAxIiwiaXNzIjoiZ3VhcmQtc3lzdGVtLXNob3djYXNlIiwiYXVkIjoiZGVtby11c2VycyIsImV4cCI6MTc1NzA4NTM2NCwiaWF0IjoxNzU2OTk4OTY0LCJuYW1lIjoiTGlzYSBNYW5hZ2VyIiwiZW1haWwiOiJsaXNhLm1hbmFnZXJAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJkZXB0LW1hbmFnZXIiXSwicGVybWlzc2lvbnMiOlsidXNlcjpwcm9maWxlOnJlYWQiLCJ1c2VyOnByb2ZpbGU6dXBkYXRlIiwidXNlcjpyZWFkIiwidXNlcjpjcmVhdGUiLCJ1c2VyOnVwZGF0ZSIsImRlcHQ6ZW5naW5lZXJpbmc6cmVhZCJdLCJ0eXBlIjoiYWNjZXNzIn0.KOvgEvw7C7CXiDwFQ9pvmoI_x0mHUuR7sXSS077RKRQ"
-TOKEN_admin="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWFkbWluLTAwMSIsImlzcyI6Imd1YXJkLXN5c3RlbS1zaG93Y2FzZSIsImF1ZCI6ImRlbW8tdXNlcnMiLCJleHAiOjE3NTcwODUzNjQsImlhdCI6MTc1Njk5ODk2NCwibmFtZSI6IkFsaWNlIEFkbWluaXN0cmF0b3IiLCJlbWFpbCI6ImFsaWNlLmFkbWluQGV4YW1wbGUuY29tIiwicm9sZXMiOlsiYWRtaW4iXSwicGVybWlzc2lvbnMiOlsiYWRtaW46dXNlcnMiLCJhZG1pbjpzeXN0ZW0iLCJzeXN0ZW06bW9uaXRvciIsInN5c3RlbTpiYWNrdXAiLCJkZXB0OmVuZ2luZWVyaW5nOnJlYWQiLCJkZXB0OmhyOnJlYWQiLCJkZXB0OmZpbmFuY2U6cmVhZCIsImNvbnRlbnQ6bW9kZXJhdGUiXSwidHlwZSI6ImFjY2VzcyJ9.Y3C7DkC8GLyrWSeg6bY9nWxAQQd3h9NY_1Y6-EzYDZg"
-TOKEN_superadmin="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLXN1cGVyYWRtaW4tMDAxIiwiaXNzIjoiZ3VhcmQtc3lzdGVtLXNob3djYXNlIiwiYXVkIjoiZGVtby11c2VycyIsImV4cCI6MTc1NzA4NTM2NCwiaWF0IjoxNzU2OTk4OTY0LCJuYW1lIjoiQm9iIFN1cGVyQWRtaW4iLCJlbWFpbCI6ImJvYi5zdXBlcmFkbWluQGV4YW1wbGUuY29tIiwicm9sZXMiOlsic3VwZXJhZG1pbiJdLCJwZXJtaXNzaW9ucyI6WyJhZG1pbjp1c2VycyIsImFkbWluOnN5c3RlbSIsImFkbWluOnNlY3VyaXR5Iiwic3lzdGVtOm1vbml0b3IiLCJzeXN0ZW06YmFja3VwIiwiZGVwdDplbmdpbmVlcmluZzpyZWFkIiwiZGVwdDpocjpyZWFkIiwiZGVwdDpmaW5hbmNlOnJlYWQiLCJjb250ZW50Om1vZGVyYXRlIiwidXNlcjpkZWxldGUiXSwidHlwZSI6ImFjY2VzcyJ9.w4L3oVKYqk9oeO9ZcIWu8NA1rUhudBdxFXkku0-coaQ"
-TOKEN_restricted="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLXJlc3RyaWN0ZWQtMDAxIiwiaXNzIjoiZ3VhcmQtc3lzdGVtLXNob3djYXNlIiwiYXVkIjoiZGVtby11c2VycyIsImV4cCI6MTc1NzA4NTM2NCwiaWF0IjoxNzU2OTk4OTY0LCJuYW1lIjoiQ2hhcmxpZSBSZXN0cmljdGVkIiwiZW1haWwiOiJjaGFybGllLnJlc3RyaWN0ZWRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJyZXN0cmljdGVkIl0sInBlcm1pc3Npb25zIjpbInVzZXI6cHJvZmlsZTpyZWFkIl0sInR5cGUiOiJhY2Nlc3MifQ.InBf1K36zdd88k1iE5fD18Ra0ls3YI_8-Q4sM5gK0f4"
-
-# Demo user information
-INFO_basic="user-basic-001:john.user@example.com:John User"
-INFO_creator="user-creator-001:sarah.creator@example.com:Sarah Creator"
-INFO_moderator="user-moderator-001:mike.moderator@example.com:Mike Moderator"
-INFO_manager="user-manager-001:lisa.manager@example.com:Lisa Manager"
-INFO_admin="user-admin-001:alice.admin@example.com:Alice Administrator"
-INFO_superadmin="user-superadmin-001:bob.superadmin@example.com:Bob SuperAdmin"
-INFO_restricted="user-restricted-001:charlie.restricted@example.com:Charlie Restricted"
+# User information will be generated dynamically from tokens
 
 # =============================================================================
 # UTILITY FUNCTIONS
@@ -224,6 +212,8 @@ make_request() {
     if [[ "$status_code" -ne "$expected_status" ]]; then
         test_result="FAIL"
         FAILED_TESTS=$((FAILED_TESTS + 1))
+        # Store failed test details
+        FAILED_TEST_DETAILS+=("$description|$status_code|$expected_status|${duration}|${response_size}|$body")
     else
         PASSED_TESTS=$((PASSED_TESTS + 1))
     fi
@@ -264,6 +254,105 @@ EOF
     fi
     
     return 0
+}
+
+# Function to generate test data for category isolation
+generate_test_data() {
+  local test_run_id=$1
+  
+  if [[ "$JSON_OUTPUT" == "false" ]]; then
+    print_info "🧬 Generating test data for run ID: $test_run_id"
+  fi
+  
+  local generate_data="{\"testRunId\":\"$test_run_id\"}"
+  local generate_response
+  
+  generate_response=$(curl -s -X POST "${SERVER_URL}/api/test/generate-data" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d "$generate_data" \
+    --max-time 10 2>/dev/null) || {
+    print_error "Failed to generate test data. Server may be down or endpoint missing."
+    exit 1
+  }
+  
+  local created_users
+  created_users=$(echo "$generate_response" | grep -o '"createdUsers":[0-9]*' | grep -o '[0-9]*$' 2>/dev/null || echo "0")
+  
+  if [[ "$created_users" -eq 0 ]]; then
+    print_warning "No test users were generated by the server. Response: $generate_response"
+  elif [[ "$JSON_OUTPUT" == "false" ]]; then
+    print_success "✅ Generated $created_users test users for run ID: $test_run_id"
+  fi
+}
+
+# =============================================================================
+# TOKEN GENERATION
+# =============================================================================
+
+# Generate unique tokens for this test run
+generate_test_tokens() {
+  local test_run_id=$1
+  
+  if [[ "$JSON_OUTPUT" == "false" ]]; then
+    print_info "Generating unique test tokens (Run ID: $test_run_id)..."
+  fi
+  
+  if ! command -v node >/dev/null 2>&1; then
+    print_error "Node.js not found. Please install Node.js to generate test tokens."
+    exit 1
+  fi
+
+  # Generate tokens using the token generator
+  TEMP_TOKENS_FILE=$(mktemp)
+  trap "rm -f $TEMP_TOKENS_FILE" EXIT
+
+  if ! node generate-test-tokens.js --test-run-id "$test_run_id" > "$TEMP_TOKENS_FILE" 2>/dev/null; then
+    print_error "Failed to generate test tokens. Check that generate-test-tokens.js exists."
+    exit 1
+  fi
+
+  # Source the generated tokens
+  source "$TEMP_TOKENS_FILE"
+}
+
+# Function to clear suspicious IPs if available
+clear_suspicious_ips() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -s -X POST "${SERVER_URL}/api/security/clear-suspicious-ips" \
+      -H "Content-Type: application/json" \
+      >/dev/null 2>&1 || true
+  fi
+}
+
+# Function to cleanup test data for category isolation
+cleanup_test_data() {
+  local test_run_id=$1
+  local category_name=$2
+  
+  if [[ "$JSON_OUTPUT" == "false" ]]; then
+    print_info "🧹 Cleaning up test data for category: $category_name (Run ID: $test_run_id)"
+  fi
+  
+  local cleanup_data="{\"testRunId\":\"$test_run_id\",\"force\":false}"
+  local cleanup_response
+  
+  cleanup_response=$(curl -s -X POST "${SERVER_URL}/api/test/cleanup" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d "$cleanup_data" \
+    --max-time 10 2>/dev/null) || {
+    print_warning "Failed to cleanup test data - continuing anyway"
+    return 0
+  }
+  
+  # Parse the response to get cleanup details
+  local cleared_users
+  cleared_users=$(echo "$cleanup_response" | grep -o '"clearedUsers":[0-9]*' | grep -o '[0-9]*$' 2>/dev/null || echo "0")
+  
+  if [[ "$JSON_OUTPUT" == "false" ]] && [[ -n "$cleared_users" ]]; then
+    print_success "✅ Cleaned up $cleared_users test users from category: $category_name"
+  fi
 }
 
 # =============================================================================
@@ -474,22 +563,24 @@ test_security() {
 # MAIN EXECUTION FUNCTIONS
 # =============================================================================
 
-# Run all tests
-run_all_tests() {
-    if [[ "$JSON_OUTPUT" == "true" ]]; then
-        echo "{"
-        echo "  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")\","
-        echo "  \"server_url\": \"$SERVER_URL\","
-        echo "  \"test_configuration\": {"
-        echo "    \"category\": \"$CATEGORY\","
-        echo "    \"user_type\": \"$USER_TYPE\","
-        echo "    \"timeout\": $TIMEOUT"
-        echo "  },"
-        echo "  \"results\": ["
+# Run a single test category with isolated data lifecycle
+run_category_isolated() {
+    local category=$1
+    local category_name=$2
+    local test_run_id
+    
+    # Generate unique test run ID for this category
+    test_run_id="test_${category}_$(date +%s)_$(openssl rand -hex 4 2>/dev/null || echo "$(( RANDOM % 9999 ))")"
+    
+    if [[ "$JSON_OUTPUT" == "false" ]]; then
+        print_info "🔄 Starting isolated test category: $category_name (Run ID: $test_run_id)"
     fi
     
-    # Run tests based on category
-    case "$CATEGORY" in
+    # Step 1: Generate test data (tokens) for this category
+    generate_test_data "$test_run_id"
+    
+    # Step 2: Run the category tests
+    case "$category" in
         "health")
             test_health
             ;;
@@ -505,26 +596,85 @@ run_all_tests() {
         "security")
             test_security
             ;;
+        *)
+            print_error "Unknown category: $category"
+            return 1
+            ;;
+    esac
+    
+    # Step 3: Cleanup test data for this category
+    cleanup_test_data "$test_run_id" "$category_name"
+    
+    if [[ "$JSON_OUTPUT" == "false" ]]; then
+        print_success "✅ Completed isolated test category: $category_name"
+        echo
+    fi
+}
+
+# Run all tests with category-level isolation
+run_all_tests_isolated() {
+    local categories_to_run=()
+    
+    if [[ "$JSON_OUTPUT" == "true" ]]; then
+        echo "{"
+        echo "  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")\","
+        echo "  \"server_url\": \"$SERVER_URL\","
+        echo "  \"test_configuration\": {"
+        echo "    \"category\": \"$CATEGORY\","
+        echo "    \"user_type\": \"$USER_TYPE\","
+        echo "    \"timeout\": $TIMEOUT,"
+        echo "    \"isolation_mode\": true"
+        echo "  },"
+        echo "  \"results\": ["
+    fi
+    
+    # Determine which categories to run
+    case "$CATEGORY" in
+        "health"|"auth"|"permissions"|"admin"|"security")
+            categories_to_run=("$CATEGORY")
+            ;;
         "all")
-            test_health
-            echo "⏳ Waiting 3 seconds to prevent rate limiting..."
-            sleep 3
-            test_authentication
-            echo "⏳ Waiting 5 seconds to prevent rate limiting..."
-            sleep 5
-            test_permissions
-            echo "⏳ Waiting 3 seconds to prevent rate limiting..."
-            sleep 3
-            test_admin
-            echo "⏳ Waiting 3 seconds to prevent rate limiting..."
-            sleep 3
-            test_security
+            categories_to_run=("health" "auth" "permissions" "admin" "security")
             ;;
         *)
             print_error "Unknown category: $CATEGORY"
             exit 1
             ;;
     esac
+    
+    # Run each category in isolation
+    local category_count=${#categories_to_run[@]}
+    local current_count=0
+    
+    for category in "${categories_to_run[@]}"; do
+        current_count=$((current_count + 1))
+        
+        case "$category" in
+            "health")
+                run_category_isolated "$category" "Health Check"
+                ;;
+            "auth")
+                run_category_isolated "$category" "Authentication"
+                ;;
+            "permissions")
+                run_category_isolated "$category" "Permission Resolvers"
+                ;;
+            "admin")
+                run_category_isolated "$category" "Administrative Endpoints"
+                ;;
+            "security")
+                run_category_isolated "$category" "Security Testing"
+                ;;
+        esac
+        
+        # Add delay between categories if running all (except after last category)
+        if [[ "$CATEGORY" == "all" ]] && [[ $current_count -lt $category_count ]]; then
+            if [[ "$JSON_OUTPUT" == "false" ]]; then
+                echo "⏳ Waiting 2 seconds between categories..."
+            fi
+            sleep 2
+        fi
+    done
     
     if [[ "$JSON_OUTPUT" == "true" ]]; then
         echo "    null"
@@ -534,7 +684,8 @@ run_all_tests() {
         echo "    \"passed\": $PASSED_TESTS,"
         echo "    \"failed\": $FAILED_TESTS,"
         echo "    \"skipped\": $SKIPPED_TESTS,"
-        echo "    \"success_rate\": \"$(( PASSED_TESTS * 100 / TOTAL_TESTS ))%\""
+        echo "    \"success_rate\": \"$(( PASSED_TESTS * 100 / TOTAL_TESTS ))%\","
+        echo "    \"isolation_mode\": true"
         echo "  }"
         echo "}"
     fi
@@ -569,6 +720,30 @@ print_summary() {
             else
                 print_error "❌ Many tests failed - check your setup"
             fi
+        fi
+        
+        # Display detailed error list if there are failures
+        if [[ $FAILED_TESTS -gt 0 ]]; then
+            echo
+            print_color "$PURPLE" "═══════════════════════════════════════════════════════════════════"
+            print_color "$WHITE" "🚨 FAILED TEST DETAILS"
+            print_color "$PURPLE" "═══════════════════════════════════════════════════════════════════"
+            echo
+            
+            local count=1
+            for failed_test in "${FAILED_TEST_DETAILS[@]}"; do
+                IFS='|' read -r desc status expected_status time size response <<< "$failed_test"
+                echo "${count}. ${desc} [FAIL]"
+                echo "   └─ Status: ${status} (expected: ${expected_status})"
+                echo "   └─ Time: ${time}ms"
+                echo "   └─ Size: ${size} bytes"
+                echo "   └─ Response: ${response}"
+                if [[ $count -lt $FAILED_TESTS ]]; then
+                    echo
+                fi
+                count=$((count + 1))
+            done
+            echo
         fi
         echo
     fi
@@ -700,11 +875,14 @@ if [[ "$JSON_OUTPUT" == "false" ]]; then
     echo
 fi
 
-# Check server connectivity
+# Check server connectivity  
 check_server
 
-# Run tests
-run_all_tests
+# Clear suspicious IPs for a fresh start
+clear_suspicious_ips
+
+# Run tests with category-level isolation
+run_all_tests_isolated
 
 # Print summary
 print_summary

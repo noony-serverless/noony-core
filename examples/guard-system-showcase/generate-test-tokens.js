@@ -75,20 +75,24 @@ const demoUsers = [
 ];
 
 /**
- * Generate JWT token for a user
+ * Generate JWT token for a user with optional test run ID for isolation
  */
-function generateToken(user) {
+function generateToken(user, testRunId = null) {
+  const userId = testRunId ? `${user.userId}-${testRunId}` : user.userId;
+  const email = testRunId ? user.email.replace('@', `+${testRunId}@`) : user.email;
+  
   const payload = {
-    sub: user.userId,
+    sub: userId,
     iss: JWT_ISSUER,
     aud: JWT_AUDIENCE,
     exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours from now
     iat: Math.floor(Date.now() / 1000),
     name: user.name,
-    email: user.email,
+    email: email,
     roles: user.roles,
     permissions: user.permissions,
-    type: 'access'
+    type: 'access',
+    testRunId: testRunId || 'default'
   };
 
   return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256' });
@@ -97,23 +101,26 @@ function generateToken(user) {
 /**
  * Generate all tokens and output in shell script format
  */
-function generateAllTokens() {
+function generateAllTokens(testRunId = null) {
   console.log('#!/bin/bash');
   console.log('# Generated JWT tokens for Guard System Showcase testing');
   console.log('# Generated at:', new Date().toISOString());
+  console.log('# Test Run ID:', testRunId || 'default');
   console.log('# JWT Secret:', JWT_SECRET);
   console.log('');
   
   // Generate tokens
   demoUsers.forEach(user => {
-    const token = generateToken(user);
+    const token = generateToken(user, testRunId);
     console.log(`TOKEN_${user.type}="${token}"`);
   });
   
   console.log('');
   console.log('# User information');
   demoUsers.forEach(user => {
-    console.log(`INFO_${user.type}="${user.userId}:${user.email}:${user.name}"`);
+    const userId = testRunId ? `${user.userId}-${testRunId}` : user.userId;
+    const email = testRunId ? user.email.replace('@', `+${testRunId}@`) : user.email;
+    console.log(`INFO_${user.type}="${userId}:${email}:${user.name}"`);
   });
 }
 
@@ -127,14 +134,16 @@ if (require.main === module) {
     console.log('Generate Test JWT Tokens');
     console.log('');
     console.log('Usage:');
-    console.log('  node generate-test-tokens.js            # Generate all tokens');
-    console.log('  node generate-test-tokens.js --user basic # Generate specific user token');
-    console.log('  node generate-test-tokens.js --verify TOKEN # Verify a token');
+    console.log('  node generate-test-tokens.js                        # Generate all tokens');
+    console.log('  node generate-test-tokens.js --user basic           # Generate specific user token');
+    console.log('  node generate-test-tokens.js --test-run-id test123  # Generate with test run ID');
+    console.log('  node generate-test-tokens.js --verify TOKEN         # Verify a token');
     console.log('');
     console.log('Options:');
-    console.log('  --user TYPE    Generate token for specific user type');
-    console.log('  --verify TOKEN Verify and decode a JWT token');
-    console.log('  --help, -h     Show this help message');
+    console.log('  --user TYPE        Generate token for specific user type');
+    console.log('  --test-run-id ID   Generate unique tokens for isolated testing');
+    console.log('  --verify TOKEN     Verify and decode a JWT token');
+    console.log('  --help, -h         Show this help message');
     return;
   }
   
@@ -158,6 +167,17 @@ if (require.main === module) {
     return;
   }
   
+  // Check for test run ID
+  let testRunId = null;
+  if (args.includes('--test-run-id')) {
+    const runIdIndex = args.indexOf('--test-run-id') + 1;
+    testRunId = args[runIdIndex];
+    if (!testRunId) {
+      console.error('Error: No test run ID provided');
+      process.exit(1);
+    }
+  }
+
   if (args.includes('--user')) {
     const userIndex = args.indexOf('--user') + 1;
     const userType = args[userIndex];
@@ -169,11 +189,11 @@ if (require.main === module) {
       process.exit(1);
     }
     
-    const token = generateToken(user);
+    const token = generateToken(user, testRunId);
     console.log(token);
     return;
   }
   
   // Default: generate all tokens
-  generateAllTokens();
+  generateAllTokens(testRunId);
 }

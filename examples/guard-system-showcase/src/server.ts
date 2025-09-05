@@ -42,7 +42,13 @@ app.get('/api/auth/user', authHandlers.getCurrentUser);
 app.get('/api/auth/permissions', authHandlers.getUserPermissions);
 app.post('/api/auth/refresh-context', authHandlers.refreshUserContext);
 app.get('/api/auth/stats', authHandlers.getAuthStats);
+
+// Test data generation and cleanup endpoints
+app.post('/api/test/generate-data', authHandlers.generateTestData);
+app.post('/api/test/cleanup', authHandlers.cleanupTestData);
+
 app.get('/api/security/incidents', authHandlers.getSecurityIncidents);
+app.post('/api/security/clear-suspicious-ips', authHandlers.clearSuspiciousIPs);
 
 // Demo permission resolver endpoints
 app.post('/api/demo/plain', demoPlainPermissions);

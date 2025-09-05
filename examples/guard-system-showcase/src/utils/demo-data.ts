@@ -1061,6 +1061,190 @@ export function generateSecurityTestScenarios(): SecurityTestScenario[] {
 }
 
 // ============================================================================
+// DYNAMIC TEST USER REGISTRATION
+// ============================================================================
+
+/**
+ * Dynamic user registry for test isolation
+ */
+class TestUserRegistry {
+  private testUsers = new Map<string, DemoUser>();
+  private baseUserTemplates = new Map<string, DemoUser>();
+
+  constructor() {
+    // Pre-populate base user templates from static demo users
+    this.initializeBaseTemplates();
+  }
+
+  /**
+   * Initialize base user templates from static demo users
+   */
+  private initializeBaseTemplates() {
+    const staticUsers = new DemoDataGenerator().getDemoUsers();
+    staticUsers.forEach(user => {
+      // Extract base user type from userId (e.g., "user-basic-001" -> "basic")
+      const userType = this.extractUserType(user.userId);
+      this.baseUserTemplates.set(userType, user);
+    });
+  }
+
+  /**
+   * Extract user type from user ID
+   */
+  private extractUserType(userId: string): 'basic' | 'admin' | 'moderator' | 'restricted' | 'superadmin' | 'manager' | 'creator' {
+    const match = userId.match(/^user-(\w+)-\d+/);
+    const extracted = match ? match[1] : 'basic';
+    
+    // Preserve specific user types to avoid losing permissions
+    switch (extracted) {
+      case 'admin': return 'admin';
+      case 'superadmin': return 'superadmin'; // Keep superadmin separate
+      case 'moderator': return 'moderator';  
+      case 'restricted': return 'restricted';
+      case 'manager': return 'manager'; // Keep manager separate
+      case 'creator': return 'creator'; // Keep creator separate
+      default: return 'basic';
+    }
+  }
+
+  /**
+   * Create or get a test user based on token data
+   */
+  createTestUser(tokenPayload: any): DemoUser | null {
+    // Only create test users in development mode
+    if (process.env.NODE_ENV !== 'development') {
+      return null;
+    }
+
+    const { sub: userId, testRunId, roles, permissions, name, email } = tokenPayload;
+
+    // Check if this is a test user (has test run ID and unique user ID)
+    if (!testRunId || !userId.includes('-' + testRunId)) {
+      return null;
+    }
+
+    // Return cached test user if already exists
+    if (this.testUsers.has(userId)) {
+      return this.testUsers.get(userId)!;
+    }
+
+    // Extract base user type from the user ID
+    const baseUserId = userId.replace('-' + testRunId, '');
+    const userType = this.extractUserType(baseUserId);
+    const baseTemplate = this.baseUserTemplates.get(userType);
+
+    if (!baseTemplate) {
+      console.warn(`No base template found for user type: ${userType}`);
+      return null;
+    }
+
+    // Create new test user using ONLY token data to preserve exact permissions
+    const testUser: DemoUser = {
+      ...baseTemplate,
+      userId: userId,
+      name: name || baseTemplate.name,
+      email: email || baseTemplate.email,
+      // Always use token data for roles and permissions to ensure accuracy
+      roles: roles || [],
+      permissions: permissions || [],
+      demo: {
+        ...baseTemplate.demo,
+        testRunId: testRunId,
+        type: userType,
+        scenario: `Test user for ${testRunId}`,
+        originalPermissions: permissions, // Store original for debugging
+      } as any
+    };
+
+    // Cache the test user
+    this.testUsers.set(userId, testUser);
+    console.log(`🧪 Created test user: ${userId} (type: ${userType}, runId: ${testRunId})`);
+
+    return testUser;
+  }
+
+  /**
+   * Get a test user by ID
+   */
+  getTestUser(userId: string): DemoUser | undefined {
+    return this.testUsers.get(userId);
+  }
+
+  /**
+   * Get debug information about test users registry
+   */
+  getDebugInfo(): { count: number; userIds: string[] } {
+    return {
+      count: this.testUsers.size,
+      userIds: Array.from(this.testUsers.keys())
+    };
+  }
+
+  /**
+   * Clear test users for a specific test run
+   */
+  clearTestRun(testRunId: string) {
+    let cleared = 0;
+    for (const [userId, user] of this.testUsers.entries()) {
+      if ((user.demo as any)?.testRunId === testRunId) {
+        this.testUsers.delete(userId);
+        cleared++;
+      }
+    }
+    if (cleared > 0) {
+      console.log(`🧹 Cleared ${cleared} test users for run: ${testRunId}`);
+    }
+  }
+
+  /**
+   * Clear all test users
+   */
+  clearAllTestUsers() {
+    const count = this.testUsers.size;
+    this.testUsers.clear();
+    if (count > 0) {
+      console.log(`🧹 Cleared all ${count} test users`);
+    }
+  }
+
+  /**
+   * Clear test users - unified method for cleanup endpoint
+   * @param testRunId Optional test run ID to clear specific run, or undefined to clear all
+   * @returns Number of users cleared
+   */
+  async clearTestUsers(testRunId?: string): Promise<number> {
+    if (testRunId) {
+      // Clear specific test run
+      let cleared = 0;
+      for (const [userId, user] of this.testUsers.entries()) {
+        if ((user.demo as any)?.testRunId === testRunId) {
+          this.testUsers.delete(userId);
+          cleared++;
+        }
+      }
+      if (cleared > 0) {
+        console.log(`🧹 Cleared ${cleared} test users for run: ${testRunId}`);
+      }
+      return cleared;
+    } else {
+      // Clear all test users
+      const count = this.testUsers.size;
+      this.testUsers.clear();
+      if (count > 0) {
+        console.log(`🧹 Cleared all ${count} test users`);
+      }
+      return count;
+    }
+  }
+}
+
+// Global test user registry
+export const testUserRegistry = new TestUserRegistry();
+
+// Export the TestUserRegistry class for direct access
+export { TestUserRegistry };
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 

@@ -20,6 +20,7 @@
 import { UserContext, UserStatus } from '@/types/auth.types';
 import { PermissionResolverType } from '@noony-serverless/core';
 import { config } from '@/config/environment.config';
+import { testUserRegistry } from '@/utils/demo-data';
 
 /**
  * User context cache entry with metadata
@@ -188,7 +189,7 @@ export class UserContextManager {
         this.accessLocks.delete(cacheKey);
       }
     } catch (error) {
-      console.error(`❌ Failed to load user context for ${userId}:`, error);
+      console.error(`❌ Failed to load user context for ${userId}:`);
       throw error;
     }
   }
@@ -323,7 +324,40 @@ export class UserContextManager {
     // In a real implementation, this would query your user database
     // For the showcase, we'll use the demo data
     const { getDemoUser } = await import('@/utils/demo-data');
-    const demoUser = getDemoUser(userId);
+    let demoUser = getDemoUser(userId);
+
+    // If user not found, check if it's a test user that needs to be retrieved
+    if (!demoUser && userId.includes('-')) {
+      try {
+        console.log(`🔍 Checking for test user: ${userId}`);
+
+        const debugInfo = testUserRegistry.getDebugInfo();
+        console.log(
+          `📋 Test registry has ${debugInfo.count} users:`,
+          debugInfo.userIds.slice(0, 5).join(', ')
+        );
+        // Using static import for singleton consistency
+        demoUser = testUserRegistry.getTestUser(userId);
+        if (demoUser) {
+          console.log(`🧪 Retrieved test user: ${userId}`);
+        } else {
+          console.log(`❌ Test user not found in registry: ${userId}`);
+          // Check if user ID might have testRunId pattern
+          const possibleMatches = debugInfo.userIds.filter((key) =>
+            key.includes(userId.split('-')[0])
+          );
+          if (possibleMatches.length > 0) {
+            console.log(
+              `🔍 Possible matches in registry:`,
+              possibleMatches.slice(0, 3)
+            );
+          }
+        }
+      } catch (error) {
+        console.log(`❌ Error retrieving test user ${userId}:`, error);
+        // Test user retrieval failed, continue with normal error
+      }
+    }
 
     if (!demoUser) {
       throw new Error(`User not found: ${userId}`);

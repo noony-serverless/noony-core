@@ -32,6 +32,7 @@ import {
 } from '@/types/auth.types';
 import { PermissionResolverType } from '@noony-serverless/core';
 import { config } from '@/config/environment.config';
+import { testUserRegistry } from '@/utils/demo-data';
 
 /**
  * Authentication request context
@@ -597,6 +598,18 @@ export class AuthenticationService {
   ): Promise<UserContext> {
     const userId = tokenPayload.sub;
 
+    // Check if this is a test user token that needs dynamic registration
+    if (tokenPayload.testRunId && tokenPayload.testRunId !== 'default' && userId.includes('-')) {
+      try {
+        // Using static import for singleton consistency
+        await testUserRegistry.createTestUser(tokenPayload);
+        console.log(`🧪 Test user registered for token with testRunId: ${tokenPayload.testRunId}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to register test user: ${error instanceof Error ? error.message : String(error)}`);
+        // Continue with normal flow - might be production or test user already exists
+      }
+    }
+
     return await this.contextManager.getUserContext(userId, {
       expandPermissions: true, // Pre-expand for performance
       resolverType: PermissionResolverType.WILDCARD, // Default to wildcard
@@ -1135,6 +1148,15 @@ export class AuthenticationService {
     const count = this.tokenBlacklist.size;
     this.tokenBlacklist.clear();
     console.log(`🧹 Token blacklist cleared (${count} tokens removed)`);
+  }
+
+  /**
+   * Clear suspicious IPs - primarily for testing purposes
+   */
+  public clearSuspiciousIPs(): void {
+    const count = this.suspiciousIPs.size;
+    this.suspiciousIPs.clear();
+    console.log(`🧹 Suspicious IP list cleared (${count} IPs removed)`);
   }
 
   /**

@@ -27,6 +27,7 @@ import { GuardService } from '@/services/guard-service';
 import { getGuardConfig } from '@/config/guard.config';
 import { AuthProviderType } from '@/types/auth.types';
 import { config } from '@/config/environment.config';
+import { testUserRegistry } from '@/utils/demo-data';
 
 /**
  * Authentication API Handlers
@@ -246,6 +247,24 @@ export class AuthHandlers {
           error: 'userId is required',
         });
         return;
+      }
+
+      // Extract token to potentially register test users, but don't require successful auth
+      try {
+        const authRequest: AuthRequest = {
+          token: this.extractToken(req),
+          clientIp: this.getClientIp(req),
+          userAgent: req.get('User-Agent'),
+          path: req.path,
+          method: req.method,
+        };
+
+        // Attempt authentication to ensure test users are registered
+        // But don't require it to succeed (restricted users may be rate limited)
+        await this.guardService.authenticate(authRequest);
+      } catch (error) {
+        // Continue even if authentication fails - restricted users may be rate limited
+        // but we still want to allow context refresh
       }
 
       // Refresh user context
@@ -666,6 +685,50 @@ export class AuthHandlers {
     }
   };
 
+  /**
+   * Clear suspicious IPs for testing
+   *
+   * Clears the suspicious IP tracking list. This is primarily intended for
+   * testing scenarios to prevent IP blocking from interfering with test runs.
+   */
+  public clearSuspiciousIPs = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      // Only allow this in development environment for security
+      if (process.env.NODE_ENV !== 'development') {
+        res.status(403).json({
+          success: false,
+          error: 'Operation not allowed in production',
+        });
+        return;
+      }
+
+      // Clear the suspicious IPs in the authentication service
+      this.authService.clearSuspiciousIPs();
+
+      const response = {
+        success: true,
+        message: 'Suspicious IP list cleared successfully',
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      console.error('❌ Clear suspicious IPs error:', error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Service error',
+        details:
+          process.env.NODE_ENV === 'development'
+            ? (error as Error).message
+            : undefined,
+      });
+    }
+  };
+
   // ============================================================================
   // UTILITY METHODS
   // ============================================================================
@@ -778,6 +841,146 @@ export class AuthHandlers {
 
     return groups;
   }
+
+  // ============================================================================
+  // TEST DATA GENERATION
+  // ============================================================================
+
+  /**
+   * POST /api/test/generate-data
+   *
+   * Generate test data for a specific test run ID.
+   */
+  public generateTestData = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const startTime = process.hrtime.bigint();
+
+    try {
+      const { testRunId } = req.body;
+
+      if (!testRunId) {
+        res.status(400).json({
+          success: false,
+          error: 'testRunId is required',
+        });
+        return;
+      }
+
+      // Generate test users
+      const createdUsers = await testUserRegistry.generateTestUsers(testRunId);
+
+      const generationTime = Number(process.hrtime.bigint() - startTime) / 1000;
+
+      res.status(200).json({
+        success: true,
+        message: 'Test data generated successfully',
+        details: {
+          createdUsers,
+          testRunId,
+          generationTime: `${generationTime.toFixed(1)}μs`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      const generationTime = Number(process.hrtime.bigint() - startTime) / 1000;
+
+      console.error(`❌ Test data generation failed:`, error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Test data generation failed',
+        details: error instanceof Error ? error.message : String(error),
+        generationTime: `${generationTime.toFixed(1)}μs`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  };
+
+  // ============================================================================
+  // TEST CLEANUP ENDPOINTS
+  // ============================================================================
+
+  /**
+   * POST /api/test/cleanup
+   * 
+   * Clean up test data to ensure test isolation between categories.
+   * This endpoint clears test user registry and all relevant caches.
+   */
+  public cleanupTestData = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const startTime = process.hrtime.bigint();
+
+    try {
+      const { testRunId, force = false } = req.body;
+
+      // Only allow cleanup in development/test environments
+      const env = config.getConfig().NODE_ENV;
+      if (env === 'production' && !force) {
+        res.status(403).json({
+          success: false,
+          error: 'Test cleanup not allowed in production',
+        });
+        return;
+      }
+
+      console.log(`🧹 Starting test data cleanup${testRunId ? ` for run: ${testRunId}` : ' (all test data)'}`);
+
+      // 1. Clear test user registry
+      const clearedUsers = await testUserRegistry.clearTestUsers(testRunId);
+
+      // 2. Invalidate user context manager cache
+      await this.contextManager.invalidateUserContext('all', 'test_cleanup');
+
+      // 3. Clear authentication service caches if available
+      try {
+        if ('clearCaches' in this.authService && typeof (this.authService as any).clearCaches === 'function') {
+          await (this.authService as any).clearCaches();
+        }
+      } catch (error) {
+        // Method might not exist, ignore
+      }
+
+      // 4. Clear guard service caches if available  
+      try {
+        if ('clearCaches' in this.guardService && typeof (this.guardService as any).clearCaches === 'function') {
+          await (this.guardService as any).clearCaches();
+        }
+      } catch (error) {
+        // Method might not exist, ignore
+      }
+
+      const cleanupTime = Number(process.hrtime.bigint() - startTime) / 1000;
+
+      console.log(`✅ Test data cleanup completed in ${cleanupTime.toFixed(1)}μs`);
+
+      res.status(200).json({
+        success: true,
+        message: 'Test data cleanup completed',
+        details: {
+          clearedUsers: clearedUsers,
+          testRunId: testRunId || 'all',
+          cleanupTime: `${cleanupTime.toFixed(1)}μs`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      const cleanupTime = Number(process.hrtime.bigint() - startTime) / 1000;
+
+      console.error(`❌ Test cleanup failed:`, error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Test cleanup failed',
+        details: error instanceof Error ? error.message : String(error),
+        cleanupTime: `${cleanupTime.toFixed(1)}μs`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  };
 }
 
 // Export singleton instance for easy use in server routes
