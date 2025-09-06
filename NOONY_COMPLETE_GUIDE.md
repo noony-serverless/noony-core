@@ -1593,6 +1593,78 @@ const paymentHandler = new Handler<PaymentRequest, PaymentUser>()
 
 ---
 
+## Accessing Logged User from JWT Session
+
+After JWT authentication using the `AuthenticationMiddleware`, you can access the logged user from `context.user`:
+
+```typescript
+// In your handler after authentication middleware
+.handle(async (context: Context<RequestType, UserType>) => {
+  // Access the authenticated user with full type safety
+  const user = context.user!; // Type: UserType
+  
+  // Access JWT claims if available
+  if (user && typeof user === 'object' && 'sub' in user) {
+    const userId = user.sub; // JWT subject claim (user ID)
+    const email = user.email; // If included in JWT payload
+  }
+  
+  // Use user data for business logic
+  const result = await someService.getDataForUser(user.id);
+});
+```
+
+### JWT Authentication Flow
+
+The `AuthenticationMiddleware` automatically:
+
+1. **Extracts JWT token** from `Authorization: Bearer <token>` header
+2. **Verifies token** using your custom token verification port
+3. **Validates security aspects** (expiration, not-before, audience, etc.)
+4. **Populates `context.user`** with decoded JWT payload and user data
+5. **Provides type safety** through the `UserType` generic parameter
+
+### Example with Custom User Type
+
+```typescript
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+  permissions: string[];
+  sub: string; // JWT subject
+  exp: number; // JWT expiration
+}
+
+const handler = new Handler<RequestType, AuthenticatedUser>()
+  .use(new AuthenticationMiddleware<RequestType, AuthenticatedUser>(tokenVerifier))
+  .handle(async (context: Context<RequestType, AuthenticatedUser>) => {
+    const user = context.user!; // Type: AuthenticatedUser
+    
+    // Access typed user properties
+    console.log(`User ${user.email} with role ${user.role}`);
+    
+    // Check permissions
+    if (user.permissions.includes('admin:read')) {
+      // Admin functionality
+    }
+  });
+```
+
+### JWT Security Validation
+
+The middleware automatically validates:
+
+- **Token expiration** (`exp` claim)
+- **Not-before time** (`nbf` claim)  
+- **Token age** (configurable `maxTokenAge`)
+- **Issuer validation** (`iss` claim)
+- **Audience validation** (`aud` claim)
+- **Token blacklisting** (optional callback)
+- **Rate limiting** (configurable per IP/user)
+
+---
+
 ## Summary
 
 **Key Takeaways:**

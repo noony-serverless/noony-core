@@ -594,6 +594,274 @@ describe('User Validation Schemas', () => {
 });
 ```
 
+## Zod Validation + JWT Authentication Integration
+
+### Complete Integration Pattern
+
+When combining Zod schema validation with JWT authentication, follow this pattern for complete type safety:
+
+```typescript
+import { z } from 'zod';
+import { Handler } from '@/core/handler';
+import { 
+  ErrorHandlerMiddleware,
+  AuthenticationMiddleware,
+  BodyValidationMiddleware,
+  ResponseWrapperMiddleware 
+} from '@/middlewares';
+
+// 1. Define Zod schema for request validation
+const createOrderSchema = z.object({
+  productId: z.string().uuid('Invalid product ID format'),
+  quantity: z.number().min(1).max(100),
+  customization: z.object({
+    color: z.string().optional(),
+    size: z.enum(['S', 'M', 'L', 'XL']).optional(),
+    engraving: z.string().max(50).optional()
+  }).optional(),
+  shippingAddress: z.object({
+    street: z.string().min(5),
+    city: z.string().min(2),
+    zipCode: z.string().regex(/^\d{5}$/)
+  }),
+  couponCode: z.string().regex(/^[A-Z0-9]{6,12}$/).optional()
+});
+
+// 2. Extract TypeScript type from schema
+type CreateOrderRequest = z.infer<typeof createOrderSchema>;
+
+// 3. Define authenticated user type from JWT
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: 'customer' | 'admin';
+  permissions: string[];
+  sub: string;
+}
+
+// 4. Create handler with both validation and authentication
+const createOrderHandler = new Handler<CreateOrderRequest, AuthenticatedUser>()
+  .use(new ErrorHandlerMiddleware())                    // 1. Error handling first
+  .use(new AuthenticationMiddleware(tokenVerifier))     // 2. JWT auth -> populates context.user  
+  .use(new BodyValidationMiddleware(createOrderSchema)) // 3. Zod validation -> populates context.req.validatedBody
+  .use(new ResponseWrapperMiddleware())                 // 4. Response wrapper last
+  .handle(async (context) => {
+    // Both user and validated body are guaranteed to exist and be typed
+    
+    // Access authenticated user (from JWT)
+    const user = context.user!; // Type: AuthenticatedUser
+    
+    // Access validated request body (from Zod)
+    const orderData = context.req.validatedBody!; // Type: CreateOrderRequest
+    
+    // Business logic with complete type safety
+    const order = await orderService.create({
+      productId: orderData.productId,    // Validated by Zod
+      quantity: orderData.quantity,      // Validated by Zod  
+      userId: user.id,                   // From JWT payload
+      customerEmail: user.email,         // From JWT payload
+      customization: orderData.customization, // Validated by Zod
+      shippingAddress: orderData.shippingAddress, // Validated by Zod
+      couponCode: orderData.couponCode,  // Validated by Zod
+      createdAt: new Date()
+    });
+    
+    // Permission-based logic using JWT user
+    if (user.permissions.includes('order:priority')) {
+      await orderService.setPriority(order.id, true);
+    }
+    
+    return {
+      success: true,
+      orderId: order.id,
+      estimatedDelivery: order.estimatedDelivery
+    };
+  });
+```
+
+### Validation + Authentication Middleware Order
+
+**CRITICAL: Middleware execution order matters!**
+
+```typescript
+// ✅ CORRECT: Proper order for validation + authentication
+const handler = new Handler<RequestType, UserType>()
+  .use(new ErrorHandlerMiddleware())        // 1. Always first - catches all errors
+  .use(new AuthenticationMiddleware(verifier)) // 2. Auth first - sets context.user
+  .use(new BodyParserMiddleware())          // 3. Parse request body
+  .use(new BodyValidationMiddleware(schema)) // 4. Validate parsed body
+  .use(new ResponseWrapperMiddleware())     // 5. Always last - wraps response
+
+// ❌ INCORRECT: Authentication after validation won't work for user-dependent validation
+const badHandler = new Handler()
+  .use(new BodyValidationMiddleware(schema)) // Validation first
+  .use(new AuthenticationMiddleware(verifier)) // Auth second - context.user not available during validation
+```
+
+### User-Dependent Validation Patterns
+
+Sometimes validation rules depend on the authenticated user:
+
+```typescript
+// Advanced: User-dependent validation middleware
+class UserDependentValidationMiddleware<T, U extends { role: string; id: string }> 
+  implements BaseMiddleware<T, U> {
+  
+  constructor(private baseSchema: z.ZodSchema<any>) {}
+  
+  async before(context: Context<T, U>): Promise<void> {
+    const user = context.user!; // Must run after AuthenticationMiddleware
+    
+    // Modify validation based on user role
+    let schema = this.baseSchema;
+    
+    if (user.role === 'admin') {
+      // Admins can set additional fields
+      schema = this.baseSchema.extend({
+        adminNotes: z.string().max(500).optional(),
+        priority: z.enum(['low', 'normal', 'high']).optional(),
+        assignedTo: z.string().uuid().optional()
+      });
+    }
+    
+    if (user.role === 'customer') {
+      // Customers have stricter limits
+      schema = this.baseSchema.refine(
+        (data: any) => data.quantity <= 10,
+        { message: 'Customers limited to 10 items per order', path: ['quantity'] }
+      );
+    }
+    
+    // Validate with user-specific schema
+    try {
+      context.req.validatedBody = await schema.parseAsync(context.req.parsedBody);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new ValidationError('Validation failed', error.errors);
+      }
+      throw error;
+    }
+  }
+}
+
+// Usage with user-dependent validation
+const userAwareHandler = new Handler<BaseRequest, AuthenticatedUser>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new AuthenticationMiddleware(tokenVerifier))                    // Auth first
+  .use(new BodyParserMiddleware())                                     // Parse body
+  .use(new UserDependentValidationMiddleware(baseOrderSchema))         // User-aware validation
+  .handle(async (context) => {
+    const user = context.user!;           // Type: AuthenticatedUser
+    const data = context.req.validatedBody!; // Type varies by user role
+    
+    // Business logic with user-aware validated data
+  });
+```
+
+### Cross-Field Validation with User Context
+
+```typescript
+const transferMoneySchema = z.object({
+  fromAccountId: z.string().uuid(),
+  toAccountId: z.string().uuid(),
+  amount: z.number().positive(),
+  description: z.string().max(200).optional()
+});
+
+class BusinessValidationMiddleware<T extends TransferRequest, U extends AuthenticatedUser> 
+  implements BaseMiddleware<T, U> {
+  
+  constructor(private accountService: AccountService) {}
+  
+  async before(context: Context<T, U>): Promise<void> {
+    const user = context.user!;              // From JWT authentication
+    const transfer = context.req.validatedBody!; // From Zod validation
+    
+    // Cross-field validation with user context
+    const [fromAccount, toAccount] = await Promise.all([
+      this.accountService.getAccount(transfer.fromAccountId),
+      this.accountService.getAccount(transfer.toAccountId)
+    ]);
+    
+    // Validate user owns source account
+    if (!fromAccount || fromAccount.userId !== user.id) {
+      throw new ValidationError('Source account not found or access denied');
+    }
+    
+    // Validate sufficient balance
+    if (fromAccount.balance < transfer.amount) {
+      throw new ValidationError('Insufficient funds');
+    }
+    
+    // Role-based transfer limits
+    const maxTransfer = user.role === 'premium' ? 100000 : 10000;
+    if (transfer.amount > maxTransfer) {
+      throw new ValidationError(`Transfer limit exceeded. Max: $${maxTransfer}`);
+    }
+    
+    // Store validated accounts for use in handler
+    context.businessData?.set('fromAccount', fromAccount);
+    context.businessData?.set('toAccount', toAccount);
+  }
+}
+```
+
+### Query Parameter Validation with User Context
+
+```typescript
+const listOrdersQuerySchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
+  status: z.enum(['pending', 'completed', 'cancelled']).optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional()
+});
+
+class UserAwareQueryValidationMiddleware<T, U extends { role: string; id: string }> 
+  implements BaseMiddleware<T, U> {
+  
+  constructor(private querySchema: z.ZodSchema<any>) {}
+  
+  async before(context: Context<T, U>): Promise<void> {
+    const user = context.user!; // Available after AuthenticationMiddleware
+    
+    // Parse and validate query parameters
+    const query = this.querySchema.parse(context.req.query || {});
+    
+    // Apply user-specific query restrictions
+    if (user.role === 'customer') {
+      // Customers can only see their own orders (add userId filter)
+      query.userId = user.id;
+      
+      // Limit date range for customers
+      const maxDaysBack = 90;
+      const minStartDate = new Date();
+      minStartDate.setDate(minStartDate.getDate() - maxDaysBack);
+      
+      if (!query.startDate || new Date(query.startDate) < minStartDate) {
+        query.startDate = minStartDate.toISOString();
+      }
+    }
+    
+    context.businessData?.set('validatedQuery', query);
+  }
+}
+
+// Complete handler with query + body validation + authentication
+const listOrdersHandler = new Handler<unknown, AuthenticatedUser>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new AuthenticationMiddleware(tokenVerifier))                     // 1. Auth
+  .use(new UserAwareQueryValidationMiddleware(listOrdersQuerySchema))   // 2. Query validation
+  .handle(async (context) => {
+    const user = context.user!;
+    const query = context.businessData?.get('validatedQuery');
+    
+    // Query is user-aware and validated
+    const orders = await orderService.list(query);
+    return { orders };
+  });
+```
+
 ## Best Practices
 
 1. **Always use `z.infer<typeof schema>`** to extract TypeScript types
@@ -606,3 +874,6 @@ describe('User Validation Schemas', () => {
 8. **Use custom validation helpers** for reusable validation logic
 9. **Consider performance impact** of complex validation rules
 10. **Document validation requirements** in API documentation
+11. **🔑 NEW: Always authenticate before validation** when validation depends on user context
+12. **🔑 NEW: Use both `context.user` and `context.req.validatedBody`** for complete type safety
+13. **🔑 NEW: Apply user-specific validation rules** based on roles and permissions

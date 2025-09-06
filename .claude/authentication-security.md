@@ -66,6 +66,128 @@ const unsecureHandler = new Handler<RequestType, any>()
   });
 ```
 
+## JWT Authentication and context.user Access
+
+### How AuthenticationMiddleware Populates context.user
+
+The `AuthenticationMiddleware` validates JWT tokens and automatically sets `context.user` with the decoded payload:
+
+```typescript
+import { AuthenticationMiddleware, CustomTokenVerificationPort } from '@/middlewares/authenticationMiddleware';
+
+// 1. Define your authenticated user type from JWT payload
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: 'admin' | 'user' | 'moderator';
+  permissions: string[];
+  sub: string;    // JWT subject claim
+  exp: number;    // JWT expiration
+  iat: number;    // Issued at time
+  tenantId?: string; // Optional tenant isolation
+}
+
+// 2. Create token verification port implementation
+const tokenVerifier: CustomTokenVerificationPort<AuthenticatedUser> = {
+  async verifyToken(token: string): Promise<AuthenticatedUser> {
+    // Your JWT verification logic (e.g., using jsonwebtoken)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    
+    // Transform JWT payload to your user type
+    return {
+      id: decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+      permissions: decoded.permissions || [],
+      sub: decoded.sub,
+      exp: decoded.exp,
+      iat: decoded.iat,
+      tenantId: decoded.tenantId
+    };
+  }
+};
+
+// 3. Use authentication middleware - it automatically populates context.user
+const handler = new Handler<RequestType, AuthenticatedUser>()
+  .use(new AuthenticationMiddleware(tokenVerifier))
+  .handle(async (context) => {
+    // AuthenticationMiddleware has validated JWT and set context.user
+    const user = context.user!; // Type: AuthenticatedUser, guaranteed to exist
+    
+    // Access JWT claims with full type safety
+    console.log(`User ID: ${user.id}`);           // From JWT sub claim
+    console.log(`Email: ${user.email}`);          // Custom JWT claim
+    console.log(`Role: ${user.role}`);            // Custom JWT claim
+    console.log(`Tenant: ${user.tenantId}`);      // Optional claim
+    console.log(`Token expires: ${new Date(user.exp * 1000)}`); // JWT exp claim
+    
+    // Use user data for business logic
+    const userProfile = await userService.getProfile(user.id);
+    return { user: userProfile };
+  });
+```
+
+### JWT Authentication Flow and context.user Population
+
+**Step-by-Step Process:**
+
+1. **Token Extraction**: `AuthenticationMiddleware` extracts JWT from `Authorization: Bearer <token>` header
+2. **Token Verification**: Calls your `CustomTokenVerificationPort.verifyToken()` method  
+3. **Security Validation**: Validates JWT claims (exp, iss, aud, nbf, etc.) with comprehensive security checks
+4. **User Population**: **Sets `context.user`** with the decoded JWT payload returned by your verification port
+5. **Type Safety**: Full TypeScript typing through the generic `UserType` parameter
+
+```typescript
+// The middleware internally does this:
+class AuthenticationMiddleware<T, U> implements BaseMiddleware<T, U> {
+  async before(context: Context<T, U>): Promise<void> {
+    // Extract and verify token
+    const token = this.extractTokenFromHeader(context);
+    const user = await this.tokenVerificationPort.verifyToken(token);
+    
+    // Validate JWT security (exp, iss, aud, rate limiting, etc.)
+    this.validateJWTSecurity(user, context);
+    
+    // 🔑 KEY STEP: Set context.user with decoded JWT payload
+    context.user = user; // Now accessible in your handler!
+  }
+}
+```
+
+### Accessing Authenticated User in Handlers
+
+```typescript
+.handle(async (context: Context<RequestType, AuthenticatedUser>) => {
+  // Always access user after AuthenticationMiddleware
+  const user = context.user!; // Type: AuthenticatedUser
+  
+  // Access JWT standard claims
+  const userId = user.sub;      // JWT subject (user ID)  
+  const userEmail = user.email; // Custom claim
+  const userRole = user.role;   // Custom claim
+  
+  // Check token expiration
+  const isExpiringSoon = (user.exp * 1000 - Date.now()) < (5 * 60 * 1000); // 5 minutes
+  
+  // Permission-based logic
+  if (user.permissions.includes('admin:read')) {
+    // Admin functionality
+    const adminData = await adminService.getAdminDashboard();
+    return adminData;
+  }
+  
+  // Role-based logic
+  if (user.role === 'moderator') {
+    const moderationQueue = await moderationService.getQueue(user.id);
+    return moderationQueue;
+  }
+  
+  // Regular user logic
+  const userData = await userService.getProfile(user.id);
+  return userData;
+});
+```
+
 ### Custom Authentication Logic
 
 ```typescript
@@ -520,6 +642,212 @@ class SecureErrorHandlerMiddleware<T, U> implements BaseMiddleware<T, U> {
 }
 ```
 
+## Complete Workflow: Validation + Authentication Integration
+
+### Production-Ready Handler Example
+
+Here's a complete example showing how to integrate Zod validation, JWT authentication, and security best practices:
+
+```typescript
+import { z } from 'zod';
+import { Handler } from '@/core/handler';
+import { 
+  ErrorHandlerMiddleware,
+  AuthenticationMiddleware, 
+  BodyValidationMiddleware,
+  ResponseWrapperMiddleware,
+  SecurityHeadersMiddleware,
+  RateLimitingMiddleware
+} from '@/middlewares';
+
+// 1. Define Zod schema for complete validation
+const updateProfileSchema = z.object({
+  name: z.string().min(2).max(100),
+  email: z.string().email(),
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/).optional(),
+  preferences: z.object({
+    newsletter: z.boolean().default(false),
+    theme: z.enum(['light', 'dark']).default('light'),
+    notifications: z.object({
+      email: z.boolean().default(true),
+      sms: z.boolean().default(false)
+    })
+  }),
+  profileImage: z.object({
+    filename: z.string().max(255),
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/gif']),
+    size: z.number().max(5 * 1024 * 1024), // 5MB max
+    content: z.string().base64()
+  }).optional()
+}).refine(
+  // Cross-field validation
+  (data) => {
+    if (data.preferences.notifications.sms && !data.phone) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'Phone number required for SMS notifications',
+    path: ['phone']
+  }
+);
+
+// 2. Extract TypeScript types
+type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
+
+// 3. Define authenticated user type
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: 'user' | 'admin' | 'premium';
+  permissions: string[];
+  sub: string;
+  exp: number;
+  planType: 'free' | 'pro' | 'enterprise';
+}
+
+// 4. Custom token verifier with user loading
+const tokenVerifier: CustomTokenVerificationPort<AuthenticatedUser> = {
+  async verifyToken(token: string): Promise<AuthenticatedUser> {
+    // Verify JWT and decode
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    
+    // Load fresh user data from database
+    const user = await userService.findById(decoded.sub);
+    if (!user || user.status !== 'active') {
+      throw new AuthenticationError('User not found or inactive');
+    }
+    
+    // Transform to authenticated user type
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions,
+      sub: decoded.sub,
+      exp: decoded.exp,
+      planType: user.planType
+    };
+  }
+};
+
+// 5. Custom business validation that uses both Zod validation and JWT user
+class ProfileValidationMiddleware<T extends UpdateProfileRequest, U extends AuthenticatedUser>
+  implements BaseMiddleware<T, U> {
+  
+  async before(context: Context<T, U>): Promise<void> {
+    const user = context.user!;                    // From JWT authentication
+    const profileData = context.req.validatedBody!; // From Zod validation
+    
+    // Plan-based feature restrictions
+    if (user.planType === 'free' && profileData.profileImage) {
+      throw new ValidationError('Profile image upload requires Pro plan');
+    }
+    
+    // Role-based email validation
+    if (user.role !== 'admin' && profileData.email !== user.email) {
+      throw new ValidationError('Only admins can change email addresses');
+    }
+    
+    // Check if email is already taken (excluding current user)
+    if (profileData.email !== user.email) {
+      const existingUser = await userService.findByEmail(profileData.email);
+      if (existingUser) {
+        throw new ValidationError('Email address is already in use');
+      }
+    }
+    
+    // Store business data for handler
+    context.businessData?.set('originalEmail', user.email);
+    context.businessData?.set('emailChanged', profileData.email !== user.email);
+  }
+}
+
+// 6. Complete production handler with full security stack
+const updateProfileHandler = new Handler<UpdateProfileRequest, AuthenticatedUser>()
+  // Security layer
+  .use(new ErrorHandlerMiddleware())                           // 1. Error handling
+  .use(new SecurityHeadersMiddleware())                        // 2. Security headers  
+  .use(new RateLimitingMiddleware(10, 15 * 60 * 1000))         // 3. Rate limiting: 10 req/15min
+  
+  // Authentication & authorization
+  .use(new AuthenticationMiddleware(tokenVerifier))            // 4. JWT auth -> context.user
+  
+  // Input validation
+  .use(new BodyParserMiddleware())                             // 5. Parse body
+  .use(new BodyValidationMiddleware(updateProfileSchema))      // 6. Zod validation -> context.req.validatedBody
+  .use(new ProfileValidationMiddleware())                      // 7. Business validation
+  
+  // Response formatting
+  .use(new ResponseWrapperMiddleware())                        // 8. Response wrapper
+  
+  .handle(async (context) => {
+    // Both user and validated body are guaranteed and typed
+    const user = context.user!;                    // Type: AuthenticatedUser
+    const profileData = context.req.validatedBody!; // Type: UpdateProfileRequest
+    
+    // Business logic with complete type safety
+    const emailChanged = context.businessData?.get('emailChanged') as boolean;
+    
+    // Update profile with validated data
+    const updatedProfile = await userService.updateProfile(user.id, {
+      name: profileData.name,                    // Validated by Zod
+      email: profileData.email,                  // Validated by Zod + business rules
+      phone: profileData.phone,                  // Validated by Zod
+      preferences: profileData.preferences,      // Validated by Zod
+    });
+    
+    // Handle profile image upload if provided
+    if (profileData.profileImage) {
+      const imageUrl = await imageService.upload({
+        userId: user.id,                         // From JWT
+        filename: profileData.profileImage.filename,
+        content: profileData.profileImage.content,
+        mimeType: profileData.profileImage.mimeType
+      });
+      updatedProfile.imageUrl = imageUrl;
+    }
+    
+    // Send verification email if email changed
+    if (emailChanged) {
+      await emailService.sendVerificationEmail(profileData.email, user.id);
+    }
+    
+    // Audit log with user context
+    await auditService.log({
+      userId: user.id,
+      action: 'profile_updated',
+      changes: profileData,
+      emailChanged,
+      timestamp: new Date()
+    });
+    
+    return {
+      success: true,
+      profile: updatedProfile,
+      emailVerificationRequired: emailChanged
+    };
+  });
+
+// 7. Export for GCP Functions
+export const updateProfile = http('updateProfile', (req, res) => {
+  return updateProfileHandler.execute(req, res);
+});
+```
+
+### Key Integration Benefits Demonstrated
+
+1. **🔐 JWT Authentication**: `context.user` populated with full user context from JWT
+2. **✅ Zod Validation**: `context.req.validatedBody` with runtime + compile-time type safety  
+3. **🛡️ Security Stack**: Rate limiting, security headers, error handling
+4. **🔗 Business Rules**: Cross-field validation using both user context and validated data
+5. **📊 Type Safety**: Complete end-to-end TypeScript typing
+6. **🎯 Role-Based Logic**: User permissions and plan restrictions
+7. **📝 Audit Trail**: Security logging with user context
+
+This pattern provides production-ready handlers with complete security, validation, and type safety.
+
 ### Security Checklist
 
 1. **Always validate JWT tokens** with proper error handling
@@ -532,3 +860,5 @@ class SecureErrorHandlerMiddleware<T, U> implements BaseMiddleware<T, U> {
 8. **Use strong secrets** - minimum 32 characters for JWT
 9. **Implement CORS properly** - don't use wildcards in production
 10. **Monitor for suspicious patterns** in request data
+11. **🔑 NEW: Always authenticate before validation** when validation depends on user
+12. **🔑 NEW: Use both `context.user` and `context.req.validatedBody`** for complete workflows
