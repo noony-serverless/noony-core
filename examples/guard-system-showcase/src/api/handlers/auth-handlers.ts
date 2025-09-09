@@ -904,7 +904,7 @@ export class AuthHandlers {
 
   /**
    * POST /api/test/cleanup
-   * 
+   *
    * Clean up test data to ensure test isolation between categories.
    * This endpoint clears test user registry and all relevant caches.
    */
@@ -927,7 +927,9 @@ export class AuthHandlers {
         return;
       }
 
-      console.log(`🧹 Starting test data cleanup${testRunId ? ` for run: ${testRunId}` : ' (all test data)'}`);
+      console.log(
+        `🧹 Starting test data cleanup${testRunId ? ` for run: ${testRunId}` : ' (all test data)'}`
+      );
 
       // 1. Clear test user registry
       const clearedUsers = await testUserRegistry.clearTestUsers(testRunId);
@@ -937,16 +939,22 @@ export class AuthHandlers {
 
       // 3. Clear authentication service caches if available
       try {
-        if ('clearCaches' in this.authService && typeof (this.authService as any).clearCaches === 'function') {
+        if (
+          'clearCaches' in this.authService &&
+          typeof (this.authService as any).clearCaches === 'function'
+        ) {
           await (this.authService as any).clearCaches();
         }
       } catch (error) {
         // Method might not exist, ignore
       }
 
-      // 4. Clear guard service caches if available  
+      // 4. Clear guard service caches if available
       try {
-        if ('clearCaches' in this.guardService && typeof (this.guardService as any).clearCaches === 'function') {
+        if (
+          'clearCaches' in this.guardService &&
+          typeof (this.guardService as any).clearCaches === 'function'
+        ) {
           await (this.guardService as any).clearCaches();
         }
       } catch (error) {
@@ -955,7 +963,9 @@ export class AuthHandlers {
 
       const cleanupTime = Number(process.hrtime.bigint() - startTime) / 1000;
 
-      console.log(`✅ Test data cleanup completed in ${cleanupTime.toFixed(1)}μs`);
+      console.log(
+        `✅ Test data cleanup completed in ${cleanupTime.toFixed(1)}μs`
+      );
 
       res.status(200).json({
         success: true,

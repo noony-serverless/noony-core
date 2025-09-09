@@ -108,7 +108,7 @@ export class DemoPermissionSource extends BasePermissionSource {
 
       // Find user in demo data
       let user = this.demoUsers.find((u) => u.userId === userId);
-      
+
       // If not found and it looks like a test user, try the test user registry
       if (!user && userId.includes('-')) {
         try {
@@ -121,7 +121,7 @@ export class DemoPermissionSource extends BasePermissionSource {
           // Test user registry not available or user not found
         }
       }
-      
+
       if (!user) {
         throw this.createError(`User not found: ${userId}`, 'USER_NOT_FOUND');
       }
@@ -202,20 +202,22 @@ export class DemoPermissionSource extends BasePermissionSource {
 
       // Find user in demo data
       let user = this.demoUsers.find((u) => u.userId === userId);
-      
+
       // If not found and it looks like a test user, try the test user registry
       if (!user && userId.includes('-')) {
         try {
           // Using static import for singleton consistency
           user = testUserRegistry.getTestUser(userId);
           if (user) {
-            console.log(`🧪 Found test user in permission source (roles): ${userId}`);
+            console.log(
+              `🧪 Found test user in permission source (roles): ${userId}`
+            );
           }
         } catch (error) {
           // Test user registry not available or user not found
         }
       }
-      
+
       if (!user) {
         throw this.createError(`User not found: ${userId}`, 'USER_NOT_FOUND');
       }

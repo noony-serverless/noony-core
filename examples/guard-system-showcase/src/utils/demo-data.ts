@@ -1081,7 +1081,7 @@ class TestUserRegistry {
    */
   private initializeBaseTemplates() {
     const staticUsers = new DemoDataGenerator().getDemoUsers();
-    staticUsers.forEach(user => {
+    staticUsers.forEach((user) => {
       // Extract base user type from userId (e.g., "user-basic-001" -> "basic")
       const userType = this.extractUserType(user.userId);
       this.baseUserTemplates.set(userType, user);
@@ -1091,19 +1091,35 @@ class TestUserRegistry {
   /**
    * Extract user type from user ID
    */
-  private extractUserType(userId: string): 'basic' | 'admin' | 'moderator' | 'restricted' | 'superadmin' | 'manager' | 'creator' {
+  private extractUserType(
+    userId: string
+  ):
+    | 'basic'
+    | 'admin'
+    | 'moderator'
+    | 'restricted'
+    | 'superadmin'
+    | 'manager'
+    | 'creator' {
     const match = userId.match(/^user-(\w+)-\d+/);
     const extracted = match ? match[1] : 'basic';
-    
+
     // Preserve specific user types to avoid losing permissions
     switch (extracted) {
-      case 'admin': return 'admin';
-      case 'superadmin': return 'superadmin'; // Keep superadmin separate
-      case 'moderator': return 'moderator';  
-      case 'restricted': return 'restricted';
-      case 'manager': return 'manager'; // Keep manager separate
-      case 'creator': return 'creator'; // Keep creator separate
-      default: return 'basic';
+      case 'admin':
+        return 'admin';
+      case 'superadmin':
+        return 'superadmin'; // Keep superadmin separate
+      case 'moderator':
+        return 'moderator';
+      case 'restricted':
+        return 'restricted';
+      case 'manager':
+        return 'manager'; // Keep manager separate
+      case 'creator':
+        return 'creator'; // Keep creator separate
+      default:
+        return 'basic';
     }
   }
 
@@ -1116,7 +1132,14 @@ class TestUserRegistry {
       return null;
     }
 
-    const { sub: userId, testRunId, roles, permissions, name, email } = tokenPayload;
+    const {
+      sub: userId,
+      testRunId,
+      roles,
+      permissions,
+      name,
+      email,
+    } = tokenPayload;
 
     // Check if this is a test user (has test run ID and unique user ID)
     if (!testRunId || !userId.includes('-' + testRunId)) {
@@ -1153,12 +1176,14 @@ class TestUserRegistry {
         type: userType,
         scenario: `Test user for ${testRunId}`,
         originalPermissions: permissions, // Store original for debugging
-      } as any
+      } as any,
     };
 
     // Cache the test user
     this.testUsers.set(userId, testUser);
-    console.log(`🧪 Created test user: ${userId} (type: ${userType}, runId: ${testRunId})`);
+    console.log(
+      `🧪 Created test user: ${userId} (type: ${userType}, runId: ${testRunId})`
+    );
 
     return testUser;
   }
@@ -1176,7 +1201,7 @@ class TestUserRegistry {
   getDebugInfo(): { count: number; userIds: string[] } {
     return {
       count: this.testUsers.size,
-      userIds: Array.from(this.testUsers.keys())
+      userIds: Array.from(this.testUsers.keys()),
     };
   }
 

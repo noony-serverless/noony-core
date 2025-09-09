@@ -599,13 +599,21 @@ export class AuthenticationService {
     const userId = tokenPayload.sub;
 
     // Check if this is a test user token that needs dynamic registration
-    if (tokenPayload.testRunId && tokenPayload.testRunId !== 'default' && userId.includes('-')) {
+    if (
+      tokenPayload.testRunId &&
+      tokenPayload.testRunId !== 'default' &&
+      userId.includes('-')
+    ) {
       try {
         // Using static import for singleton consistency
         await testUserRegistry.createTestUser(tokenPayload);
-        console.log(`🧪 Test user registered for token with testRunId: ${tokenPayload.testRunId}`);
+        console.log(
+          `🧪 Test user registered for token with testRunId: ${tokenPayload.testRunId}`
+        );
       } catch (error) {
-        console.warn(`⚠️ Failed to register test user: ${error instanceof Error ? error.message : String(error)}`);
+        console.warn(
+          `⚠️ Failed to register test user: ${error instanceof Error ? error.message : String(error)}`
+        );
         // Continue with normal flow - might be production or test user already exists
       }
     }
