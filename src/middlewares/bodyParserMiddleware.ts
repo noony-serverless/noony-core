@@ -192,6 +192,58 @@ const parseBody = async <T = unknown>(body: unknown): Promise<T> => {
  *
  * @template T - The expected type of the parsed body. Defaults to unknown if not specified.
  * @implements {BaseMiddleware}
+ *
+ * @example
+ * Basic usage with typed body parsing:
+ * ```typescript
+ * import { Handler, BodyParserMiddleware } from '@noony-serverless/core';
+ *
+ * interface UserRequest {
+ *   name: string;
+ *   email: string;
+ *   age: number;
+ * }
+ *
+ * const createUserHandler = new Handler()
+ *   .use(new BodyParserMiddleware<UserRequest>())
+ *   .handle(async (context) => {
+ *     const userData = context.req.parsedBody as UserRequest;
+ *     console.log('User data:', userData.name, userData.email);
+ *     return { success: true, data: userData };
+ *   });
+ * ```
+ *
+ * @example
+ * Custom size limit configuration:
+ * ```typescript
+ * const largeBodyParser = new BodyParserMiddleware<any>(2 * 1024 * 1024); // 2MB limit
+ *
+ * const uploadHandler = new Handler()
+ *   .use(largeBodyParser)
+ *   .handle(async (context) => {
+ *     const uploadData = context.req.parsedBody;
+ *     return { success: true, size: JSON.stringify(uploadData).length };
+ *   });
+ * ```
+ *
+ * @example
+ * Google Cloud Pub/Sub message handling:
+ * ```typescript
+ * interface PubSubData {
+ *   eventType: string;
+ *   timestamp: string;
+ *   payload: any;
+ * }
+ *
+ * const pubSubHandler = new Handler()
+ *   .use(new BodyParserMiddleware<PubSubData>())
+ *   .handle(async (context) => {
+ *     // Automatically decodes base64 Pub/Sub message data
+ *     const messageData = context.req.parsedBody as PubSubData;
+ *     console.log('Event type:', messageData.eventType);
+ *     return { success: true, processed: true };
+ *   });
+ * ```
  */
 export class BodyParserMiddleware<T = unknown> implements BaseMiddleware {
   private maxSize: number;
@@ -226,7 +278,54 @@ export class BodyParserMiddleware<T = unknown> implements BaseMiddleware {
  * - Size validation
  *
  * @template T - The expected type of the parsed request body.
+ * @param maxSize - Maximum allowed body size in bytes (default: 1MB)
  * @returns {BaseMiddleware} A middleware object containing a `before` hook.
+ *
+ * @example
+ * Basic body parsing with default settings:
+ * ```typescript
+ * import { Handler, bodyParser } from '@noony-serverless/core';
+ *
+ * const apiHandler = new Handler()
+ *   .use(bodyParser<{ name: string; email: string }>())
+ *   .handle(async (context) => {
+ *     const body = context.req.parsedBody;
+ *     return { success: true, received: body };
+ *   });
+ * ```
+ *
+ * @example
+ * Custom size limit for large uploads:
+ * ```typescript
+ * const uploadHandler = new Handler()
+ *   .use(bodyParser<any>(5 * 1024 * 1024)) // 5MB limit
+ *   .handle(async (context) => {
+ *     const uploadData = context.req.parsedBody;
+ *     console.log('Upload size:', JSON.stringify(uploadData).length);
+ *     return { success: true, uploadId: generateId() };
+ *   });
+ * ```
+ *
+ * @example
+ * Combining with validation middleware:
+ * ```typescript
+ * import { z } from 'zod';
+ * import { bodyParser, validationMiddleware } from '@noony-serverless/core';
+ *
+ * const userSchema = z.object({
+ *   name: z.string().min(1),
+ *   email: z.string().email(),
+ *   age: z.number().int().min(18)
+ * });
+ *
+ * const createUserHandler = new Handler()
+ *   .use(bodyParser<z.infer<typeof userSchema>>())
+ *   .use(validationMiddleware(userSchema))
+ *   .handle(async (context) => {
+ *     const validatedUser = context.req.validatedBody;
+ *     return { success: true, user: validatedUser };
+ *   });
+ * ```
  */
 export const bodyParser = <T = unknown>(
   maxSize: number = MAX_JSON_SIZE

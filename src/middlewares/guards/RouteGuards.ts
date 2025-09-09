@@ -19,24 +19,128 @@
  * - Comprehensive monitoring and audit trails
  * - Framework-agnostic middleware integration
  *
- * Usage Examples:
+ * @example
+ * Complete guard system setup:
  * ```typescript
- * // Simple permissions (fastest)
- * .use(RouteGuards.requirePermissions(['user:read', 'user:update']))
+ * import { RouteGuards, GuardSetup } from '@noony-serverless/core';
  *
- * // Wildcard patterns (hierarchical)
- * .use(RouteGuards.requireWildcardPermissions(['admin.*', 'org.reports.*']))
+ * // Define user permission source
+ * const userPermissionSource = {
+ *   async getUserPermissions(userId: string): Promise<string[]> {
+ *     const user = await getUserFromDatabase(userId);
+ *     return user.permissions;
+ *   }
+ * };
  *
- * // Complex expressions (boolean logic)
- * .use(RouteGuards.requireComplexPermissions({
- *   or: [
- *     { permission: 'admin.users' },
- *     { and: [
- *       { permission: 'moderator.content' },
- *       { permission: 'org.reports.view' }
- *     ]}
- *   ]
- * }))
+ * // Define token validator
+ * const tokenValidator = {
+ *   async validateToken(token: string) {
+ *     try {
+ *       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ *       return { valid: true, decoded };
+ *     } catch (error) {
+ *       return { valid: false, error: error.message };
+ *     }
+ *   },
+ *   extractUserId: (decoded: any) => decoded.sub,
+ *   isTokenExpired: (decoded: any) => decoded.exp < Date.now() / 1000
+ * };
+ *
+ * // Configure guard system
+ * await RouteGuards.configure(
+ *   GuardSetup.production(),
+ *   userPermissionSource,
+ *   tokenValidator,
+ *   {
+ *     tokenHeader: 'authorization',
+ *     tokenPrefix: 'Bearer ',
+ *     requireEmailVerification: true,
+ *     allowInactiveUsers: false
+ *   }
+ * );
+ * ```
+ *
+ * @example
+ * Simple permission checks (fastest - ~0.1ms cached):
+ * ```typescript
+ * import { Handler, RouteGuards } from '@noony-serverless/core';
+ *
+ * const userManagementHandler = new Handler()
+ *   .use(RouteGuards.requirePermissions(['user:read', 'user:update']))
+ *   .handle(async (context) => {
+ *     // User has either 'user:read' OR 'user:update' permission
+ *     const users = await getUsers();
+ *     return { success: true, users };
+ *   });
+ * ```
+ *
+ * @example
+ * Wildcard permission patterns (hierarchical - ~0.2ms cached):
+ * ```typescript
+ * const adminHandler = new Handler()
+ *   .use(RouteGuards.requireWildcardPermissions(['admin.*', 'org.reports.*']))
+ *   .handle(async (context) => {
+ *     // User has any permission starting with 'admin.' OR 'org.reports.'
+ *     const adminData = await getAdminDashboard();
+ *     return { success: true, data: adminData };
+ *   });
+ * ```
+ *
+ * @example
+ * Complex boolean expressions (~0.5ms cached):
+ * ```typescript
+ * const complexAccessHandler = new Handler()
+ *   .use(RouteGuards.requireComplexPermissions({
+ *     or: [
+ *       { permission: 'admin.users' },
+ *       { and: [
+ *         { permission: 'moderator.content' },
+ *         { permission: 'org.reports.view' }
+ *       ]}
+ *     ]
+ *   }))
+ *   .handle(async (context) => {
+ *     // User has 'admin.users' OR ('moderator.content' AND 'org.reports.view')
+ *     return { success: true, accessGranted: true };
+ *   });
+ * ```
+ *
+ * @example
+ * Authentication-only (no permissions):
+ * ```typescript
+ * const profileHandler = new Handler()
+ *   .use(RouteGuards.requireAuth())
+ *   .handle(async (context) => {
+ *     // Only checks if user is authenticated
+ *     const profile = await getUserProfile(context.user.id);
+ *     return { success: true, profile };
+ *   });
+ * ```
+ *
+ * @example
+ * Cache invalidation for security:
+ * ```typescript
+ * // Invalidate specific user when permissions change
+ * await RouteGuards.invalidateUserPermissions('user-123', 'Permission update');
+ *
+ * // System-wide invalidation for major updates
+ * await RouteGuards.invalidateAllPermissions('System update deployed');
+ *
+ * // Emergency invalidation for security incidents
+ * await RouteGuards.emergencyInvalidation('Security breach detected');
+ * ```
+ *
+ * @example
+ * Monitoring and health checks:
+ * ```typescript
+ * // Get comprehensive system statistics
+ * const stats = RouteGuards.getSystemStats();
+ * console.log('Guard system performance:', stats.systemHealth);
+ *
+ * // Perform health check
+ * const health = await RouteGuards.healthCheck();
+ * console.log('System status:', health.status);
+ * console.log('Recommendations:', health.details.recommendations);
  * ```
  *
  * @author Noony Framework Team
@@ -73,7 +177,59 @@ import {
 import { PermissionExpression } from './resolvers/PermissionResolver';
 
 /**
- * Route guard configuration for the facade
+ * Route guard configuration for the facade.
+ * Provides fine-grained control over guard behavior for specific endpoints.
+ *
+ * @example
+ * Basic guard options:
+ * ```typescript
+ * const options: RouteGuardOptions = {
+ *   requireAuth: true,
+ *   cacheResults: true,
+ *   auditTrail: false,
+ *   errorMessage: 'Access denied to this resource'
+ * };
+ *
+ * const handler = new Handler()
+ *   .use(RouteGuards.requirePermissions(['admin:read'], options))
+ *   .handle(async (context) => {
+ *     return { success: true, data: 'admin data' };
+ *   });
+ * ```
+ *
+ * @example
+ * High-security endpoint with audit trail:
+ * ```typescript
+ * const secureOptions: RouteGuardOptions = {
+ *   requireAuth: true,
+ *   cacheResults: false, // Always check fresh permissions
+ *   auditTrail: true,    // Enable detailed logging
+ *   errorMessage: 'Unauthorized access to sensitive data',
+ *   cacheTtlMs: 30000    // Short cache TTL for security
+ * };
+ *
+ * const sensitiveHandler = new Handler()
+ *   .use(RouteGuards.requirePermissions(['sensitive:access'], secureOptions))
+ *   .handle(async (context) => {
+ *     return { success: true, data: 'sensitive information' };
+ *   });
+ * ```
+ *
+ * @example
+ * Public endpoint with authentication check only:
+ * ```typescript
+ * const publicOptions: RouteGuardOptions = {
+ *   requireAuth: false,  // Allow unauthenticated access
+ *   cacheResults: true,
+ *   auditTrail: false
+ * };
+ *
+ * const publicHandler = new Handler()
+ *   .use(RouteGuards.requirePermissions(['public:read'], publicOptions))
+ *   .handle(async (context) => {
+ *     return { success: true, data: 'public data' };
+ *   });
+ * ```
  */
 export interface RouteGuardOptions {
   /** Enable authentication requirement (default: true) */
@@ -89,7 +245,71 @@ export interface RouteGuardOptions {
 }
 
 /**
- * Guard system statistics
+ * Guard system statistics for monitoring and performance analysis.
+ * Provides comprehensive metrics about all guard system components.
+ *
+ * @example
+ * Monitoring guard system performance:
+ * ```typescript
+ * const stats = RouteGuards.getSystemStats();
+ *
+ * console.log('System Health:', {
+ *   totalChecks: stats.systemHealth.totalGuardChecks,
+ *   avgResponseTime: stats.systemHealth.averageResponseTime,
+ *   errorRate: stats.systemHealth.errorRate,
+ *   cacheEfficiency: stats.systemHealth.cacheEfficiency,
+ *   uptime: Math.round(stats.systemHealth.uptime / 1000) + 's'
+ * });
+ *
+ * console.log('Cache Performance:', {
+ *   adapter: stats.cacheAdapter.name,
+ *   stats: stats.cacheAdapter.stats
+ * });
+ * ```
+ *
+ * @example
+ * Setting up monitoring alerts:
+ * ```typescript
+ * setInterval(async () => {
+ *   const stats = RouteGuards.getSystemStats();
+ *   const health = await RouteGuards.healthCheck();
+ *
+ *   if (health.status === 'unhealthy') {
+ *     await sendAlert('Guard system unhealthy', {
+ *       status: health.status,
+ *       errorRate: stats.systemHealth.errorRate,
+ *       avgResponseTime: stats.systemHealth.averageResponseTime,
+ *       recommendations: health.details.recommendations
+ *     });
+ *   }
+ *
+ *   if (stats.systemHealth.cacheEfficiency < 50) {
+ *     await sendAlert('Low cache efficiency detected', {
+ *       efficiency: stats.systemHealth.cacheEfficiency,
+ *       totalChecks: stats.systemHealth.totalGuardChecks
+ *     });
+ *   }
+ * }, 60000); // Check every minute
+ * ```
+ *
+ * @example
+ * Performance optimization based on stats:
+ * ```typescript
+ * const stats = RouteGuards.getSystemStats();
+ *
+ * if (stats.systemHealth.averageResponseTime > 10) {
+ *   console.warn('Slow guard performance detected');
+ *   console.log('Consider:');
+ *   console.log('- Increasing cache TTL values');
+ *   console.log('- Optimizing permission source queries');
+ *   console.log('- Using simpler permission patterns');
+ * }
+ *
+ * if (stats.systemHealth.errorRate > 2) {
+ *   console.error('High error rate in guard system');
+ *   console.log('Check authentication service health');
+ * }
+ * ```
  */
 export interface GuardSystemStats {
   authentication: Record<string, unknown>;

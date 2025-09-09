@@ -31,11 +31,61 @@ interface CacheEntry<T> {
 }
 
 /**
- * Memory cache adapter with LRU eviction policy
+ * Memory cache adapter with LRU eviction policy.
  *
  * Uses a combination of Map for O(1) key lookups and a doubly-linked list
  * for O(1) LRU operations. TTL is implemented with lazy expiration checking
  * to avoid timer overhead.
+ *
+ * @example
+ * Basic usage:
+ * ```typescript
+ * import { MemoryCacheAdapter } from '@noony/core';
+ *
+ * const cache = new MemoryCacheAdapter({
+ *   maxSize: 10000,           // Store up to 10,000 entries
+ *   defaultTTL: 300000,       // 5 minutes default TTL
+ *   name: 'UserCache'         // For debugging/monitoring
+ * });
+ *
+ * // Store user permissions
+ * await cache.set('user:123:permissions', ['read', 'write'], 600000);
+ *
+ * // Retrieve from cache
+ * const permissions = await cache.get<string[]>('user:123:permissions');
+ * if (permissions) {
+ *   console.log('Found in cache:', permissions);
+ * }
+ * ```
+ *
+ * @example
+ * Performance monitoring:
+ * ```typescript
+ * // Get cache statistics
+ * const stats = await cache.getStats();
+ * console.log(`Cache performance:
+ *   Hit rate: ${stats.hitRate}%
+ *   Total entries: ${stats.totalEntries}
+ *   Memory usage: ${(stats.memoryUsage || 0) / 1024 / 1024} MB`);
+ *
+ * // Monitor cache health
+ * if (stats.hitRate < 80) {
+ *   console.warn('Cache hit rate is low - consider increasing TTL');
+ * }
+ * ```
+ *
+ * @example
+ * Cache invalidation patterns:
+ * ```typescript
+ * // Clear all cache entries for a specific user
+ * await cache.deletePattern('user:123:*');
+ *
+ * // Clear all permission caches
+ * await cache.deletePattern('permissions:*');
+ *
+ * // Clear everything (emergency invalidation)
+ * await cache.flush();
+ * ```
  */
 export class MemoryCacheAdapter implements CacheAdapter {
   private readonly cache = new Map<string, CacheEntry<any>>();
@@ -55,6 +105,32 @@ export class MemoryCacheAdapter implements CacheAdapter {
     startTime: Date.now(),
   };
 
+  /**
+   * Creates a new memory cache adapter instance.
+   *
+   * @param config - Cache configuration with size, TTL, and name settings
+   * @throws Error if maxSize or defaultTTL are invalid
+   *
+   * @example
+   * ```typescript
+   * // Create cache for user authentication
+   * const authCache = new MemoryCacheAdapter({
+   *   maxSize: 5000,           // Store up to 5k user sessions
+   *   defaultTTL: 900000,      // 15 minutes default TTL
+   *   name: 'AuthCache'        // For monitoring and debugging
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Create cache for permission data
+   * const permissionCache = new MemoryCacheAdapter({
+   *   maxSize: 10000,          // Higher capacity for permissions
+   *   defaultTTL: 300000,      // 5 minutes default TTL
+   *   name: 'PermissionCache'  // Descriptive name for logs
+   * });
+   * ```
+   */
   constructor(config: CacheConfiguration) {
     this.maxSize = config.maxSize;
     this.defaultTTL = config.defaultTTL;
@@ -70,10 +146,25 @@ export class MemoryCacheAdapter implements CacheAdapter {
   }
 
   /**
-   * Retrieve a value from cache
+   * Retrieve a value from cache.
+   * Implements LRU behavior by moving accessed entries to the head of the list.
+   * Performs lazy expiration checking for better performance.
    *
    * @param key - Cache key to retrieve
    * @returns Promise resolving to cached value or null if not found/expired
+   *
+   * @example
+   * ```typescript
+   * // Retrieve user permissions with type safety
+   * const permissions = await cache.get<string[]>('user:123:permissions');
+   * if (permissions) {
+   *   console.log('Found permissions:', permissions);
+   * } else {
+   *   console.log('Cache miss - loading from database');
+   *   const dbPermissions = await loadFromDatabase('123');
+   *   await cache.set('user:123:permissions', dbPermissions);
+   * }
+   * ```
    */
   async get<T>(key: string): Promise<T | null> {
     const entry = this.cache.get(key);
@@ -97,11 +188,29 @@ export class MemoryCacheAdapter implements CacheAdapter {
   }
 
   /**
-   * Store a value in cache with optional TTL
+   * Store a value in cache with optional TTL.
+   * If the key already exists, updates the value and moves to head.
+   * Triggers LRU eviction if cache size exceeds maxSize.
    *
    * @param key - Cache key to store under
-   * @param value - Value to cache
+   * @param value - Value to cache (must be serializable)
    * @param ttlMs - Time to live in milliseconds (defaults to defaultTTL)
+   *
+   * @example
+   * ```typescript
+   * // Store user data with custom TTL
+   * await cache.set('user:123:profile', {
+   *   id: 123,
+   *   name: 'John Doe',
+   *   roles: ['admin', 'user']
+   * }, 1800000); // 30 minutes
+   *
+   * // Store with default TTL
+   * await cache.set('session:abc123', { userId: 123, active: true });
+   *
+   * // Store permission data
+   * await cache.set('user:123:permissions', ['read', 'write'], 600000);
+   * ```
    */
   async set<T>(key: string, value: T, ttlMs?: number): Promise<void> {
     const ttl = ttlMs ?? this.defaultTTL;

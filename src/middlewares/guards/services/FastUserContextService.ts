@@ -121,7 +121,8 @@ export class FastUserContextService {
     // Initialize permission resolvers
     this.plainResolver = new PlainPermissionResolver();
     this.wildcardResolver = new WildcardPermissionResolver(
-      config.security.permissionResolutionStrategy,
+      config.security.permissionResolutionStrategy ??
+        PermissionResolutionStrategy.PRE_EXPANSION,
       this._permissionRegistry,
       cache
     );

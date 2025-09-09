@@ -209,8 +209,69 @@ const getRateLimit = (
 };
 
 /**
- * Rate Limiting Middleware
- * Implements sliding window rate limiting with comprehensive features
+ * Rate Limiting Middleware with sliding window implementation.
+ * Implements comprehensive rate limiting with dynamic limits, custom storage, and security features.
+ *
+ * @implements {BaseMiddleware}
+ *
+ * @example
+ * Basic API rate limiting:
+ * ```typescript
+ * import { Handler, RateLimitingMiddleware } from '@noony-serverless/core';
+ *
+ * const apiHandler = new Handler()
+ *   .use(new RateLimitingMiddleware({
+ *     maxRequests: 100,
+ *     windowMs: 60000, // 1 minute
+ *     message: 'Too many API requests'
+ *   }))
+ *   .handle(async (context) => {
+ *     const data = await getApiData();
+ *     return { success: true, data };
+ *   });
+ * ```
+ *
+ * @example
+ * Authentication endpoint with strict limits:
+ * ```typescript
+ * const loginHandler = new Handler()
+ *   .use(new RateLimitingMiddleware({
+ *     maxRequests: 5,
+ *     windowMs: 60000, // 1 minute
+ *     message: 'Too many login attempts',
+ *     statusCode: 429
+ *   }))
+ *   .handle(async (context) => {
+ *     const { email, password } = context.req.parsedBody;
+ *     const token = await authenticate(email, password);
+ *     return { success: true, token };
+ *   });
+ * ```
+ *
+ * @example
+ * Dynamic limits based on user authentication:
+ * ```typescript
+ * const smartApiHandler = new Handler()
+ *   .use(new RateLimitingMiddleware({
+ *     maxRequests: 50, // Default for unauthenticated
+ *     windowMs: 60000,
+ *     dynamicLimits: {
+ *       authenticated: {
+ *         maxRequests: 1000,
+ *         windowMs: 60000,
+ *         matcher: (context) => !!context.user
+ *       },
+ *       premium: {
+ *         maxRequests: 5000,
+ *         windowMs: 60000,
+ *         matcher: (context) => context.user?.plan === 'premium'
+ *       }
+ *     }
+ *   }))
+ *   .handle(async (context) => {
+ *     return { success: true, limit: 'applied dynamically' };
+ *   });
+ * ```
  */
 export class RateLimitingMiddleware implements BaseMiddleware {
   private store: RateLimitStore;
@@ -296,9 +357,52 @@ export class RateLimitingMiddleware implements BaseMiddleware {
 }
 
 /**
- * Rate Limiting Middleware Factory
- * @param options Rate limiting configuration
- * @returns BaseMiddleware
+ * Factory function that creates a rate limiting middleware.
+ * Provides flexible rate limiting with configurable options and presets.
+ *
+ * @param options - Rate limiting configuration options
+ * @returns BaseMiddleware instance
+ *
+ * @example
+ * Using preset configurations:
+ * ```typescript
+ * import { Handler, rateLimiting, RateLimitPresets } from '@noony-serverless/core';
+ *
+ * // Strict limits for sensitive endpoints
+ * const authHandler = new Handler()
+ *   .use(rateLimiting(RateLimitPresets.AUTH))
+ *   .handle(async (context) => {
+ *     return await handleAuthentication(context.req.parsedBody);
+ *   });
+ *
+ * // Standard API limits
+ * const apiHandler = new Handler()
+ *   .use(rateLimiting(RateLimitPresets.API))
+ *   .handle(async (context) => {
+ *     return await handleApiRequest(context);
+ *   });
+ * ```
+ *
+ * @example
+ * Custom rate limiting with skip conditions:
+ * ```typescript
+ * const conditionalHandler = new Handler()
+ *   .use(rateLimiting({
+ *     maxRequests: 100,
+ *     windowMs: 60000,
+ *     skip: (context) => {
+ *       // Skip rate limiting for admin users
+ *       return context.user?.role === 'admin';
+ *     },
+ *     keyGenerator: (context) => {
+ *       // Rate limit per user instead of IP
+ *       return context.user?.id || context.req.ip || 'anonymous';
+ *     }
+ *   }))
+ *   .handle(async (context) => {
+ *     return { success: true, message: 'Request processed' };
+ *   });
+ * ```
  */
 export const rateLimiting = (options: RateLimitOptions = {}): BaseMiddleware =>
   new RateLimitingMiddleware(options);
