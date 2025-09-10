@@ -37,6 +37,7 @@ import {
   PermissionResolverType,
   PermissionCheckResult,
 } from '../resolvers/PermissionResolver';
+import { NoopCacheAdapter } from '../cache/NoopCacheAdapter';
 
 /**
  * User context with cached permissions and metadata
@@ -130,6 +131,18 @@ export class FastUserContextService {
   }
 
   /**
+   * Check if caching is effectively disabled
+   *
+   * @returns true if caching is disabled (either by environment variable or NoopCacheAdapter)
+   */
+  private isCachingDisabled(): boolean {
+    return (
+      !GuardConfiguration.isCachingEnabled() ||
+      this.cache instanceof NoopCacheAdapter
+    );
+  }
+
+  /**
    * Get or load user context with permissions
    *
    * This is the primary method for retrieving user contexts with caching.
@@ -147,8 +160,10 @@ export class FastUserContextService {
     this.contextLoads++;
 
     try {
-      // Check cache first unless forced refresh
-      if (!forceRefresh) {
+      const cachingDisabled = this.isCachingDisabled();
+
+      // Check cache first unless forced refresh or caching is disabled
+      if (!forceRefresh && !cachingDisabled) {
         const cachedContext = await this.loadFromCache(userId);
         if (cachedContext) {
           this.cacheHits++;
@@ -167,8 +182,10 @@ export class FastUserContextService {
       // Build user context
       const context = await this.buildUserContext(userId, userData);
 
-      // Cache the context
-      await this.saveToCache(context);
+      // Cache the context only if caching is enabled
+      if (!cachingDisabled) {
+        await this.saveToCache(context);
+      }
 
       return context;
     } finally {

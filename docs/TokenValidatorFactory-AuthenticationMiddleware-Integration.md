@@ -2,6 +2,32 @@
 
 This guide demonstrates how to use the `TokenValidatorFactory` with the `AuthenticationMiddleware` to create reusable, enterprise-grade authentication for your handlers.
 
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Quick Start](#quick-start)
+   - [Simple Factory + Custom Verifier Pattern](#1-simple-factory--custom-verifier-pattern)
+   - [Usage in Handlers](#2-usage-in-handlers)
+3. [Singleton Pattern for Maximum Reusability](#singleton-pattern-for-maximum-reusability)
+   - [Single Setup File](#1-single-setup-file)
+   - [Use Across Multiple Handlers](#2-use-across-multiple-handlers)
+4. [Advanced Configuration](#advanced-configuration)
+   - [Multi-Provider Setup with Failover](#multi-provider-setup-with-failover)
+   - [Social Authentication (Google & Facebook)](#social-authentication-google--facebook)
+   - [Using Social Authentication in Handlers](#using-social-authentication-in-handlers)
+   - [Environment Variables for Social Authentication](#environment-variables-for-social-authentication)
+   - [Required Dependencies](#required-dependencies)
+   - [Different Security Levels](#different-security-levels)
+   - [Usage with Different Security Levels](#usage-with-different-security-levels)
+5. [Error Handling](#error-handling)
+6. [Performance Monitoring](#performance-monitoring)
+7. [Best Practices](#best-practices)
+   - [Environment Configuration](#1-environment-configuration)
+   - [Type Safety](#2-type-safety)
+   - [Testing](#3-testing)
+8. [Key Benefits](#key-benefits)
+9. [Summary](#summary)
+
 ## Overview
 
 The `TokenValidatorFactory` provides advanced token validation capabilities (multi-provider support, failover, circuit breakers, health monitoring) while maintaining the simple `CustomTokenVerificationPort<T>` interface that the `AuthenticationMiddleware` expects.

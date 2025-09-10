@@ -21,6 +21,7 @@ export {
   RouteGuards,
   RouteGuardOptions,
   GuardSystemStats,
+  AnyTokenValidator,
 } from './RouteGuards';
 
 // Configuration
@@ -84,6 +85,13 @@ export {
   GuardConfig,
 } from './guards/PermissionGuardFactory';
 
+// Token verification adapters for integration with AuthenticationMiddleware
+export {
+  CustomTokenVerificationPortAdapter,
+  TokenVerificationAdapterFactory,
+  AdapterConfig,
+} from './adapters/CustomTokenVerificationPortAdapter';
+
 // Utility types and constants
 export const GUARD_DEFAULTS = {
   CACHE_TTL_MS: 15 * 60 * 1000, // 15 minutes
@@ -113,6 +121,18 @@ import {
 export class GuardSetup {
   /**
    * Development environment setup
+   *
+   * Note: Caching is disabled by default unless NOONY_GUARD_CACHE_ENABLE=true is set.
+   * Even with cacheType: 'memory', the environment variable takes precedence.
+   *
+   * @example
+   * ```bash
+   * # Caching disabled (default)
+   * npm run dev
+   *
+   * # Caching enabled
+   * NOONY_GUARD_CACHE_ENABLE=true npm run dev
+   * ```
    */
   static development(): GuardEnvironmentProfile {
     return {
@@ -142,6 +162,18 @@ export class GuardSetup {
 
   /**
    * Production environment setup
+   *
+   * Note: Caching is disabled by default unless NOONY_GUARD_CACHE_ENABLE=true is set.
+   * This provides a security-first approach where caching must be explicitly enabled.
+   *
+   * @example
+   * ```bash
+   * # Production with caching enabled (recommended)
+   * NOONY_GUARD_CACHE_ENABLE=true node dist/index.js
+   *
+   * # Production with caching disabled (debugging/troubleshooting)
+   * node dist/index.js
+   * ```
    */
   static production(): GuardEnvironmentProfile {
     return {
@@ -172,6 +204,19 @@ export class GuardSetup {
 
   /**
    * Serverless environment setup (optimized for cold starts)
+   *
+   * Note: Caching is disabled by default unless NOONY_GUARD_CACHE_ENABLE=true is set.
+   * For serverless environments, consider enabling caching to improve performance
+   * across warm invocations.
+   *
+   * @example
+   * ```bash
+   * # Serverless with caching enabled (recommended for warm starts)
+   * NOONY_GUARD_CACHE_ENABLE=true serverless deploy
+   *
+   * # Serverless with caching disabled (cold start optimization)
+   * serverless deploy
+   * ```
    */
   static serverless(): GuardEnvironmentProfile {
     return {
@@ -202,6 +247,10 @@ export class GuardSetup {
 
   /**
    * Testing environment setup
+   *
+   * Note: Uses cacheType: 'none' explicitly, so caching is always disabled
+   * regardless of NOONY_GUARD_CACHE_ENABLE environment variable.
+   * This ensures predictable test behavior.
    */
   static testing(): GuardEnvironmentProfile {
     return {

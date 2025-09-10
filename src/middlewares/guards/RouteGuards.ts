@@ -175,6 +175,74 @@ import {
   DefaultPermissionRegistry,
 } from './registry/PermissionRegistry';
 import { PermissionExpression } from './resolvers/PermissionResolver';
+import { CustomTokenVerificationPort } from '../authenticationMiddleware';
+import {
+  CustomTokenVerificationPortAdapter,
+  TokenVerificationAdapterFactory,
+} from './adapters/CustomTokenVerificationPortAdapter';
+
+/**
+ * Union type supporting both RouteGuards TokenValidator and AuthenticationMiddleware CustomTokenVerificationPort.
+ * This enables seamless integration between the two authentication systems.
+ */
+export type AnyTokenValidator =
+  | TokenValidator
+  | CustomTokenVerificationPort<unknown>;
+
+/**
+ * Helper function to check if a token validator is a CustomTokenVerificationPort
+ */
+function isCustomTokenVerificationPort(
+  validator: AnyTokenValidator
+): validator is CustomTokenVerificationPort<unknown> {
+  return (
+    typeof validator === 'object' &&
+    'verifyToken' in validator &&
+    !('validateToken' in validator)
+  );
+}
+
+/**
+ * Convert any token validator to the TokenValidator interface expected by RouteGuards.
+ * Automatically wraps CustomTokenVerificationPort implementations with an adapter.
+ */
+function normalizeTokenValidator(validator: AnyTokenValidator): TokenValidator {
+  if (isCustomTokenVerificationPort(validator)) {
+    // For CustomTokenVerificationPort, we create a generic adapter
+    // We use a basic configuration that tries to extract common fields
+    return new CustomTokenVerificationPortAdapter(
+      validator as CustomTokenVerificationPort<unknown>,
+      {
+        userIdExtractor: (user: unknown): string => {
+          // Try to extract user ID from common field names
+          if (user && typeof user === 'object') {
+            const userObj = user as Record<string, unknown>;
+            return String(
+              userObj.sub ||
+                userObj.id ||
+                userObj.userId ||
+                userObj.user_id ||
+                'unknown'
+            );
+          }
+          return 'unknown';
+        },
+        expirationExtractor: (user: unknown): number | undefined => {
+          // Try to extract expiration from common field names
+          if (user && typeof user === 'object') {
+            const userObj = user as Record<string, unknown>;
+            const exp = userObj.exp || userObj.expiresAt || userObj.expires_at;
+            return typeof exp === 'number' ? exp : undefined;
+          }
+          return undefined;
+        },
+      }
+    );
+  }
+
+  // Already a TokenValidator, return as-is
+  return validator as TokenValidator;
+}
 
 /**
  * Route guard configuration for the facade.
@@ -381,14 +449,63 @@ export class RouteGuards {
    *
    * @param profile - Environment profile with guard configurations
    * @param permissionSource - User permission data source
-   * @param tokenValidator - JWT token validation service
+   * @param tokenValidator - Token validation service (supports both TokenValidator and CustomTokenVerificationPort)
    * @param authConfig - Authentication guard configuration
    * @returns Promise resolving when configuration is complete
+   *
+   * @example
+   * Using with CustomTokenVerificationPort from AuthenticationMiddleware:
+   * ```typescript
+   * import { CustomTokenVerificationPort } from '@/middlewares/authenticationMiddleware';
+   * import { RouteGuards, GuardSetup } from '@/middlewares/guards';
+   *
+   * // Same token verifier used across the framework
+   * const tokenVerifier: CustomTokenVerificationPort<User> = {
+   *   async verifyToken(token: string): Promise<User> {
+   *     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+   *     return {
+   *       id: payload.sub,
+   *       email: payload.email,
+   *       roles: payload.roles || [],
+   *       sub: payload.sub,
+   *       exp: payload.exp
+   *     };
+   *   }
+   * };
+   *
+   * // Configure RouteGuards with the same verifier
+   * await RouteGuards.configure(
+   *   GuardSetup.production(),
+   *   userPermissionSource,
+   *   tokenVerifier, // Automatically wrapped with adapter
+   *   authConfig
+   * );
+   * ```
+   *
+   * @example
+   * Traditional usage with TokenValidator (backward compatible):
+   * ```typescript
+   * const tokenValidator: TokenValidator = {
+   *   async validateToken(token: string) {
+   *     // Your existing validation logic
+   *     return { valid: true, decoded: userPayload };
+   *   },
+   *   extractUserId: (decoded) => decoded.sub,
+   *   isTokenExpired: (decoded) => decoded.exp < Date.now() / 1000
+   * };
+   *
+   * await RouteGuards.configure(
+   *   GuardSetup.production(),
+   *   userPermissionSource,
+   *   tokenValidator, // Works as before
+   *   authConfig
+   * );
+   * ```
    */
   static async configure(
     profile: GuardEnvironmentProfile,
     permissionSource: UserPermissionSource,
-    tokenValidator: TokenValidator,
+    tokenValidator: AnyTokenValidator,
     authConfig: AuthGuardConfig
   ): Promise<void> {
     if (RouteGuards.isConfigured) {
@@ -402,18 +519,35 @@ export class RouteGuards {
       // Create guard configuration
       const config = GuardConfiguration.fromEnvironmentProfile(profile);
 
-      // Select cache adapter based on environment
+      // Get effective cache type considering environment variable override
+      // Environment variable NOONY_GUARD_CACHE_ENABLE takes precedence for security
+      const effectiveCacheType = GuardConfiguration.getEffectiveCacheType(
+        profile.cacheType
+      );
+
+      // Select cache adapter based on effective cache type
       let cache: CacheAdapter;
-      if (profile.cacheType === 'memory') {
+      if (effectiveCacheType === 'memory') {
         cache = new MemoryCacheAdapter({
           maxSize: config.cache.maxEntries || 1000,
           defaultTTL: config.cache.defaultTtlMs || 15 * 60 * 1000,
           name: 'guard-memory-cache',
         });
-      } else if (profile.cacheType === 'none') {
+      } else if (effectiveCacheType === 'none') {
         cache = new NoopCacheAdapter();
+
+        // Log cache status for debugging
+        if (!GuardConfiguration.isCachingEnabled()) {
+          console.log(
+            `🚫 Guard caching disabled by environment variable NOONY_GUARD_CACHE_ENABLE`
+          );
+        } else {
+          console.log(
+            `🚫 Guard caching disabled by configuration (cacheType: 'none')`
+          );
+        }
       } else {
-        // Default to memory cache
+        // Default to memory cache (redis support would go here)
         cache = new MemoryCacheAdapter({
           maxSize: 1000,
           defaultTTL: 15 * 60 * 1000,
@@ -435,6 +569,9 @@ export class RouteGuards {
       // Create cache invalidation service
       const cacheInvalidation = new ConservativeCacheInvalidation(cache);
 
+      // Normalize token validator to ensure compatibility
+      const normalizedTokenValidator = normalizeTokenValidator(tokenValidator);
+
       // Create authentication guard
       const authGuard = new FastAuthGuard(
         cache,
@@ -442,7 +579,7 @@ export class RouteGuards {
         authConfig,
         userContextService,
         cacheInvalidation,
-        tokenValidator
+        normalizedTokenValidator
       );
 
       // Create permission guard factory
@@ -479,6 +616,8 @@ export class RouteGuards {
       console.log('✅ RouteGuards configured successfully', {
         environment: profile.environment,
         cacheType: profile.cacheType,
+        effectiveCacheType: effectiveCacheType,
+        cachingEnabled: GuardConfiguration.isCachingEnabled(),
         permissionStrategy: config.security.permissionResolutionStrategy,
         timestamp: new Date().toISOString(),
       });
@@ -678,6 +817,261 @@ export class RouteGuards {
   }> {
     const instance = RouteGuards.getInstance();
     return instance.performHealthCheck();
+  }
+
+  /**
+   * Factory method: Configure RouteGuards with CustomTokenVerificationPort for JWT tokens.
+   * Provides a streamlined setup for JWT-based authentication with common field extraction.
+   *
+   * @example
+   * Quick JWT setup with CustomTokenVerificationPort:
+   * ```typescript
+   * import { CustomTokenVerificationPort } from '@/middlewares/authenticationMiddleware';
+   *
+   * interface JWTUser {
+   *   sub: string;
+   *   email: string;
+   *   roles: string[];
+   *   exp: number;
+   * }
+   *
+   * const jwtVerifier: CustomTokenVerificationPort<JWTUser> = {
+   *   async verifyToken(token: string): Promise<JWTUser> {
+   *     const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+   *     return {
+   *       sub: payload.sub,
+   *       email: payload.email,
+   *       roles: payload.roles || [],
+   *       exp: payload.exp
+   *     };
+   *   }
+   * };
+   *
+   * // One-line setup for JWT authentication
+   * await RouteGuards.configureWithJWT(
+   *   GuardSetup.production(),
+   *   userPermissionSource,
+   *   jwtVerifier,
+   *   {
+   *     tokenHeader: 'authorization',
+   *     tokenPrefix: 'Bearer ',
+   *     requireEmailVerification: true
+   *   }
+   * );
+   * ```
+   */
+  static async configureWithJWT<T extends { sub: string; exp?: number }>(
+    profile: GuardEnvironmentProfile,
+    permissionSource: UserPermissionSource,
+    jwtVerifier: CustomTokenVerificationPort<T>,
+    authConfig: AuthGuardConfig
+  ): Promise<void> {
+    // Create a properly typed adapter for JWT tokens
+    const tokenValidator = TokenVerificationAdapterFactory.forJWT(jwtVerifier);
+
+    await RouteGuards.configure(
+      profile,
+      permissionSource,
+      tokenValidator,
+      authConfig
+    );
+  }
+
+  /**
+   * Factory method: Configure RouteGuards with CustomTokenVerificationPort for API keys.
+   * Provides setup for API key-based authentication with flexible field mapping.
+   *
+   * @example
+   * API key authentication setup:
+   * ```typescript
+   * interface APIKeyUser {
+   *   keyId: string;
+   *   permissions: string[];
+   *   organization: string;
+   *   expiresAt?: number;
+   *   isActive: boolean;
+   * }
+   *
+   * const apiKeyVerifier: CustomTokenVerificationPort<APIKeyUser> = {
+   *   async verifyToken(token: string): Promise<APIKeyUser> {
+   *     const keyData = await validateAPIKeyInDatabase(token);
+   *     if (!keyData || !keyData.isActive) {
+   *       throw new Error('Invalid or inactive API key');
+   *     }
+   *     return keyData;
+   *   }
+   * };
+   *
+   * await RouteGuards.configureWithAPIKey(
+   *   GuardSetup.production(),
+   *   userPermissionSource,
+   *   apiKeyVerifier,
+   *   {
+   *     tokenHeader: 'x-api-key',
+   *     tokenPrefix: '',
+   *     allowInactiveUsers: false
+   *   },
+   *   'keyId',
+   *   'expiresAt'
+   * );
+   * ```
+   */
+  static async configureWithAPIKey<T extends Record<string, unknown>>(
+    profile: GuardEnvironmentProfile,
+    permissionSource: UserPermissionSource,
+    apiKeyVerifier: CustomTokenVerificationPort<T>,
+    authConfig: AuthGuardConfig,
+    userIdField: keyof T,
+    expirationField?: keyof T
+  ): Promise<void> {
+    // Create a properly configured adapter for API keys
+    const tokenValidator = TokenVerificationAdapterFactory.forAPIKey(
+      apiKeyVerifier,
+      userIdField,
+      expirationField
+    );
+
+    await RouteGuards.configure(
+      profile,
+      permissionSource,
+      tokenValidator,
+      authConfig
+    );
+  }
+
+  /**
+   * Factory method: Configure RouteGuards with CustomTokenVerificationPort for OAuth tokens.
+   * Provides setup for OAuth-based authentication with scope validation.
+   *
+   * @example
+   * OAuth token authentication with scope requirements:
+   * ```typescript
+   * interface OAuthUser {
+   *   sub: string;
+   *   email: string;
+   *   scope: string[];
+   *   exp: number;
+   *   client_id: string;
+   * }
+   *
+   * const oauthVerifier: CustomTokenVerificationPort<OAuthUser> = {
+   *   async verifyToken(token: string): Promise<OAuthUser> {
+   *     const response = await fetch(`${OAUTH_INTROSPECT_URL}`, {
+   *       method: 'POST',
+   *       headers: { 'Authorization': `Bearer ${token}` },
+   *       body: new URLSearchParams({ token })
+   *     });
+   *
+   *     const tokenInfo = await response.json();
+   *     if (!tokenInfo.active) {
+   *       throw new Error('Token is not active');
+   *     }
+   *
+   *     return tokenInfo as OAuthUser;
+   *   }
+   * };
+   *
+   * await RouteGuards.configureWithOAuth(
+   *   GuardSetup.production(),
+   *   userPermissionSource,
+   *   oauthVerifier,
+   *   {
+   *     tokenHeader: 'authorization',
+   *     tokenPrefix: 'Bearer ',
+   *     requireEmailVerification: false
+   *   },
+   *   ['read:profile', 'write:data'] // Required OAuth scopes
+   * );
+   * ```
+   */
+  static async configureWithOAuth<
+    T extends { sub: string; exp?: number; scope?: string[] },
+  >(
+    profile: GuardEnvironmentProfile,
+    permissionSource: UserPermissionSource,
+    oauthVerifier: CustomTokenVerificationPort<T>,
+    authConfig: AuthGuardConfig,
+    requiredScopes?: string[]
+  ): Promise<void> {
+    // Create a properly configured adapter for OAuth tokens
+    const tokenValidator = TokenVerificationAdapterFactory.forOAuth(
+      oauthVerifier,
+      requiredScopes
+    );
+
+    await RouteGuards.configure(
+      profile,
+      permissionSource,
+      tokenValidator,
+      authConfig
+    );
+  }
+
+  /**
+   * Factory method: Configure RouteGuards with a custom CustomTokenVerificationPort adapter.
+   * Provides maximum flexibility for custom token validation scenarios.
+   *
+   * @example
+   * Custom token validation with business-specific logic:
+   * ```typescript
+   * interface CustomUser {
+   *   userId: string;
+   *   tenantId: string;
+   *   roles: string[];
+   *   sessionExpiry: number;
+   *   isVerified: boolean;
+   * }
+   *
+   * const customVerifier: CustomTokenVerificationPort<CustomUser> = {
+   *   async verifyToken(token: string): Promise<CustomUser> {
+   *     // Your custom verification logic
+   *     return await verifyCustomToken(token);
+   *   }
+   * };
+   *
+   * await RouteGuards.configureWithCustom(
+   *   GuardSetup.production(),
+   *   userPermissionSource,
+   *   customVerifier,
+   *   {
+   *     tokenHeader: 'x-auth-token',
+   *     tokenPrefix: 'Custom ',
+   *     customValidation: async (token, user) => {
+   *       return user.isVerified && user.tenantId === 'valid-tenant';
+   *     }
+   *   },
+   *   {
+   *     userIdExtractor: (user) => user.userId,
+   *     expirationExtractor: (user) => user.sessionExpiry,
+   *     additionalValidation: (user) => user.isVerified
+   *   }
+   * );
+   * ```
+   */
+  static async configureWithCustom<T>(
+    profile: GuardEnvironmentProfile,
+    permissionSource: UserPermissionSource,
+    customVerifier: CustomTokenVerificationPort<T>,
+    authConfig: AuthGuardConfig,
+    adapterConfig: Omit<
+      Parameters<typeof TokenVerificationAdapterFactory.custom<T>>[1],
+      'userIdExtractor'
+    > & {
+      userIdExtractor: (user: T) => string;
+    }
+  ): Promise<void> {
+    // Create a custom configured adapter
+    const tokenValidator = TokenVerificationAdapterFactory.custom(
+      customVerifier,
+      adapterConfig
+    );
+
+    await RouteGuards.configure(
+      profile,
+      permissionSource,
+      tokenValidator,
+      authConfig
+    );
   }
 
   // Private implementation methods
