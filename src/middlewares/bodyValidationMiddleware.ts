@@ -26,88 +26,35 @@ const validateBody = async <T>(
  * @implements {BaseMiddleware}
  *
  * @example
- * Basic user registration validation:
+ * Simple user creation with type safety:
  * ```typescript
  * import { z } from 'zod';
- * import { Handler, BodyValidationMiddleware, bodyParser } from '@noony-serverless/core';
+ * import { Handler, BodyValidationMiddleware } from '@noony-serverless/core';
  *
  * const userSchema = z.object({
- *   name: z.string().min(1).max(100),
- *   email: z.string().email(),
- *   age: z.number().int().min(18).max(120),
- *   preferences: z.object({
- *     newsletter: z.boolean(),
- *     theme: z.enum(['light', 'dark'])
- *   }).optional()
- * });
- *
- * type UserData = z.infer<typeof userSchema>;
- *
- * const registerHandler = new Handler()
- *   .use(bodyParser<UserData>())
- *   .use(new BodyValidationMiddleware(userSchema))
- *   .handle(async (context) => {
- *     const validatedUser = context.req.validatedBody as UserData;
- *     console.log('Valid user:', validatedUser.name, validatedUser.email);
- *     return { success: true, userId: 'user-123' };
- *   });
- * ```
- *
- * @example
- * Product creation with nested validation:
- * ```typescript
- * const productSchema = z.object({
  *   name: z.string().min(1),
- *   price: z.number().positive(),
- *   category: z.enum(['electronics', 'clothing', 'books']),
- *   specifications: z.record(z.string()),
- *   tags: z.array(z.string()).max(10),
- *   availability: z.object({
- *     inStock: z.boolean(),
- *     quantity: z.number().int().min(0),
- *     restockDate: z.string().datetime().optional()
- *   })
+ *   email: z.string().email(),
+ *   age: z.number().min(18)
  * });
  *
- * const createProductHandler = new Handler()
- *   .use(bodyParser())
- *   .use(new BodyValidationMiddleware(productSchema))
- *   .handle(async (context) => {
- *     const product = context.req.validatedBody;
- *     const savedProduct = await saveProduct(product);
- *     return { success: true, productId: savedProduct.id };
- *   });
- * ```
+ * type UserRequest = z.infer<typeof userSchema>;
  *
- * @example
- * API endpoint with conditional validation:
- * ```typescript
- * const updateUserSchema = z.object({
- *   name: z.string().min(1).optional(),
- *   email: z.string().email().optional(),
- *   settings: z.object({
- *     notifications: z.boolean(),
- *     privacy: z.enum(['public', 'private'])
- *   }).optional()
- * }).refine(data =>
- *   Object.keys(data).length > 0,
- *   { message: "At least one field must be provided" }
- * );
+ * async function handleCreateUser(context: Context<UserRequest, AuthenticatedUser>) {
+ *   const user = context.req.validatedBody!; // Fully typed
+ *   return { success: true, user: { id: '123', ...user } };
+ * }
  *
- * const updateUserHandler = new Handler()
- *   .use(bodyParser())
- *   .use(new BodyValidationMiddleware(updateUserSchema))
- *   .handle(async (context) => {
- *     const updates = context.req.validatedBody;
- *     const updatedUser = await updateUser(context.params.id, updates);
- *     return { success: true, user: updatedUser };
- *   });
+ * const createUserHandler = new Handler<UserRequest, AuthenticatedUser>()
+ *   .use(new BodyValidationMiddleware<UserRequest, AuthenticatedUser>(userSchema))
+ *   .handle(handleCreateUser);
  * ```
  */
-export class BodyValidationMiddleware<T = unknown> implements BaseMiddleware {
+export class BodyValidationMiddleware<T = unknown, U = unknown>
+  implements BaseMiddleware<T, U>
+{
   constructor(private readonly schema: z.ZodSchema<T>) {}
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<T, U>): Promise<void> {
     context.req.validatedBody = await validateBody(
       this.schema,
       context.req.parsedBody
@@ -124,92 +71,34 @@ export class BodyValidationMiddleware<T = unknown> implements BaseMiddleware {
  * @returns A BaseMiddleware object with validation logic
  *
  * @example
- * Simple validation with factory function:
+ * Simple login validation:
  * ```typescript
  * import { z } from 'zod';
  * import { Handler, bodyValidatorMiddleware } from '@noony-serverless/core';
  *
  * const loginSchema = z.object({
  *   username: z.string().min(3),
- *   password: z.string().min(8),
- *   rememberMe: z.boolean().optional()
+ *   password: z.string().min(8)
  * });
  *
- * const loginHandler = new Handler()
- *   .use(bodyValidatorMiddleware(loginSchema))
- *   .handle(async (context) => {
- *     const credentials = context.req.parsedBody;
- *     const token = await authenticate(credentials.username, credentials.password);
- *     return { success: true, token };
- *   });
- * ```
+ * type LoginRequest = z.infer<typeof loginSchema>;
  *
- * @example
- * Chaining multiple validation middlewares:
- * ```typescript
- * const baseSchema = z.object({
- *   action: z.enum(['create', 'update', 'delete']),
- *   timestamp: z.string().datetime()
- * });
+ * async function handleLogin(context: Context<LoginRequest, AuthenticatedUser>) {
+ *   const credentials = context.req.parsedBody as LoginRequest;
+ *   const token = await authenticate(credentials.username, credentials.password);
+ *   return { success: true, token };
+ * }
  *
- * const createSchema = baseSchema.extend({
- *   data: z.object({
- *     name: z.string(),
- *     description: z.string()
- *   })
- * });
- *
- * const actionHandler = new Handler()
- *   .use(bodyValidatorMiddleware(baseSchema))
- *   .use(async (context, next) => {
- *     if (context.req.parsedBody.action === 'create') {
- *       // Additional validation for create action
- *       await createSchema.parseAsync(context.req.body);
- *     }
- *     return next();
- *   })
- *   .handle(async (context) => {
- *     const validatedAction = context.req.parsedBody;
- *     return { success: true, action: validatedAction.action };
- *   });
- * ```
- *
- * @example
- * Dynamic schema validation:
- * ```typescript
- * const getDynamicSchema = (userRole: string) => {
- *   const baseSchema = z.object({
- *     title: z.string(),
- *     content: z.string()
- *   });
- *
- *   if (userRole === 'admin') {
- *     return baseSchema.extend({
- *       featured: z.boolean(),
- *       priority: z.number().min(1).max(10)
- *     });
- *   }
- *
- *   return baseSchema;
- * };
- *
- * const createPostHandler = new Handler()
- *   .use(async (context, next) => {
- *     const userRole = context.user?.role || 'user';
- *     const schema = getDynamicSchema(userRole);
- *     return bodyValidatorMiddleware(schema).before(context);
- *   })
- *   .handle(async (context) => {
- *     const post = context.req.parsedBody;
- *     return { success: true, postId: await createPost(post) };
- *   });
+ * const loginHandler = new Handler<LoginRequest, AuthenticatedUser>()
+ *   .use(bodyValidatorMiddleware<LoginRequest, AuthenticatedUser>(loginSchema))
+ *   .handle(handleLogin);
  * ```
  */
 // Modified to fix type instantiation error
-export const bodyValidatorMiddleware = <T>(
+export const bodyValidatorMiddleware = <T, U = unknown>(
   schema: z.ZodType<T>
-): { before: (context: Context) => Promise<void> } => ({
-  before: async (context: Context): Promise<void> => {
+): { before: (context: Context<T, U>) => Promise<void> } => ({
+  before: async (context: Context<T, U>): Promise<void> => {
     context.req.parsedBody = await validateBody(schema, context.req.body);
   },
 });

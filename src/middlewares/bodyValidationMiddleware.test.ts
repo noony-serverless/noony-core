@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { ValidationError } from '../core/errors';
 
 describe('BodyValidationMiddleware', () => {
-  let middleware: BodyValidationMiddleware;
-  let context: Context;
+  let middleware: BodyValidationMiddleware<any>;
+  let context: Context<any>;
 
   beforeEach(() => {
     context = {
@@ -16,7 +16,7 @@ describe('BodyValidationMiddleware', () => {
         parsedBody: {},
       },
       res: {},
-    } as Context;
+    } as Context<any>;
   });
 
   it('validates and sets validatedBody on context for valid input', async () => {
@@ -55,16 +55,16 @@ describe('bodyValidator', () => {
         body: {},
       },
       res: {},
-    } as Context;
+    } as Context<any>;
   });
 
   it('validates and sets validatedBody on context for valid input', async () => {
     const schema = z.object({ name: z.string() });
-    const middleware = bodyValidatorMiddleware(schema);
+    const middleware = bodyValidatorMiddleware<{ name: string }>(schema);
     context.req.body = { name: 'John Doe' };
 
     if (middleware.before) {
-      await middleware.before(context);
+      await middleware.before(context as Context<{ name: string }>);
     }
 
     expect(context.req.body).toEqual({ name: 'John Doe' });
@@ -73,21 +73,25 @@ describe('bodyValidator', () => {
 
   it('throws ValidationError for invalid input', async () => {
     const schema = z.object({ name: z.string() });
-    const middleware = bodyValidatorMiddleware(schema);
+    const middleware = bodyValidatorMiddleware<{ name: string }>(schema);
     context.req.body = { name: 123 };
 
     if (middleware.before) {
-      await expect(middleware.before(context)).rejects.toThrow(ValidationError);
+      await expect(
+        middleware.before(context as Context<{ name: string }>)
+      ).rejects.toThrow(ValidationError);
     }
   });
 
   it('throws original error if not a ZodError', async () => {
     const schema = z.object({ name: z.string() });
-    const middleware = bodyValidatorMiddleware(schema);
+    const middleware = bodyValidatorMiddleware<{ name: string }>(schema);
     context.req.body = null;
 
     if (middleware.before) {
-      await expect(middleware.before(context)).rejects.toThrow();
+      await expect(
+        middleware.before(context as Context<{ name: string }>)
+      ).rejects.toThrow();
     }
   });
 });
