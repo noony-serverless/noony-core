@@ -557,8 +557,13 @@ export class ExpressionPermissionResolver extends PermissionResolver<PermissionE
   canHandle(requirement: any): requirement is PermissionExpression {
     return (
       requirement &&
+<<<<<<< Updated upstream
       typeof requirement === 'object' &&
       PermissionUtils.isValidExpression(requirement)
+=======
+        typeof requirement === 'object' &&
+        PermissionUtils.isValidExpression(requirement as PermissionExpression)
+>>>>>>> Stashed changes
     );
   }
 

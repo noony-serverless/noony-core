@@ -51,7 +51,15 @@ import {
  */
 export interface GuardConfig {
   requireAuth: boolean;
+<<<<<<< Updated upstream
   permissions: any; // Can be string[], wildcard patterns, or expressions
+=======
+  permissions:
+    | string
+    | string[]
+    | PermissionExpression
+    | Record<string, unknown>; // Can be string[], wildcard patterns, or expressions
+>>>>>>> Stashed changes
   resolverType?: PermissionResolverType;
   cacheResults: boolean;
   auditTrail: boolean;
@@ -339,7 +347,15 @@ class ExpressionPermissionGuard extends BasePermissionGuard {
  */
 class CompositePermissionGuard extends BasePermissionGuard {
   private readonly subRequirements: Array<{
+<<<<<<< Updated upstream
     permissions: any;
+=======
+    permissions:
+      | string
+      | string[]
+      | PermissionExpression
+      | Record<string, unknown>;
+>>>>>>> Stashed changes
     resolverType: PermissionResolverType;
     required: boolean;
   }>;
@@ -350,7 +366,15 @@ class CompositePermissionGuard extends BasePermissionGuard {
     guardConfig: GuardConfiguration,
     cache: CacheAdapter,
     subRequirements: Array<{
+<<<<<<< Updated upstream
       permissions: any;
+=======
+      permissions:
+        | string
+        | string[]
+        | PermissionExpression
+        | Record<string, unknown>;
+>>>>>>> Stashed changes
       resolverType: PermissionResolverType;
       required: boolean;
     }>
@@ -567,7 +591,15 @@ export class PermissionGuardFactory {
    */
   createCompositeGuard(
     requirements: Array<{
+<<<<<<< Updated upstream
       permissions: any;
+=======
+      permissions:
+        | string
+        | string[]
+        | PermissionExpression
+        | Record<string, unknown>;
+>>>>>>> Stashed changes
       resolverType: PermissionResolverType;
       required: boolean;
     }>,
@@ -608,7 +640,15 @@ export class PermissionGuardFactory {
    * @returns Optimally configured permission guard
    */
   createAutoGuard(
+<<<<<<< Updated upstream
     permissions: any,
+=======
+    permissions:
+      | string
+      | string[]
+      | PermissionExpression
+      | Record<string, unknown>,
+>>>>>>> Stashed changes
     config: Partial<GuardConfig> = {}
   ): BasePermissionGuard {
     const resolverType = this.selectOptimalResolver(permissions);
@@ -629,7 +669,13 @@ export class PermissionGuardFactory {
       default:
         // Fallback to plain guard
         return this.createPlainGuard(
+<<<<<<< Updated upstream
           Array.isArray(permissions) ? permissions : [permissions],
+=======
+          Array.isArray(permissions)
+            ? (permissions as string[])
+            : [permissions as string],
+>>>>>>> Stashed changes
           config
         );
     }
@@ -662,7 +708,17 @@ export class PermissionGuardFactory {
   /**
    * Select optimal resolver based on permission requirements
    */
+<<<<<<< Updated upstream
   private selectOptimalResolver(permissions: any): PermissionResolverType {
+=======
+  private selectOptimalResolver(
+    permissions:
+      | string
+      | string[]
+      | PermissionExpression
+      | Record<string, unknown>
+  ): PermissionResolverType {
+>>>>>>> Stashed changes
     // Expression detection
     if (
       permissions &&
@@ -766,11 +822,23 @@ export class PermissionGuardFactory {
 
     const totals = guardStats.reduce(
       (acc, stats) => ({
+<<<<<<< Updated upstream
         checkCount: acc.checkCount + stats.checkCount,
         successCount: acc.successCount + stats.successCount,
         failureCount: acc.failureCount + stats.failureCount,
         totalProcessingTimeUs:
           acc.totalProcessingTimeUs + stats.totalProcessingTimeUs,
+=======
+        checkCount:
+          (acc.checkCount as number) + ((stats.checkCount as number) || 0),
+        successCount:
+          (acc.successCount as number) + ((stats.successCount as number) || 0),
+        failureCount:
+          (acc.failureCount as number) + ((stats.failureCount as number) || 0),
+        totalProcessingTimeUs:
+          (acc.totalProcessingTimeUs as number) +
+          ((stats.totalProcessingTimeUs as number) || 0),
+>>>>>>> Stashed changes
       }),
       {
         checkCount: 0,
@@ -785,12 +853,23 @@ export class PermissionGuardFactory {
       totalSuccesses: totals.successCount,
       totalFailures: totals.failureCount,
       overallSuccessRate:
+<<<<<<< Updated upstream
         totals.checkCount > 0
           ? (totals.successCount / totals.checkCount) * 100
           : 100,
       averageProcessingTimeUs:
         totals.checkCount > 0
           ? totals.totalProcessingTimeUs / totals.checkCount
+=======
+        (totals.checkCount as number) > 0
+          ? ((totals.successCount as number) / (totals.checkCount as number)) *
+            100
+          : 100,
+      averageProcessingTimeUs:
+        (totals.checkCount as number) > 0
+          ? (totals.totalProcessingTimeUs as number) /
+            (totals.checkCount as number)
+>>>>>>> Stashed changes
           : 0,
     };
   }

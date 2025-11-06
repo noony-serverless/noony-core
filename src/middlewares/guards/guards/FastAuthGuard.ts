@@ -308,8 +308,15 @@ export class FastAuthGuard implements BaseMiddleware {
         token: {
           decoded: tokenValidation.decoded,
           raw: token,
+<<<<<<< Updated upstream
           expiresAt: new Date(tokenValidation.decoded.exp * 1000).toISOString(),
           issuer: tokenValidation.decoded.iss,
+=======
+          expiresAt: new Date(
+            (tokenValidation.decoded as any).exp * 1000
+          ).toISOString(),
+          issuer: (tokenValidation.decoded as any).iss,
+>>>>>>> Stashed changes
         },
         cached: false,
         resolutionTimeUs: Number(process.hrtime.bigint() - startTime) / 1000,

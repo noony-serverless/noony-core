@@ -1,5 +1,9 @@
+<<<<<<< Updated upstream
 import { Request, Response } from '@google-cloud/functions-framework';
 import Container from 'typedi';
+=======
+import { Container, ContainerInstance } from 'typedi';
+>>>>>>> Stashed changes
 
 /**
  * Framework-agnostic HTTP method enum
@@ -87,10 +91,17 @@ export interface HandlerOptions {
  * @template T Specifies the type of the custom request payload.
  * @template V Specifies the type of the user-related information.
  */
+<<<<<<< Updated upstream
 export interface Context<T = unknown, V = unknown> {
   readonly req: GenericRequest<T>;
   readonly res: GenericResponse;
   container?: Container;
+=======
+export interface Context<T = unknown> {
+  readonly req: NoonyRequest<T>;
+  readonly res: NoonyResponse;
+  container: ContainerInstance;
+>>>>>>> Stashed changes
   error?: Error | null;
   readonly businessData: Map<string, unknown>;
   user?: V;
@@ -117,7 +128,7 @@ export interface LegacyContext<T = unknown, V = unknown> {
  * Utility function to generate unique request IDs
  */
 export function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**

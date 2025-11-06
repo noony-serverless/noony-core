@@ -156,7 +156,7 @@ export class DependencyInjectionMiddleware implements BaseMiddleware {
     this.services.forEach((service) => {
       Container.set(service.id, service.value);
     });
-    context.container = Container;
+    context.container = Container.of();
   }
 }
 

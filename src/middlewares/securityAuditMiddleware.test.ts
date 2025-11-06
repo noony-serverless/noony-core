@@ -4,6 +4,7 @@
 
 import { SecurityAuditMiddleware } from './securityAuditMiddleware';
 import { Context } from '../core';
+import { Container } from 'typedi';
 
 // Mock console methods for logger
 const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();
@@ -34,6 +35,7 @@ describe('SecurityAuditMiddleware', () => {
       headersSent: false,
       statusCode: 200,
     },
+    container: Container.of(),
     requestId: 'test-request-id',
     businessData: new Map(),
     user: undefined,
