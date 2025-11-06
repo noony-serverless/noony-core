@@ -1146,10 +1146,14 @@ export class RouteGuards {
       errorMessage: options.errorMessage,
     };
 
+<<<<<<< Updated upstream
+    const guard = this.guardFactory.createAutoGuard(permissions, guardConfig);
+=======
     const guard = this.guardFactory.createAutoGuard(
       permissions as string[] | PermissionExpression | Record<string, unknown>,
       guardConfig
     );
+>>>>>>> Stashed changes
     return this.wrapGuardWithStats(guard, 'auto');
   }
 

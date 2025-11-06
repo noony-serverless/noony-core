@@ -5,6 +5,11 @@ node_modules/
 dist/
 build/
 
+# Examples build output
+examples/*/dist/
+examples/*/build/
+examples/guard-system-showcase/dist/
+
 # Environment
 .env
 .env.local

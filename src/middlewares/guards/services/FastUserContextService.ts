@@ -36,22 +36,21 @@ import { PermissionRegistry } from '../registry/PermissionRegistry';
 import {
   PermissionResolverType,
   PermissionCheckResult,
+  PermissionExpression,
 } from '../resolvers/PermissionResolver';
 import { NoopCacheAdapter } from '../cache/NoopCacheAdapter';
 
 /**
-<<<<<<< Updated upstream
-=======
  * Type alias for permission requirements that can be strings, string arrays, or complex expressions
+ * Note: Currently defined but reserved for future use
  */
-type PermissionRequirement =
+export type PermissionRequirement =
   | string
   | string[]
   | PermissionExpression
   | Record<string, unknown>;
 
 /**
->>>>>>> Stashed changes
  * User context with cached permissions and metadata
  */
 export interface UserContext {

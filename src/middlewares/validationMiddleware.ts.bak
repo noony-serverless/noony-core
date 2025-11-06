@@ -11,10 +11,7 @@ const validate = async (
     const validated = await schema.parseAsync(data);
 
     if (context.req.method === 'GET') {
-      context.req.query = validated as Record<
-        string,
-        string | string[] | undefined
-      >;
+      context.req.query = validated;
     } else {
       context.req.validatedBody = validated;
     }
@@ -22,7 +19,7 @@ const validate = async (
     if (error instanceof z.ZodError) {
       throw new ValidationError(
         'Validation error',
-        JSON.stringify(error.issues)
+        JSON.stringify(error.errors)
       );
     }
     throw error;

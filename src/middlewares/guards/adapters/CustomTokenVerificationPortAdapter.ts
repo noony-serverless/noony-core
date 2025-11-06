@@ -125,12 +125,12 @@
  *       method: 'POST',
  *       headers: { 'Authorization': `Bearer ${token}` }
  *     });
- *     
+ *
  *     const tokenInfo = await response.json();
  *     if (!tokenInfo.active) {
  *       throw new Error('Token is not active');
  *     }
- *     
+ *
  *     return tokenInfo as OAuthUser;
  *   }
  * };
@@ -166,7 +166,7 @@ export interface AdapterConfig<T> {
   /**
    * Extract token expiration timestamp from the user object.
    * Should return Unix timestamp (seconds since epoch).
-   * 
+   *
    * @param user - Verified user object
    * @returns Unix timestamp or undefined if no expiration
    */
@@ -175,8 +175,8 @@ export interface AdapterConfig<T> {
   /**
    * Optional additional validation after token verification.
    * Allows custom business logic validation on the verified user.
-   * 
-   * @param user - Verified user object  
+   *
+   * @param user - Verified user object
    * @returns true if user passes additional validation
    */
   additionalValidation?: (user: T) => boolean | Promise<boolean>;
@@ -209,7 +209,7 @@ export class CustomTokenVerificationPortAdapter<T> implements TokenValidator {
 
   /**
    * Validate and decode token using the wrapped CustomTokenVerificationPort.
-   * 
+   *
    * @param token - JWT token string to validate
    * @returns Validation result with decoded user data
    */
@@ -228,19 +228,21 @@ export class CustomTokenVerificationPortAdapter<T> implements TokenValidator {
         if (!additionalValid) {
           return {
             valid: false,
-            error: this.config.errorMessage || 'Additional validation failed'
+            error: this.config.errorMessage || 'Additional validation failed',
           };
         }
       }
 
       return {
         valid: true,
-        decoded: user
+        decoded: user,
       };
     } catch (error) {
       return {
         valid: false,
-        error: this.config.errorMessage || (error instanceof Error ? error.message : 'Token validation failed')
+        error:
+          this.config.errorMessage ||
+          (error instanceof Error ? error.message : 'Token validation failed'),
       };
     }
   }
@@ -248,7 +250,7 @@ export class CustomTokenVerificationPortAdapter<T> implements TokenValidator {
   /**
    * Extract user ID from the decoded token/user data.
    * Uses the configured userIdExtractor function.
-   * 
+   *
    * @param decoded - Decoded user data from validateToken
    * @returns User ID string
    */
@@ -259,7 +261,7 @@ export class CustomTokenVerificationPortAdapter<T> implements TokenValidator {
   /**
    * Check if the token is expired based on the decoded data.
    * Uses the configured expirationExtractor if available.
-   * 
+   *
    * @param decoded - Decoded user data from validateToken
    * @returns true if token is expired, false otherwise
    */
@@ -289,7 +291,7 @@ export class TokenVerificationAdapterFactory {
   /**
    * Create adapter for standard JWT tokens with common claims.
    * Assumes the user object has 'sub' for user ID and 'exp' for expiration.
-   * 
+   *
    * @param verificationPort - JWT token verification port
    * @returns Configured adapter for JWT tokens
    */
@@ -298,13 +300,13 @@ export class TokenVerificationAdapterFactory {
   ): CustomTokenVerificationPortAdapter<T> {
     return new CustomTokenVerificationPortAdapter(verificationPort, {
       userIdExtractor: (user: T) => user.sub,
-      expirationExtractor: (user: T) => user.exp
+      expirationExtractor: (user: T) => user.exp,
     });
   }
 
   /**
    * Create adapter for API key tokens with custom ID and expiration fields.
-   * 
+   *
    * @param verificationPort - API key verification port
    * @param userIdField - Field name for user/key ID (e.g., 'keyId', 'apiKeyId')
    * @param expirationField - Optional field name for expiration (e.g., 'expiresAt', 'exp')
@@ -317,15 +319,15 @@ export class TokenVerificationAdapterFactory {
   ): CustomTokenVerificationPortAdapter<T> {
     return new CustomTokenVerificationPortAdapter(verificationPort, {
       userIdExtractor: (user: T) => String(user[userIdField]),
-      expirationExtractor: expirationField 
+      expirationExtractor: expirationField
         ? (user: T) => user[expirationField] as number
-        : undefined
+        : undefined,
     });
   }
 
   /**
    * Create adapter for OAuth tokens with standard OAuth claims.
-   * 
+   *
    * @param verificationPort - OAuth token verification port
    * @param additionalScopes - Optional required OAuth scopes
    * @returns Configured adapter for OAuth tokens
@@ -337,23 +339,23 @@ export class TokenVerificationAdapterFactory {
     return new CustomTokenVerificationPortAdapter(verificationPort, {
       userIdExtractor: (user: T) => user.sub,
       expirationExtractor: (user: T) => user.exp,
-      additionalValidation: additionalScopes 
+      additionalValidation: additionalScopes
         ? (user: T) => {
             if (!user.scope || !Array.isArray(user.scope)) {
               return false;
             }
-            return additionalScopes.every(requiredScope => 
+            return additionalScopes.every((requiredScope) =>
               user.scope!.includes(requiredScope)
             );
           }
-        : undefined
+        : undefined,
     });
   }
 
   /**
    * Create adapter with custom configuration.
    * Use this for non-standard token structures or complex validation logic.
-   * 
+   *
    * @param verificationPort - Token verification port
    * @param config - Custom adapter configuration
    * @returns Configured adapter with custom settings

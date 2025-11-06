@@ -583,7 +583,7 @@ export class FirebaseTokenValidator extends BaseTokenValidator {
    * Get validator configuration (safe copy)
    */
   public getConfig(): Omit<FirebaseValidatorConfig, 'privateKey'> {
-    const { privateKey, ...safeConfig } = this.config;
+    const { ...safeConfig } = this.config;
     return safeConfig;
   }
 

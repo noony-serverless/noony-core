@@ -22,11 +22,7 @@ import {
   PermissionResolverType,
 } from '@noony-serverless/core';
 import { PermissionSource } from '../permission-source';
-import {
-  UserContext,
-  PermissionCheckRequest,
-  PermissionCheckResult,
-} from '@/types/auth.types';
+import { PermissionCheckResult } from '@/types/auth.types';
 
 /**
  * Plain resolver statistics for monitoring
@@ -158,7 +154,7 @@ export class PlainPermissionResolver implements PermissionResolver<string[]> {
   public async checkPermission(
     userId: string,
     requirement: string | string[],
-    context: Record<string, unknown> = {}
+    _context: Record<string, unknown> = {}
   ): Promise<PermissionCheckResult> {
     const startTime = process.hrtime.bigint();
 

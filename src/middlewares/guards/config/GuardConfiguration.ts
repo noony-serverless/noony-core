@@ -699,22 +699,22 @@ export class GuardConfiguration {
    */
   /**
    * Check if caching is enabled via environment variable.
-   * 
+   *
    * Caching is disabled by default for security-first approach.
    * Only enabled when NOONY_GUARD_CACHE_ENABLE is explicitly set to 'true'.
-   * 
+   *
    * @returns true if caching should be enabled, false otherwise
-   * 
+   *
    * @example
    * ```typescript
    * // Caching disabled (default)
    * process.env.NOONY_GUARD_CACHE_ENABLE = undefined;
    * console.log(GuardConfiguration.isCachingEnabled()); // false
-   * 
+   *
    * // Caching enabled
    * process.env.NOONY_GUARD_CACHE_ENABLE = 'true';
    * console.log(GuardConfiguration.isCachingEnabled()); // true
-   * 
+   *
    * // Caching disabled (any other value)
    * process.env.NOONY_GUARD_CACHE_ENABLE = 'false';
    * console.log(GuardConfiguration.isCachingEnabled()); // false
@@ -726,14 +726,14 @@ export class GuardConfiguration {
 
   /**
    * Get effective cache type considering environment variable override.
-   * 
+   *
    * Environment variable takes precedence for security:
    * - If NOONY_GUARD_CACHE_ENABLE is not 'true', returns 'none'
    * - Otherwise returns the specified cacheType
-   * 
+   *
    * @param cacheType - Configured cache type
    * @returns Effective cache type after environment variable consideration
-   * 
+   *
    * @example
    * ```typescript
    * // Environment variable not set - caching disabled
@@ -741,7 +741,7 @@ export class GuardConfiguration {
    * console.log(GuardConfiguration.getEffectiveCacheType('memory')); // 'none'
    * console.log(GuardConfiguration.getEffectiveCacheType('redis')); // 'none'
    * console.log(GuardConfiguration.getEffectiveCacheType('none')); // 'none'
-   * 
+   *
    * // Environment variable enabled - respect cacheType
    * process.env.NOONY_GUARD_CACHE_ENABLE = 'true';
    * console.log(GuardConfiguration.getEffectiveCacheType('memory')); // 'memory'
@@ -749,12 +749,14 @@ export class GuardConfiguration {
    * console.log(GuardConfiguration.getEffectiveCacheType('none')); // 'none'
    * ```
    */
-  static getEffectiveCacheType(cacheType: 'memory' | 'redis' | 'none'): 'memory' | 'redis' | 'none' {
+  static getEffectiveCacheType(
+    cacheType: 'memory' | 'redis' | 'none'
+  ): 'memory' | 'redis' | 'none' {
     // If caching is disabled by environment variable, always return 'none'
     if (!GuardConfiguration.isCachingEnabled()) {
       return 'none';
     }
-    
+
     // Otherwise return the specified cache type
     return cacheType;
   }

@@ -11,7 +11,7 @@ const validateBody = async <T>(
     return await schema.parseAsync(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw new ValidationError('Validation error', error.issues);
+      throw new ValidationError('Validation error', error.errors);
     }
     throw error;
   }

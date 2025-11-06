@@ -35,11 +35,12 @@ describe('CustomTokenVerificationPort Integration', () => {
     describe('validateToken', () => {
       it('should return valid result when token verification succeeds', async () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const adapterConfig: AdapterConfig<TestUser> = {
           userIdExtractor: (user: TestUser) => user.sub,
@@ -63,11 +64,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should return invalid result when token verification fails', async () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            throw new Error('Invalid token');
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              throw new Error('Invalid token');
+            },
+          };
 
         const adapterConfig: AdapterConfig<TestUser> = {
           userIdExtractor: (user: TestUser) => user.sub,
@@ -91,11 +93,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should return custom error message when configured', async () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            throw new Error('Invalid token');
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              throw new Error('Invalid token');
+            },
+          };
 
         const customAdapter = new CustomTokenVerificationPortAdapter(
           mockTokenVerificationPort,
@@ -118,11 +121,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should fail additional validation when configured', async () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const customAdapter = new CustomTokenVerificationPortAdapter(
           mockTokenVerificationPort,
@@ -145,11 +149,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should pass additional validation when configured correctly', async () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const customAdapter = new CustomTokenVerificationPortAdapter(
           mockTokenVerificationPort,
@@ -174,11 +179,12 @@ describe('CustomTokenVerificationPort Integration', () => {
     describe('extractUserId', () => {
       it('should extract user ID using configured extractor', () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const adapterConfig: AdapterConfig<TestUser> = {
           userIdExtractor: (user: TestUser) => user.sub,
@@ -201,11 +207,12 @@ describe('CustomTokenVerificationPort Integration', () => {
     describe('isTokenExpired', () => {
       it('should return false for non-expired token', () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const adapterConfig: AdapterConfig<TestUser> = {
           userIdExtractor: (user: TestUser) => user.sub,
@@ -226,11 +233,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should return true for expired token', () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const adapterConfig: AdapterConfig<TestUser> = {
           userIdExtractor: (user: TestUser) => user.sub,
@@ -256,11 +264,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should return false when no expiration extractor is configured', () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const noExpirationAdapter = new CustomTokenVerificationPortAdapter(
           mockTokenVerificationPort,
@@ -279,11 +288,12 @@ describe('CustomTokenVerificationPort Integration', () => {
 
       it('should return false when expiration time is not available', () => {
         // Arrange
-        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> = {
-          async verifyToken(_token: string): Promise<TestUser> {
-            return mockUser;
-          }
-        };
+        const mockTokenVerificationPort: CustomTokenVerificationPort<TestUser> =
+          {
+            async verifyToken(_token: string): Promise<TestUser> {
+              return mockUser;
+            },
+          };
 
         const adapter = new CustomTokenVerificationPortAdapter(
           mockTokenVerificationPort,
@@ -321,7 +331,7 @@ describe('CustomTokenVerificationPort Integration', () => {
         const mockJWTPort: CustomTokenVerificationPort<JWTUser> = {
           async verifyToken(_token: string): Promise<JWTUser> {
             return jwtUser;
-          }
+          },
         };
 
         // Act
@@ -361,7 +371,7 @@ describe('CustomTokenVerificationPort Integration', () => {
         const mockAPIKeyPort: CustomTokenVerificationPort<APIKeyUser> = {
           async verifyToken(_token: string): Promise<APIKeyUser> {
             return apiKeyUser;
-          }
+          },
         };
 
         // Act
@@ -405,7 +415,7 @@ describe('CustomTokenVerificationPort Integration', () => {
         const mockOAuthPort: CustomTokenVerificationPort<OAuthUser> = {
           async verifyToken(_token: string): Promise<OAuthUser> {
             return oauthUser;
-          }
+          },
         };
 
         // Act
@@ -443,7 +453,7 @@ describe('CustomTokenVerificationPort Integration', () => {
         const mockOAuthPort: CustomTokenVerificationPort<OAuthUser> = {
           async verifyToken(_token: string): Promise<OAuthUser> {
             return oauthUser;
-          }
+          },
         };
 
         // Act
@@ -479,7 +489,7 @@ describe('CustomTokenVerificationPort Integration', () => {
         const mockCustomPort: CustomTokenVerificationPort<CustomUser> = {
           async verifyToken(_token: string): Promise<CustomUser> {
             return customUser;
-          }
+          },
         };
 
         const customConfig: AdapterConfig<CustomUser> = {
@@ -519,7 +529,7 @@ describe('CustomTokenVerificationPort Integration', () => {
       const mockPort: CustomTokenVerificationPort<TestUser> = {
         async verifyToken(_token: string): Promise<TestUser> {
           return { sub: 'test', exp: Date.now() };
-        }
+        },
       };
 
       // Act
@@ -553,7 +563,7 @@ describe('CustomTokenVerificationPort Integration', () => {
       const mockPort: CustomTokenVerificationPort<TestUser> = {
         async verifyToken(_token: string): Promise<TestUser> {
           return user;
-        }
+        },
       };
 
       const adapter = new CustomTokenVerificationPortAdapter(mockPort, {
@@ -583,7 +593,7 @@ describe('CustomTokenVerificationPort Integration', () => {
       const mockPort: CustomTokenVerificationPort<TestUser> = {
         async verifyToken(_token: string): Promise<TestUser> {
           return user;
-        }
+        },
       };
 
       const adapter = new CustomTokenVerificationPortAdapter(mockPort, {

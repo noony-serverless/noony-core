@@ -213,31 +213,31 @@ const getRateLimit = (
  * Implements comprehensive rate limiting with dynamic limits, custom storage, and security features.
  *
  * ## When to Use RateLimitingMiddleware
- * 
+ *
  * ### ✅ Recommended Use Cases:
  * - **Business Logic Rate Limiting**: User-specific quotas, subscription-based limits
  * - **Authentication & Security**: Login attempts, password resets, token refresh
  * - **Content Creation**: Post creation, comment submission, profile updates
  * - **Resource-Intensive Operations**: File uploads, data processing, complex queries
  * - **Advanced Scenarios**: A/B testing limits, geographic restrictions, time-based rules
- * 
+ *
  * ### ❌ Not Recommended Use Cases:
  * - **Basic DDoS Protection**: Use WAF/CloudFlare instead
  * - **Static Asset Protection**: Use CDN rate limiting
  * - **Simple Volumetric Attacks**: Network-level solutions more effective
- * 
+ *
  * ## Architecture Integration
- * 
+ *
  * ### With WAF (Web Application Firewall):
  * - WAF handles: IP blocking, DDoS protection, bot detection
  * - Application handles: Business logic, user-aware limits, complex rules
  * - Focus on complementary functionality, not duplication
- * 
+ *
  * ### With API Gateway:
  * - Gateway handles: Service-level limits, routing quotas, load balancing
  * - Application handles: User context, subscription limits, feature-specific rules
  * - Different layers for different concerns
- * 
+ *
  * ### Direct Exposure (No WAF/Gateway):
  * - Application must handle comprehensive protection
  * - Implement multiple protection layers within middleware
@@ -485,22 +485,22 @@ export class RateLimitingMiddleware implements BaseMiddleware {
  * Provides flexible rate limiting with configurable options and presets.
  *
  * ## Architecture Decision Matrix
- * 
+ *
  * | Infrastructure | WAF Rate Limiting | Gateway Rate Limiting | Application Rate Limiting |
  * |----------------|------------------|---------------------|-------------------------|
  * | **WAF + Gateway + App** | ✅ Basic DDoS protection | ✅ Service-level limits | ✅ Business logic |
  * | **Gateway + App** | ❌ Not available | ✅ Service + IP limits | ✅ User context + business |
  * | **WAF + App** | ✅ Network protection | ❌ Not available | ✅ All business logic |
  * | **App Only** | ❌ Must implement | ❌ Must implement | ✅ Everything |
- * 
+ *
  * ## Implementation Strategy by Architecture
- * 
+ *
  * ### Multi-Layer Defense (Recommended for Enterprise)
  * ```typescript
  * // WAF Layer: 10,000 req/min per IP (CloudFlare/AWS WAF)
  * // Gateway Layer: 1,000 req/min per API key (Kong/AWS API Gateway)
  * // Application Layer: User-specific business rules (This middleware)
- * 
+ *
  * const enterprise = rateLimiting({
  *   maxRequests: 100, // Refined after other layers
  *   dynamicLimits: {
@@ -508,12 +508,12 @@ export class RateLimitingMiddleware implements BaseMiddleware {
  *   }
  * });
  * ```
- * 
+ *
  * ### Gateway + Application (Good for Most Applications)
  * ```typescript
  * // Gateway: Service capacity protection
  * // Application: Business logic enforcement
- * 
+ *
  * const standard = rateLimiting({
  *   maxRequests: 200, // Higher since Gateway pre-filters
  *   dynamicLimits: {
@@ -521,26 +521,26 @@ export class RateLimitingMiddleware implements BaseMiddleware {
  *   }
  * });
  * ```
- * 
+ *
  * ### Application Only (Comprehensive Protection Required)
  * ```typescript
  * // Must handle all layers of protection
- * 
+ *
  * const comprehensive = rateLimiting({
  *   maxRequests: 50, // Conservative default
  *   dynamicLimits: {
  *     // WAF-like: IP protection
  *     suspicious: { maxRequests: 5, matcher: (ctx) => detectSuspicious(ctx.req.ip) },
- *     // Gateway-like: Endpoint protection  
+ *     // Gateway-like: Endpoint protection
  *     auth: { maxRequests: 10, matcher: (ctx) => ctx.req.path?.includes('/auth/') },
  *     // Business: User-specific
  *     premium: { maxRequests: 1000, matcher: (ctx) => ctx.user?.plan === 'premium' }
  *   }
  * });
  * ```
- * 
+ *
  * ## Cost-Benefit Analysis
- * 
+ *
  * | Architecture | Setup Complexity | Runtime Cost | Protection Level | Maintenance |
  * |-------------|-----------------|-------------|-----------------|-------------|
  * | **WAF + Gateway + App** | High | High | Maximum | Medium |
@@ -596,10 +596,10 @@ export class RateLimitingMiddleware implements BaseMiddleware {
  * Production Redis store integration:
  * ```typescript
  * import Redis from 'ioredis';
- * 
+ *
  * class RedisRateLimitStore implements RateLimitStore {
  *   constructor(private redis: Redis) {}
- * 
+ *
  *   async increment(key: string, windowMs: number) {
  *     const multi = this.redis.multi();
  *     multi.incr(key);
@@ -608,7 +608,7 @@ export class RateLimitingMiddleware implements BaseMiddleware {
  *     return { count: results![0][1] as number, resetTime: Date.now() + windowMs };
  *   }
  * }
- * 
+ *
  * const productionHandler = new Handler()
  *   .use(rateLimiting({
  *     store: new RedisRateLimitStore(redisClient),
@@ -663,14 +663,14 @@ export const rateLimiting = (options: RateLimitOptions = {}): BaseMiddleware =>
 
 /**
  * Predefined rate limit configurations for common use cases.
- * 
+ *
  * These presets are designed to work well in different infrastructure scenarios:
  * - WAF + Application: Higher limits since WAF pre-filters traffic
  * - Gateway + Application: Moderate limits complementing gateway quotas
  * - Application Only: Conservative limits for comprehensive protection
- * 
+ *
  * ## Preset Selection Guide
- * 
+ *
  * | Preset | Use Case | Infrastructure | Requests/Min |
  * |--------|----------|---------------|-------------|
  * | `STRICT` | Sensitive operations | Any | 5 |
@@ -678,19 +678,19 @@ export const rateLimiting = (options: RateLimitOptions = {}): BaseMiddleware =>
  * | `PUBLIC` | Public/unauthenticated | App Only | 50 |
  * | `API` | Standard API endpoints | WAF/Gateway + App | 100-1000 |
  * | `DEVELOPMENT` | Development/testing | Development | 10,000 |
- * 
+ *
  * @example
  * Choosing the right preset:
  * ```typescript
  * // High-security endpoint (password reset)
  * .use(rateLimiting(RateLimitPresets.STRICT))
- * 
- * // Login/registration 
+ *
+ * // Login/registration
  * .use(rateLimiting(RateLimitPresets.AUTH))
- * 
+ *
  * // Public API with WAF protection
  * .use(rateLimiting(RateLimitPresets.API))
- * 
+ *
  * // Public API without WAF (direct exposure)
  * .use(rateLimiting(RateLimitPresets.PUBLIC))
  * ```
@@ -736,7 +736,7 @@ export const RateLimitPresets = {
     keyGenerator: (context: Context): string => {
       // Rate limit per IP + email combination for better security
       const ip = context.req.ip || 'unknown';
-      const email = context.req.parsedBody?.email;
+      const email = (context.req.parsedBody as any)?.email;
       return email ? `auth:${email}:${ip}` : `auth:${ip}`;
     },
   } satisfies RateLimitOptions,
@@ -756,7 +756,9 @@ export const RateLimitPresets = {
         windowMs: 60000,
         matcher: (context: Context): boolean => {
           const userAgent = context.req.headers?.['user-agent'] || '';
-          return !userAgent || userAgent.includes('bot') || userAgent.length < 10;
+          return (
+            !userAgent || userAgent.includes('bot') || userAgent.length < 10
+          );
         },
       },
     },
@@ -773,7 +775,11 @@ export const RateLimitPresets = {
     skip: (context: Context): boolean => {
       // Skip rate limiting for localhost and development IPs
       const ip = context.req.ip || '';
-      return ip.startsWith('127.') || ip.startsWith('::1') || ip.startsWith('192.168.');
+      return (
+        ip.startsWith('127.') ||
+        ip.startsWith('::1') ||
+        ip.startsWith('192.168.')
+      );
     },
   } satisfies RateLimitOptions,
 
@@ -789,28 +795,33 @@ export const RateLimitPresets = {
       free: {
         maxRequests: 100,
         windowMs: 60000,
-        matcher: (context: Context): boolean => 
-          !context.user || context.user?.plan === 'free',
+        matcher: (context: Context): boolean =>
+          !context.user || (context.user as any)?.plan === 'free',
       },
       premium: {
         maxRequests: 1000,
         windowMs: 60000,
-        matcher: (context: Context): boolean => context.user?.plan === 'premium',
+        matcher: (context: Context): boolean =>
+          (context.user as any)?.plan === 'premium',
       },
       enterprise: {
         maxRequests: 5000,
         windowMs: 60000,
-        matcher: (context: Context): boolean => context.user?.plan === 'enterprise',
+        matcher: (context: Context): boolean =>
+          (context.user as any)?.plan === 'enterprise',
       },
       admin: {
         maxRequests: 10000,
         windowMs: 60000,
-        matcher: (context: Context): boolean => context.user?.role === 'admin',
+        matcher: (context: Context): boolean =>
+          (context.user as any)?.role === 'admin',
       },
     },
     keyGenerator: (context: Context): string => {
       // Use user ID for authenticated, IP for anonymous
-      return context.user?.id ? `user:${context.user.id}` : `ip:${context.req.ip}`;
+      return (context.user as any)?.id
+        ? `user:${(context.user as any).id}`
+        : `ip:${context.req.ip}`;
     },
   } satisfies RateLimitOptions,
 } as const;
@@ -822,20 +833,20 @@ export { MemoryStore };
 
 /**
  * Configuration helpers and utilities for rate limiting setup
- * 
+ *
  * ## Best Practices for Production
- * 
+ *
  * ### 1. Store Selection
  * - **Development**: Use default `MemoryStore` (built-in)
  * - **Production Single Instance**: Use `MemoryStore` with cleanup
  * - **Production Multi-Instance**: Use Redis-based store
  * - **Serverless**: Use external store (Redis/DynamoDB) for state persistence
- * 
+ *
  * ### 2. Key Generation Strategy
  * ```typescript
  * // Bad: Too generic, easy to abuse
  * keyGenerator: () => 'global'
- * 
+ *
  * // Good: Multi-dimensional keys
  * keyGenerator: (context) => {
  *   const user = context.user?.id;
@@ -844,7 +855,7 @@ export { MemoryStore };
  *   return user ? `${user}:${endpoint}:${method}` : `${context.req.ip}:${endpoint}`;
  * }
  * ```
- * 
+ *
  * ### 3. Dynamic Limits Best Practices
  * ```typescript
  * // Order matchers from most specific to least specific
@@ -856,20 +867,20 @@ export { MemoryStore };
  *   // Default fallback handled by maxRequests
  * }
  * ```
- * 
+ *
  * ### 4. Error Handling and Fallback
  * ```typescript
  * const resilientRateLimit = rateLimiting({
  *   maxRequests: 100,
  *   windowMs: 60000,
- *   
+ *
  *   // Custom store with fallback
  *   store: new ResilientStore({
  *     primary: redisStore,
  *     fallback: new MemoryStore(),
  *     timeout: 500 // ms
  *   }),
- *   
+ *
  *   // Graceful degradation on errors
  *   onError: (error, context) => {
  *     logger.warn('Rate limiting error, allowing request', { error, ip: context.req.ip });
@@ -877,21 +888,21 @@ export { MemoryStore };
  *   }
  * });
  * ```
- * 
+ *
  * ### 5. Monitoring and Alerting
  * ```typescript
  * // Monitor rate limit effectiveness
  * const monitoredRateLimit = rateLimiting({
  *   maxRequests: 100,
  *   windowMs: 60000,
- *   
+ *
  *   onRateLimit: (context, info) => {
  *     // Alert on high rate limit hits
  *     metrics.increment('rate_limit.exceeded', {
  *       endpoint: context.req.path,
  *       user: context.user?.id || 'anonymous'
  *     });
- *     
+ *
  *     // Log suspicious patterns
  *     if (info.current > info.limit * 2) {
  *       logger.warn('Potential abuse detected', {
@@ -903,7 +914,7 @@ export { MemoryStore };
  *   }
  * });
  * ```
- * 
+ *
  * ### 6. Testing Rate Limits
  * ```typescript
  * // Test helper for rate limit validation
@@ -915,14 +926,14 @@ export { MemoryStore };
  *   const results = await Promise.all(
  *     Array(requests).fill(0).map(() => handler.execute(mockRequest, mockResponse))
  *   );
- *   
+ *
  *   const successful = results.filter(r => r.statusCode !== 429).length;
  *   expect(successful).toBe(shouldSucceed);
  * };
  * ```
- * 
+ *
  * ## Troubleshooting Common Issues
- * 
+ *
  * ### Issue: Rate limits not working
  * **Solution**: Check key generation and store connection
  * ```typescript
@@ -933,7 +944,7 @@ export { MemoryStore };
  *   return key;
  * }
  * ```
- * 
+ *
  * ### Issue: Too many false positives
  * **Solution**: Refine dynamic limits and key generation
  * ```typescript
@@ -943,7 +954,7 @@ export { MemoryStore };
  *   write: { maxRequests: 100, matcher: (ctx) => ctx.req.method !== 'GET' }
  * }
  * ```
- * 
+ *
  * ### Issue: Memory leaks in MemoryStore
  * **Solution**: Ensure proper cleanup interval and limits
  * ```typescript
@@ -955,14 +966,14 @@ export { MemoryStore };
  *   }
  * }, 60000);
  * ```
- * 
+ *
  * ### Issue: Rate limits too restrictive
  * **Solution**: Implement gradual enforcement
  * ```typescript
  * const gradualLimit = rateLimiting({
  *   maxRequests: 100,
  *   windowMs: 60000,
- *   
+ *
  *   // Warn before blocking
  *   onApproachingLimit: (context, info) => {
  *     if (info.remaining < 10) {

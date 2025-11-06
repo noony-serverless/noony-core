@@ -308,7 +308,7 @@ export const validatedQueryParameters = (
       if (error instanceof z.ZodError) {
         throw new ValidationError(
           'Validation error',
-          JSON.stringify(error.issues)
+          JSON.stringify(error.errors)
         );
       }
       throw error;

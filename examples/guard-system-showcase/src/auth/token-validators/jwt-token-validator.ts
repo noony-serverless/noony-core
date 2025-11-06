@@ -576,7 +576,7 @@ export class JWTTokenValidator extends BaseTokenValidator {
    * Get validator configuration (safe copy)
    */
   public getConfig(): Omit<JWTValidatorConfig, 'secret' | 'publicKey'> {
-    const { secret, publicKey, ...safeConfig } = this.config;
+    const { ...safeConfig } = this.config;
     return safeConfig;
   }
 
@@ -604,7 +604,7 @@ export class JWTTokenValidator extends BaseTokenValidator {
     };
 
     // Remove exp if using expiresIn to avoid conflicts
-    const { exp, ...tokenPayload } = basePayload;
+    const { ...tokenPayload } = basePayload;
 
     return jwt.sign(tokenPayload, this.secret, {
       algorithm: this.config.algorithm as jwt.Algorithm,

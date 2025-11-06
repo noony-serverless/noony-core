@@ -22,8 +22,6 @@ import {
 } from '@noony-serverless/core';
 import { PermissionSource } from '../permission-source';
 import {
-  UserContext,
-  PermissionCheckRequest,
   PermissionCheckResult,
   PermissionExpression,
 } from '@/types/auth.types';
@@ -160,8 +158,7 @@ export class ExpressionPermissionResolver
     try {
       const evalResult = await this.evaluateExpression(
         requirement,
-        userPermissions,
-        process.hrtime.bigint()
+        userPermissions
       );
       return evalResult.result;
     } catch (error) {
@@ -207,10 +204,8 @@ export class ExpressionPermissionResolver
   public async checkPermission(
     userId: string,
     requirement: string | string[] | PermissionExpression,
-    context: Record<string, unknown> = {}
+    _context: Record<string, unknown> = {}
   ): Promise<PermissionCheckResult> {
-    const startTime = process.hrtime.bigint();
-
     try {
       this.stats.totalChecks++;
       this.stats.lastCheck = Date.now();
@@ -225,8 +220,7 @@ export class ExpressionPermissionResolver
       // Parse and evaluate expression
       const evalResult = await this.evaluateExpression(
         expression,
-        userPermissions,
-        startTime
+        userPermissions
       );
 
       // Track result statistics
@@ -236,19 +230,12 @@ export class ExpressionPermissionResolver
         this.stats.deniedChecks++;
       }
 
-      // Update performance statistics
-      const resolutionTime = this.updatePerformanceStats(
-        startTime,
-        evalResult.evaluatedNodes,
-        evalResult.shortCircuited
-      );
-
       // Create comprehensive result
       const result: PermissionCheckResult = {
         allowed: evalResult.result,
         resolverType: PermissionResolverType.EXPRESSION,
-        resolutionTimeUs: resolutionTime,
-        cached: false, // Expression evaluation is not cached at this level
+        resolutionTimeUs: 0,
+        cached: false,
         reason: evalResult.result
           ? undefined
           : this.generateDenialReason(expression, evalResult),
@@ -256,8 +243,6 @@ export class ExpressionPermissionResolver
         metadata: {
           cacheKey: `expression:${userId}:${this.hashExpression(expressionString)}`,
           permissionsEvaluated: evalResult.evaluatedNodes,
-          userContextLoadTimeUs: resolutionTime * 0.3, // Approximate
-          expressionEvaluationTimeUs: resolutionTime * 0.6, // Approximate
           shortCircuited: evalResult.shortCircuited,
           expressionComplexity: this.calculateComplexity(expression),
           originalExpression: expressionString,
@@ -268,14 +253,13 @@ export class ExpressionPermissionResolver
       return result;
     } catch (error) {
       this.stats.loadFailures++;
-      const errorTime = this.updatePerformanceStats(startTime, 0, false);
 
       console.error(`❌ Expression resolver error for user ${userId}:`, error);
 
       return {
         allowed: false,
         resolverType: PermissionResolverType.EXPRESSION,
-        resolutionTimeUs: errorTime,
+        resolutionTimeUs: 0,
         cached: false,
         reason: `Expression evaluation error: ${(error as Error).message}`,
         metadata: {
@@ -329,8 +313,6 @@ export class ExpressionPermissionResolver
    * @returns Parsed permission expression
    */
   private parseStringExpression(expression: string): PermissionExpression {
-    const parseStart = process.hrtime.bigint();
-
     try {
       // Handle simple cases first
       if (!this.containsLogicalOperators(expression)) {
@@ -340,9 +322,6 @@ export class ExpressionPermissionResolver
       // Parse complex expression
       const tokens = this.tokenizeExpression(expression);
       const parsedExpression = this.parseTokens(tokens);
-
-      const parseTime = Number(process.hrtime.bigint() - parseStart) / 1000;
-      this.updateParsingStats(parseTime);
 
       return parsedExpression;
     } catch (error) {
@@ -468,10 +447,8 @@ export class ExpressionPermissionResolver
    */
   private async evaluateExpression(
     expression: PermissionExpression,
-    userPermissions: Set<string>,
-    startTime: bigint
+    userPermissions: Set<string>
   ): Promise<ExpressionEvalResult> {
-    const evaluationStart = process.hrtime.bigint();
     let evaluatedNodes = 0;
     let shortCircuited = false;
     const matchedPermissions = new Set<string>();
@@ -524,10 +501,6 @@ export class ExpressionPermissionResolver
       this.stats.shortCircuitOptimizations++;
     }
 
-    const evaluationTime =
-      Number(process.hrtime.bigint() - evaluationStart) / 1000;
-    this.updateEvaluationStats(evaluationTime, evaluatedNodes);
-
     return {
       result,
       matchedPermissions: Array.from(matchedPermissions),
@@ -543,8 +516,6 @@ export class ExpressionPermissionResolver
    * @returns Promise resolving to user permission set
    */
   private async loadUserPermissions(userId: string): Promise<Set<string>> {
-    const loadStart = process.hrtime.bigint();
-
     try {
       const permissions = await this.permissionSource.getUserPermissions(
         userId,
@@ -554,16 +525,6 @@ export class ExpressionPermissionResolver
           maxCacheAge: 10 * 60 * 1000, // 10 minute cache tolerance
         }
       );
-
-      const loadTime = Number(process.hrtime.bigint() - loadStart) / 1000;
-
-      // Track cache performance
-      if (loadTime < 1000) {
-        // < 1ms suggests cache hit
-        this.stats.sourceCacheHits++;
-      } else {
-        this.stats.sourceCacheMisses++;
-      }
 
       return permissions;
     } catch (error) {
@@ -667,73 +628,6 @@ export class ExpressionPermissionResolver
   }
 
   /**
-   * Update parsing statistics
-   *
-   * @param parseTime - Time taken for parsing
-   */
-  private updateParsingStats(parseTime: number): void {
-    if (this.stats.averageParsingTimeUs === 0) {
-      this.stats.averageParsingTimeUs = parseTime;
-    } else {
-      this.stats.averageParsingTimeUs =
-        this.stats.averageParsingTimeUs * 0.9 + parseTime * 0.1;
-    }
-  }
-
-  /**
-   * Update evaluation statistics
-   *
-   * @param evaluationTime - Time taken for evaluation
-   * @param nodesEvaluated - Number of nodes evaluated
-   */
-  private updateEvaluationStats(
-    evaluationTime: number,
-    nodesEvaluated: number
-  ): void {
-    // Update average evaluation time
-    if (this.stats.averageEvaluationTimeUs === 0) {
-      this.stats.averageEvaluationTimeUs = evaluationTime;
-    } else {
-      this.stats.averageEvaluationTimeUs =
-        this.stats.averageEvaluationTimeUs * 0.9 + evaluationTime * 0.1;
-    }
-
-    // Update average nodes evaluated
-    if (this.stats.averageNodesEvaluated === 0) {
-      this.stats.averageNodesEvaluated = nodesEvaluated;
-    } else {
-      this.stats.averageNodesEvaluated =
-        this.stats.averageNodesEvaluated * 0.9 + nodesEvaluated * 0.1;
-    }
-  }
-
-  /**
-   * Update overall performance statistics
-   *
-   * @param startTime - Operation start time
-   * @param nodesEvaluated - Number of nodes evaluated
-   * @param shortCircuited - Whether short-circuit optimization was used
-   * @returns Resolution time in microseconds
-   */
-  private updatePerformanceStats(
-    startTime: bigint,
-    nodesEvaluated: number,
-    shortCircuited: boolean
-  ): number {
-    const resolutionTime = Number(process.hrtime.bigint() - startTime) / 1000;
-
-    // Update average resolution time
-    if (this.stats.averageResolutionTimeUs === 0) {
-      this.stats.averageResolutionTimeUs = resolutionTime;
-    } else {
-      this.stats.averageResolutionTimeUs =
-        this.stats.averageResolutionTimeUs * 0.9 + resolutionTime * 0.1;
-    }
-
-    return resolutionTime;
-  }
-
-  /**
    * Log resolution result
    *
    * @param userId - User ID
@@ -750,17 +644,7 @@ export class ExpressionPermissionResolver
       const complexity = result.metadata?.expressionComplexity || 0;
       const shortCircuit = result.metadata?.shortCircuited ? '⚡' : '';
       console.debug(
-        `${symbol} Expression resolver [${userId}]: ${expression} ${shortCircuit} (${result.resolutionTimeUs.toFixed(1)}μs, complexity: ${complexity})`
-      );
-    }
-
-    // Log slow or complex resolutions
-    if (
-      result.resolutionTimeUs > 100000 ||
-      (result.metadata?.expressionComplexity || 0) > 20
-    ) {
-      console.warn(
-        `🐌 Complex expression resolution: ${result.resolutionTimeUs.toFixed(1)}μs, complexity: ${result.metadata?.expressionComplexity} for ${expression} (user: ${userId})`
+        `${symbol} Expression resolver [${userId}]: ${expression} ${shortCircuit} (complexity: ${complexity})`
       );
     }
   }
@@ -800,14 +684,13 @@ export class ExpressionPermissionResolver
   }
 
   /**
-   * Get performance summary
+   * Get summary
    */
   public getPerformanceSummary(): {
     type: string;
     totalChecks: number;
     successRate: number;
     cacheHitRate: number;
-    averageLatency: string;
     averageComplexity: number;
     shortCircuitRate: number;
     parsingSuccessRate: number;
@@ -839,7 +722,6 @@ export class ExpressionPermissionResolver
       totalChecks: this.stats.totalChecks,
       successRate: Math.round(successRate * 100) / 100,
       cacheHitRate: Math.round(sourceCacheHitRate * 100) / 100,
-      averageLatency: `${this.stats.averageResolutionTimeUs.toFixed(1)}μs`,
       averageComplexity:
         Math.round(this.stats.averageNodesEvaluated * 100) / 100,
       shortCircuitRate: Math.round(shortCircuitRate * 100) / 100,
@@ -883,17 +765,6 @@ export class ExpressionPermissionResolver
           'Review expression syntax and provide better error messages'
         );
       }
-    }
-
-    // Check performance
-    if (this.stats.averageResolutionTimeUs > 50000) {
-      // > 50ms
-      issues.push(
-        `High average latency: ${this.stats.averageResolutionTimeUs.toFixed(1)}μs`
-      );
-      recommendations.push(
-        'Consider optimizing complex expressions or increasing cache'
-      );
     }
 
     // Check expression complexity

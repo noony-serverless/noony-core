@@ -27,23 +27,142 @@ This is a **serverless middleware framework** for Google Cloud Functions that pr
 - **Framework Agnostic**: Supports both legacy GCP Functions and generic HTTP frameworks via `execute()` and `executeGeneric()` methods
 
 ### 2. Context System (`src/core/core.ts`)
-- **Context interface**: Enhanced with `requestId`, `startTime`, `timeoutSignal`, and `responseData` for better request tracking
-- **GenericRequest/GenericResponse**: Framework-agnostic interfaces that work with any HTTP framework
+- **Context interface**: Enhanced with dual generics `Context<TBody, TUser>` for type-safe request body and user
+- **NoonyRequest/NoonyResponse**: Framework-agnostic interfaces (aliases for GenericRequest/GenericResponse)
+- **BaseAuthenticatedUser**: Base interface for authenticated users that can be extended
+- **Container Integration**: Uses TypeDI `ContainerInstance` for dependency injection
+- **Request Tracking**: Built-in `requestId`, `startTime`, `timeoutSignal`, and `responseData`
 - **Legacy Support**: CustomRequest/CustomResponse maintained for backward compatibility
-- **Security Config**: Built-in security configurations for request processing
-- **Dependency injection**: Uses TypeDI container for service management
+
+**Type-Safe Context Usage:**
+```typescript
+import { Context, BaseAuthenticatedUser } from '@noony-serverless/core';
+
+// Define your user type
+interface AuthenticatedUser extends BaseAuthenticatedUser {
+  role: 'admin' | 'user';
+  permissions: string[];
+}
+
+// Define your request type
+interface CreateResourceRequest {
+  name: string;
+  description: string;
+}
+
+// Use both generics for full type safety
+export async function handler(context: Context<CreateResourceRequest, AuthenticatedUser>) {
+  const body = context.req.parsedBody;  // Type: CreateResourceRequest | undefined
+  const user = context.user;            // Type: AuthenticatedUser | undefined
+
+  // Full autocomplete and type checking!
+  if (user?.role === 'admin') {
+    // ...
+  }
+}
+```
 
 ### 3. Error System (`src/core/errors.ts`)
 Built-in error classes with proper HTTP status codes:
 - **HttpError**: Base error with custom status codes
 - **ValidationError**: 400 - Input validation failures
-- **AuthenticationError**: 401 - Authentication failures
+- **AuthenticationError**: 401 - Authentication failures (legacy)
+- **UnauthorizedError**: 401 - Authentication required (recommended)
 - **SecurityError**: 403 - Security violations
+- **ForbiddenError**: 403 - Insufficient permissions (recommended for authorization)
+- **NotFoundError**: 404 - Resource not found
 - **TimeoutError**: 408 - Request timeouts
+- **ConflictError**: 409 - Resource conflicts or duplicate entries
 - **TooLargeError**: 413 - Request size limits
+- **InternalServerError**: 500 - Unexpected errors with optional cause chaining
 - **BusinessError**: Custom business logic errors
+- **ServiceError**: Service layer errors with error codes (not HTTP-specific)
 
-### 4. Middleware Ecosystem (`src/middlewares/`)
+**Error Usage Examples:**
+```typescript
+import { NotFoundError, ForbiddenError, ConflictError, ServiceError } from '@noony-serverless/core';
+
+// 404 - Resource not found
+const user = await userService.getUser(userId);
+if (!user) {
+  throw new NotFoundError('User not found');
+}
+
+// 403 - Permission denied
+if (!canAccess(user, resource)) {
+  throw new ForbiddenError('You cannot access this resource');
+}
+
+// 409 - Conflict
+const existing = await userService.findByEmail(email);
+if (existing) {
+  throw new ConflictError('User with this email already exists');
+}
+
+// Service layer error (business logic)
+throw new ServiceError('Invalid operation', 'INVALID_STATE', { userId, action });
+
+// 500 - Internal error with cause chaining
+try {
+  await externalAPI.call();
+} catch (err) {
+  throw new InternalServerError('External API failed', err as Error);
+}
+```
+
+### 4. Utility Functions (`src/utils/`)
+
+#### Query Parameter Utilities (`src/utils/query-param.utils.ts`)
+Type-safe utilities for handling query parameters that can be `string | string[] | undefined`:
+
+```typescript
+import { asString, asStringArray, asNumber, asBoolean } from '@noony-serverless/core';
+
+export async function listUsersController(context: Context) {
+  const query = context.req.query;
+
+  // Type-safe query parameter handling
+  const options = {
+    search: asString(query.search),      // string | undefined
+    page: asNumber(query.page) || 1,     // number (with default)
+    limit: asNumber(query.limit) || 10,  // number (with default)
+    active: asBoolean(query.active),     // boolean | undefined
+    tags: asStringArray(query.tags),     // string[] | undefined
+  };
+
+  const users = await service.listUsers(options);
+  context.res.status(200).json({ data: users });
+}
+```
+
+**Available Functions:**
+- `asString(value)` - Returns first string value or undefined
+- `asStringArray(value)` - Returns array of strings or undefined
+- `asNumber(value)` - Parses to number or undefined (uses parseInt base 10)
+- `asBoolean(value)` - Returns true for "true" or "1", false otherwise
+
+#### Container Helper (`src/utils/container.utils.ts`)
+Type-safe service resolution from the dependency injection container:
+
+```typescript
+import { getService } from '@noony-serverless/core';
+import { UserService } from '../services/user.service';
+
+export async function createUserController(context: Context<CreateUserRequest>) {
+  // Type-safe service resolution - no casting needed!
+  const userService = getService(context, UserService);
+
+  const user = await userService.createUser(context.req.parsedBody);
+  context.res.status(201).json({ data: user });
+}
+```
+
+**Benefits:**
+- Eliminates boilerplate: `(context.container as ContainerInstance).get()`
+- Type-safe service resolution with full autocomplete
+- Clear error message if container not initialized
+
+### 5. Middleware Ecosystem (`src/middlewares/`)
 Built-in middlewares for common patterns:
 - **errorHandlerMiddleware**: Centralized error handling with custom error types
 - **bodyParserMiddleware**: JSON and Pub/Sub message parsing
@@ -55,7 +174,7 @@ Built-in middlewares for common patterns:
 - **dependencyInjectionMiddleware**: TypeDI container setup
 - **httpAttributesMiddleware**: HTTP request attributes processing
 
-### 5. Schema Validation with Zod (`src/middlewares/bodyValidationMiddleware.ts`)
+### 6. Schema Validation with Zod (`src/middlewares/bodyValidationMiddleware.ts`)
 **Zod Integration for Type-Safe Endpoint Validation:**
 
 The framework integrates **Zod** for robust schema validation on all endpoints:
@@ -92,7 +211,7 @@ const handler = new Handler<CreateUserRequest, UserType>()
 - **Nested Objects**: Full support for complex nested schema validation
 - **Access Pattern**: Validated data available at `context.req.validatedBody`
 
-### 6. JWT Authentication and User Context (`src/middlewares/authenticationMiddleware.ts`)
+### 7. JWT Authentication and User Context (`src/middlewares/authenticationMiddleware.ts`)
 **JWT Token Validation and User Access:**
 
 The **AuthenticationMiddleware** handles JWT token validation and populates `context.user`:
@@ -304,12 +423,21 @@ export const createOrder = http('createOrder', (req, res) => {
 ## Project Structure
 ```
 src/
-├── core/           # Core framework components
-│   ├── handler.ts  # Main Handler class and middleware pipeline
-│   ├── core.ts     # Context interfaces and type definitions
-│   └── errors.ts   # Built-in error classes
-├── middlewares/    # Built-in middleware implementations
-└── index.ts        # Main exports
+├── core/                    # Core framework components
+│   ├── handler.ts           # Main Handler class and middleware pipeline
+│   ├── core.ts              # Context interfaces and type definitions
+│   ├── errors.ts            # Built-in error classes
+│   ├── logger.ts            # Logger utility
+│   ├── containerPool.ts     # Container pool management
+│   └── performanceMonitor.ts # Performance monitoring
+├── middlewares/             # Built-in middleware implementations
+│   ├── guards/              # Permission & auth guard system
+│   └── *.ts                 # Individual middlewares
+├── utils/                   # Utility functions (NEW in v0.3.0)
+│   ├── query-param.utils.ts # Query parameter helpers
+│   ├── container.utils.ts   # Container service resolution
+│   └── index.ts             # Utils exports
+└── index.ts                 # Main exports
 examples/
 ├── hello-world-simple/      # Basic usage examples
 └── fastify-production-api/  # Production-ready Fastify integration

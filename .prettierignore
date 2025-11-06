@@ -7,3 +7,14 @@ node_modules
 examples/*/dist
 examples/*/build
 examples/guard-system-showcase/dist
+
+# Coverage
+coverage
+
+# Logs
+*.log
+
+# Package lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
