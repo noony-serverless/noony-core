@@ -190,7 +190,8 @@ const parseBody = async <T = unknown>(body: unknown): Promise<T> => {
  * - Base64 decoding for Pub/Sub messages
  * - Non-blocking parsing using setImmediate
  *
- * @template T - The expected type of the parsed body. Defaults to unknown if not specified.
+ * @template TBody - The expected type of the parsed body. Defaults to unknown if not specified.
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @implements {BaseMiddleware}
  *
  * @example
@@ -245,14 +246,16 @@ const parseBody = async <T = unknown>(body: unknown): Promise<T> => {
  *   });
  * ```
  */
-export class BodyParserMiddleware<T = unknown> implements BaseMiddleware {
+export class BodyParserMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   private maxSize: number;
 
   constructor(maxSize: number = MAX_JSON_SIZE) {
     this.maxSize = maxSize;
   }
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     // Check content-length early to avoid processing oversized requests
     const headers = context.req.headers || {};
     const contentLength = headers['content-length'];
@@ -265,7 +268,7 @@ export class BodyParserMiddleware<T = unknown> implements BaseMiddleware {
       }
     }
 
-    context.req.parsedBody = await parseBody<T>(context.req.body);
+    context.req.parsedBody = await parseBody<TBody>(context.req.body);
   }
 }
 
@@ -277,7 +280,8 @@ export class BodyParserMiddleware<T = unknown> implements BaseMiddleware {
  * - Async parsing for large payloads
  * - Size validation
  *
- * @template T - The expected type of the parsed request body.
+ * @template TBody - The expected type of the parsed request body.
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param maxSize - Maximum allowed body size in bytes (default: 1MB)
  * @returns {BaseMiddleware} A middleware object containing a `before` hook.
  *
@@ -327,10 +331,10 @@ export class BodyParserMiddleware<T = unknown> implements BaseMiddleware {
  *   });
  * ```
  */
-export const bodyParser = <T = unknown>(
+export const bodyParser = <TBody = unknown, TUser = unknown>(
   maxSize: number = MAX_JSON_SIZE
-): BaseMiddleware => ({
-  before: async (context: Context): Promise<void> => {
+): BaseMiddleware<TBody, TUser> => ({
+  before: async (context: Context<TBody, TUser>): Promise<void> => {
     const { method, body } = context.req;
 
     // Performance optimization: Early return for methods that don't typically have bodies
@@ -350,6 +354,6 @@ export const bodyParser = <T = unknown>(
       }
     }
 
-    context.req.parsedBody = await parseBody<T>(body);
+    context.req.parsedBody = await parseBody<TBody>(body);
   },
 });

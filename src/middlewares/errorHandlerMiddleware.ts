@@ -19,11 +19,16 @@ interface ResponsePayload {
  * - For `HttpError` instances, responds with the error message, and optionally details and code based on environment and error type.
  * - For other errors, responds with a generic message in production, and includes stack trace in development.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param error - The error object thrown during request processing.
  * @param context - The request context containing request and response objects.
  * @returns A promise that resolves when the error response has been sent.
  */
-const handleError = async (error: Error, context: Context): Promise<void> => {
+const handleError = async <TBody = unknown, TUser = unknown>(
+  error: Error,
+  context: Context<TBody, TUser>
+): Promise<void> => {
   const isDevelopment =
     process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
 
@@ -83,6 +88,9 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
  * Implements the `BaseMiddleware` interface and provides an asynchronous
  * `onError` method that delegates error handling to the `handleError` function.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
+ *
  * @remarks
  * This middleware should be registered to catch and process errors that occur
  * during request handling.
@@ -129,15 +137,19 @@ const handleError = async (error: Error, context: Context): Promise<void> => {
  * });
  * ```
  */
-export class ErrorHandlerMiddleware implements BaseMiddleware {
-  async onError(error: Error, context: Context): Promise<void> {
-    await handleError(error, context);
+export class ErrorHandlerMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
+  async onError(error: Error, context: Context<TBody, TUser>): Promise<void> {
+    await handleError<TBody, TUser>(error, context);
   }
 }
 
 /**
  * Creates an error handling middleware for processing errors in the application.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @returns {BaseMiddleware} An object implementing the `onError` method to handle errors.
  *
  * @remarks
@@ -178,8 +190,14 @@ export class ErrorHandlerMiddleware implements BaseMiddleware {
  *   });
  * ```
  */
-export const errorHandler = (): BaseMiddleware => ({
-  onError: async (error: Error, context: Context): Promise<void> => {
-    await handleError(error, context);
+export const errorHandler = <
+  TBody = unknown,
+  TUser = unknown,
+>(): BaseMiddleware<TBody, TUser> => ({
+  onError: async (
+    error: Error,
+    context: Context<TBody, TUser>
+  ): Promise<void> => {
+    await handleError<TBody, TUser>(error, context);
   },
 });

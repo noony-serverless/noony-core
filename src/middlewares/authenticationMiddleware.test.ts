@@ -8,8 +8,8 @@ import { Context } from '../core/core';
 import { AuthenticationError, HttpError } from '../core/errors';
 
 describe('AuthenticationMiddleware', () => {
-  let context: Context;
-  let tokenVerificationPort: CustomTokenVerificationPort<never>;
+  let context: Context<unknown, unknown>;
+  let tokenVerificationPort: CustomTokenVerificationPort<unknown>;
 
   beforeEach(() => {
     context = {
@@ -18,7 +18,7 @@ describe('AuthenticationMiddleware', () => {
       container: null,
       error: null,
       businessData: new Map(),
-    } as unknown as Context;
+    } as unknown as Context<unknown, unknown>;
     tokenVerificationPort = { verifyToken: jest.fn() };
   });
 
@@ -81,7 +81,7 @@ describe('AuthenticationMiddleware', () => {
 });
 
 describe('verifyAuthTokenMiddleware', () => {
-  let context: Context;
+  let context: Context<unknown, unknown>;
   let tokenVerificationPort: { verifyToken: jest.Mock };
 
   beforeEach(() => {
@@ -91,7 +91,7 @@ describe('verifyAuthTokenMiddleware', () => {
       container: null,
       error: null,
       businessData: new Map(),
-    } as unknown as Context;
+    } as unknown as Context<unknown, unknown>;
     tokenVerificationPort = { verifyToken: jest.fn() };
   });
 

@@ -312,6 +312,63 @@ await handler.executeGeneric(genericReq, genericRes);
 4. **Shared State**: Use `context.businessData` Map to share data between middlewares
 5. **Request Tracking**: Each request gets a unique `requestId` and timing information
 
+### Middleware Type Chain Preservation (CRITICAL)
+
+**IMPORTANT:** All middlewares MUST preserve the type chain to maintain Noony's framework-agnostic type safety.
+
+#### The Problem
+Middlewares that implement `BaseMiddleware` without proper generics break the type chain:
+
+```typescript
+// ❌ WRONG - Breaks type chain
+export class SomeMiddleware implements BaseMiddleware {
+  async before(context: Context): Promise<void> {
+    // context loses TBody and TUser type information
+  }
+}
+```
+
+#### The Solution
+ALL middlewares must implement `BaseMiddleware<TBody, TUser>` with proper generics:
+
+```typescript
+// ✅ CORRECT - Preserves type chain
+export class SomeMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
+  async before(context: Context<TBody, TUser>): Promise<void> {
+    // context preserves TBody and TUser type information
+  }
+}
+
+// Factory function must also preserve types
+export const someMiddleware = <TBody = unknown, TUser = unknown>():
+  BaseMiddleware<TBody, TUser> => ({
+  before: async (context: Context<TBody, TUser>): Promise<void> {
+    // Implementation
+  },
+});
+```
+
+#### Reference Implementation
+`BodyValidationMiddleware` is the gold standard - use it as a reference for all middleware implementations.
+
+#### Impact on Type Safety
+```typescript
+// With proper type chain
+const handler = new Handler<CreateUserRequest, AuthUser>()
+  .use(new BodyValidationMiddleware<CreateUserRequest, AuthUser>(schema))
+  .use(new AuthenticationMiddleware<AuthUser, CreateUserRequest>(tokenVerifier))
+  .use(new ResponseWrapperMiddleware<UserResponse, CreateUserRequest, AuthUser>())
+  .handle(async (context) => {
+    // ✅ Full type safety!
+    const body = context.req.validatedBody;  // Type: CreateUserRequest
+    const user = context.user;               // Type: AuthUser
+  });
+```
+
+**See:** `docs/TYPE_CHAIN_FIX_SUMMARY.md` for complete details and list of fixed middlewares.
+
 ### Complete Example Usage Pattern
 **Production-Ready Handler with Zod Validation and JWT Authentication:**
 

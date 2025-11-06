@@ -1,7 +1,9 @@
 import { BaseMiddleware } from '../core/handler';
 import { Context } from '../core/core';
 
-const wrapResponse = <T>(context: Context): void => {
+const wrapResponse = <T, TBody = unknown, TUser = unknown>(
+  context: Context<TBody, TUser>
+): void => {
   if (!context.res.headersSent) {
     const statusCode = context.res.statusCode || 200;
     const body = context.responseData as T;
@@ -18,6 +20,8 @@ const wrapResponse = <T>(context: Context): void => {
  * Automatically wraps the response with success flag, payload, and timestamp.
  *
  * @template T - The type of response data being wrapped
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @implements {BaseMiddleware}
  *
  * @example
@@ -73,9 +77,14 @@ const wrapResponse = <T>(context: Context): void => {
  *   });
  * ```
  */
-export class ResponseWrapperMiddleware<T> implements BaseMiddleware {
-  async after(context: Context): Promise<void> {
-    wrapResponse<T>(context);
+export class ResponseWrapperMiddleware<
+  T = unknown,
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser>
+{
+  async after(context: Context<TBody, TUser>): Promise<void> {
+    wrapResponse<T, TBody, TUser>(context);
   }
 }
 
@@ -84,6 +93,8 @@ export class ResponseWrapperMiddleware<T> implements BaseMiddleware {
  * Automatically wraps response data in a standardized format with success flag and timestamp.
  *
  * @template T - The type of response data being wrapped
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @returns BaseMiddleware object with response wrapping logic
  *
  * @example
@@ -134,9 +145,13 @@ export class ResponseWrapperMiddleware<T> implements BaseMiddleware {
  *   });
  * ```
  */
-export const responseWrapperMiddleware = <T>(): BaseMiddleware => ({
-  after: async (context: Context): Promise<void> => {
-    wrapResponse<T>(context);
+export const responseWrapperMiddleware = <
+  T = unknown,
+  TBody = unknown,
+  TUser = unknown,
+>(): BaseMiddleware<TBody, TUser> => ({
+  after: async (context: Context<TBody, TUser>): Promise<void> => {
+    wrapResponse<T, TBody, TUser>(context);
   },
 });
 
@@ -145,6 +160,8 @@ export const responseWrapperMiddleware = <T>(): BaseMiddleware => ({
  * This function should be used in handlers when using ResponseWrapperMiddleware.
  *
  * @template T - The type of data being set
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param context - The request context
  * @param data - The data to be included in the response payload
  *
@@ -197,6 +214,9 @@ export const responseWrapperMiddleware = <T>(): BaseMiddleware => ({
  *   });
  * ```
  */
-export function setResponseData<T>(context: Context, data: T): void {
+export function setResponseData<T, TBody = unknown, TUser = unknown>(
+  context: Context<TBody, TUser>,
+  data: T
+): void {
   context.responseData = data;
 }

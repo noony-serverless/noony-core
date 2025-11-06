@@ -30,6 +30,8 @@ const convertQueryToRecord = (
  * Middleware class that validates and processes query parameters from the request URL.
  * Extracts query parameters and validates that required parameters are present.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @implements {BaseMiddleware}
  *
  * @example
@@ -70,10 +72,12 @@ const convertQueryToRecord = (
  *   });
  * ```
  */
-export class QueryParametersMiddleware implements BaseMiddleware {
+export class QueryParametersMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   constructor(private readonly requiredParams: string[] = []) {}
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     const host =
       (Array.isArray(context.req.headers.host)
         ? context.req.headers.host[0]
@@ -89,6 +93,8 @@ export class QueryParametersMiddleware implements BaseMiddleware {
  * Factory function that creates a query parameter processing middleware.
  * Extracts and validates query parameters from the request URL.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param requiredParams - Array of parameter names that must be present (default: empty array)
  * @returns BaseMiddleware object with query parameter processing logic
  *
@@ -146,10 +152,10 @@ export class QueryParametersMiddleware implements BaseMiddleware {
  *   });
  * ```
  */
-export const queryParametersMiddleware = (
+export const queryParametersMiddleware = <TBody = unknown, TUser = unknown>(
   requiredParams: string[] = []
-): BaseMiddleware => ({
-  async before(context: Context): Promise<void> {
+): BaseMiddleware<TBody, TUser> => ({
+  async before(context: Context<TBody, TUser>): Promise<void> {
     const host =
       (Array.isArray(context.req.headers.host)
         ? context.req.headers.host[0]

@@ -343,9 +343,9 @@ const checkRateLimit = (
   }
 };
 
-async function verifyToken<T>(
-  tokenVerificationPort: CustomTokenVerificationPort<T>,
-  context: Context,
+async function verifyToken<TUser, TBody = unknown>(
+  tokenVerificationPort: CustomTokenVerificationPort<TUser>,
+  context: Context<TBody, TUser>,
   options: AuthenticationOptions = {}
 ): Promise<void> {
   const authHeader = context.req.headers?.authorization;
@@ -425,7 +425,8 @@ async function verifyToken<T>(
  * Class-based authentication middleware with comprehensive security features.
  * Provides JWT validation, rate limiting, token blacklisting, and security logging.
  *
- * @template T - The type of user data returned by the token verification port
+ * @template TUser - The type of user data returned by the token verification port
+ * @template TBody - The type of the request body payload (preserves type chain)
  *
  * @example
  * Basic JWT authentication:
@@ -508,14 +509,20 @@ async function verifyToken<T>(
  * });
  * ```
  */
-export class AuthenticationMiddleware<T> implements BaseMiddleware {
+export class AuthenticationMiddleware<TUser = unknown, TBody = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   constructor(
-    private tokenVerificationPort: CustomTokenVerificationPort<T>,
+    private tokenVerificationPort: CustomTokenVerificationPort<TUser>,
     private options: AuthenticationOptions = {}
   ) {}
 
-  async before(context: Context): Promise<void> {
-    await verifyToken(this.tokenVerificationPort, context, this.options);
+  async before(context: Context<TBody, TUser>): Promise<void> {
+    await verifyToken<TUser, TBody>(
+      this.tokenVerificationPort,
+      context,
+      this.options
+    );
   }
 }
 
@@ -523,7 +530,8 @@ export class AuthenticationMiddleware<T> implements BaseMiddleware {
  * Factory function that creates an authentication middleware with token verification.
  * Provides a functional approach for authentication setup.
  *
- * @template T - The type of user data returned by the token verification port
+ * @template TUser - The type of user data returned by the token verification port
+ * @template TBody - The type of the request body payload (preserves type chain)
  * @param tokenVerificationPort - The token verification implementation
  * @param options - Authentication configuration options
  * @returns A BaseMiddleware object with authentication logic
@@ -648,12 +656,12 @@ export class AuthenticationMiddleware<T> implements BaseMiddleware {
  * };
  * ```
  */
-export const verifyAuthTokenMiddleware = <T>(
-  tokenVerificationPort: CustomTokenVerificationPort<T>,
+export const verifyAuthTokenMiddleware = <TUser = unknown, TBody = unknown>(
+  tokenVerificationPort: CustomTokenVerificationPort<TUser>,
   options: AuthenticationOptions = {}
-): BaseMiddleware => ({
-  async before(context: Context): Promise<void> {
-    await verifyToken(tokenVerificationPort, context, options);
+): BaseMiddleware<TBody, TUser> => ({
+  async before(context: Context<TBody, TUser>): Promise<void> {
+    await verifyToken<TUser, TBody>(tokenVerificationPort, context, options);
   },
 });
 
