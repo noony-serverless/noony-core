@@ -192,7 +192,10 @@ function createGreeting(
  * how to add custom business logic validation that might depend on
  * external factors or complex rules.
  */
-async function validateBusinessRules(context: Context): Promise<void> {
+
+async function validateBusinessRules(
+  context: Context<HelloWorldRequest>
+): Promise<void> {
   const request = context.req.validatedBody as HelloWorldRequest;
 
   // Example: Reject inappropriate names (this is just a demo)
@@ -243,7 +246,10 @@ async function validateBusinessRules(context: Context): Promise<void> {
  * Demonstrates how to collect performance metrics for monitoring
  * and optimization. This middleware runs after the handler completes.
  */
-async function performanceMonitoring(context: Context): Promise<void> {
+
+async function performanceMonitoring(
+  context: Context<HelloWorldRequest>
+): Promise<void> {
   const businessContext = context.businessData?.get(
     'helloWorldContext'
   ) as HelloWorldContext;

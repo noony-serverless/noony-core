@@ -1,11 +1,11 @@
-import Container from 'typedi';
+import { Container, ContainerInstance } from 'typedi';
 
 /**
  * Performance optimization: Container Pool for reusing TypeDI containers
  * This reduces object creation overhead and improves memory efficiency
  */
 class ContainerPool {
-  private availableContainers: Container[] = [];
+  private availableContainers: ContainerInstance[] = [];
   private maxPoolSize: number = 10;
   private createdContainers: number = 0;
 
@@ -16,7 +16,7 @@ class ContainerPool {
   /**
    * Get a container from the pool or create a new one
    */
-  acquire(): Container {
+  acquire(): ContainerInstance {
     if (this.availableContainers.length > 0) {
       return this.availableContainers.pop()!;
     }
@@ -35,7 +35,7 @@ class ContainerPool {
   /**
    * Return a container to the pool for reuse
    */
-  release(container: Container): void {
+  release(container: ContainerInstance): void {
     if (this.availableContainers.length < this.maxPoolSize) {
       // Reset container state by removing all instances
       // This prevents memory leaks and cross-request contamination
@@ -50,7 +50,7 @@ class ContainerPool {
    * Note: TypeDI containers are isolated by default, so we mainly need
    * to clear any manually set values
    */
-  private resetContainer(_container: Container): void {
+  private resetContainer(_container: ContainerInstance): void {
     try {
       // For TypeDI containers created with Container.of(), each container
       // is already isolated. We just need to ensure no memory leaks.

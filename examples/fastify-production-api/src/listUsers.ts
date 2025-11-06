@@ -1,15 +1,15 @@
 /**
  * Google Cloud Function: List Users with Pagination and Filtering
- * 
+ *
  * This function provides a comprehensive user listing API with advanced filtering,
  * pagination, and sorting capabilities. Perfect for admin dashboards and user management.
- * 
+ *
  * Endpoint: GET /?page=1&limit=10&search=john&department=engineering
  * Function name: listUsers
- * 
+ *
  * Required Permissions:
  * - 'user:list' OR 'admin:users'
- * 
+ *
  * Query Parameters (all optional):
  * - page: Page number (default: 1)
  * - limit: Users per page (default: 10, max: 100)
@@ -19,10 +19,10 @@
  * - sortOrder: Sort direction (asc, desc)
  * - minAge, maxAge: Age range filtering
  * - includeDeleted: Include soft-deleted users (admin only)
- * 
+ *
  * Example request:
  * GET /?page=2&limit=20&search=engineer&department=tech&sortBy=name&sortOrder=asc
- * 
+ *
  * Example successful response:
  * {
  *   "success": true,
@@ -54,7 +54,7 @@ import { listUsersHandler } from './handlers/user.handlers';
 
 /**
  * Export the Google Cloud Function for listing users
- * 
+ *
  * This function handles GET requests to retrieve a paginated list of users
  * with comprehensive filtering and sorting options.
  */

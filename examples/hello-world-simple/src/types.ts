@@ -100,6 +100,18 @@ export interface HelloWorldResponseData {
    * For future internationalization features
    */
   language?: string;
+
+  /**
+   * Optional user ID from authentication context
+   * Available when using guard system authentication
+   */
+  userId?: string;
+
+  /**
+   * Optional user permissions from authentication context
+   * Available when using guard system authentication
+   */
+  permissions?: string[];
 }
 
 /**
@@ -108,7 +120,7 @@ export interface HelloWorldResponseData {
  * This is what the client actually receives, showing the standard
  * Noony response format with success/error indication
  */
-export interface StandardApiResponse<T = any> {
+export interface StandardApiResponse<T = unknown> {
   /** Indicates if the request was successful */
   success: boolean;
 

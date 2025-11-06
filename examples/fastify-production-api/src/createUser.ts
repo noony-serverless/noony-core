@@ -1,17 +1,17 @@
 /**
  * Google Cloud Function: Create User
- * 
+ *
  * This file creates a Google Cloud Function that handles user creation requests.
  * It acts as a simple wrapper around our Noony handler, making it compatible
  * with Google Cloud Functions runtime.
- * 
+ *
  * Endpoint: POST /
  * Function name: createUser
  * Expected payload: { name, email, age, department?, phoneNumber?, bio? }
- * 
+ *
  * How it works:
  * 1. Google Cloud Functions calls this function when HTTP requests arrive
- * 2. We pass the request to our Noony createUserHandler 
+ * 2. We pass the request to our Noony createUserHandler
  * 3. The handler processes the request through its middleware pipeline
  * 4. Response is sent back through Google Cloud Functions
  */
@@ -24,10 +24,10 @@ import { createUserHandler } from './handlers/user.handlers';
 
 /**
  * Export the Google Cloud Function
- * 
+ *
  * The http() function from Google Cloud Functions framework creates an HTTP function
  * that will be deployed to Google Cloud and can handle HTTP requests.
- * 
+ *
  * Parameters:
  * - 'createUser': The name of the function (used in deployment)
  * - (req, res): Standard HTTP request/response callback

@@ -279,15 +279,15 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
 
   constructor(options: SecurityAuditOptions = {}) {
     this.options = {
-      logRequests: false,
-      logResponses: false,
-      logBodies: false,
-      maxBodyLogSize: 1024,
+      logRequests: options.logRequests ?? false,
+      logResponses: options.logResponses ?? false,
+      logBodies: options.logBodies ?? false,
+      maxBodyLogSize: options.maxBodyLogSize ?? 1024,
       excludeHeaders: [
         ...DEFAULT_EXCLUDE_HEADERS,
         ...(options.excludeHeaders || []),
       ],
-      enableAnomalyDetection: true,
+      enableAnomalyDetection: options.enableAnomalyDetection ?? true,
       onSecurityEvent: options.onSecurityEvent,
       suspiciousPatterns: {
         ...DEFAULT_SUSPICIOUS_PATTERNS,

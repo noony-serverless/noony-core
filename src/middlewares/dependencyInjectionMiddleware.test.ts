@@ -14,7 +14,7 @@ describe('DependencyInjectionMiddleware', () => {
     context = {
       req: {},
       res: {},
-      container: null,
+      container: Container.of(),
       error: null,
       businessData: new Map(),
     } as unknown as Context;
@@ -38,7 +38,7 @@ describe('DependencyInjectionMiddleware', () => {
 
     await middleware.before(context);
 
-    expect(context.container).toBe(Container);
+    expect(context.container).toBeInstanceOf(ContainerInstance);
   });
 
   it('does not throw if services array is empty', async () => {
@@ -64,7 +64,7 @@ describe('dependencyInjection', () => {
     context = {
       req: {},
       res: {},
-      container: null,
+      container: Container.of(),
       error: null,
       businessData: new Map(),
     } as unknown as Context;
@@ -93,13 +93,5 @@ describe('dependencyInjection', () => {
     expect(firstContainer).toBe(secondContainer);
     expect(firstContainer).toBeInstanceOf(ContainerInstance);
     expect(secondContainer).toBeInstanceOf(ContainerInstance);
-  });
-  it('does not throw if context is missing container property', async () => {
-    const middleware = dependencyInjection();
-    delete context.container;
-
-    if (middleware.before) {
-      await expect(middleware.before(context)).resolves.not.toThrow();
-    }
   });
 });

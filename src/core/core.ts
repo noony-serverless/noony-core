@@ -1,5 +1,5 @@
 import { Request, Response } from '@google-cloud/functions-framework';
-import Container from 'typedi';
+import { Container, ContainerInstance } from 'typedi';
 
 /**
  * Framework-agnostic HTTP method enum
@@ -82,18 +82,38 @@ export interface HandlerOptions {
 }
 
 /**
+ * Base authenticated user interface that projects can extend
+ */
+export interface BaseAuthenticatedUser {
+  id: string;
+  email?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Modern request type alias (recommended)
+ */
+export type NoonyRequest<T = unknown> = GenericRequest<T>;
+
+/**
+ * Modern response type alias (recommended)
+ */
+export type NoonyResponse = GenericResponse;
+
+/**
  * Represents the execution context for handling a request and response in an application.
  *
- * @template T Specifies the type of the custom request payload.
- * @template V Specifies the type of the user-related information.
+ * @template TBody Specifies the type of the request body payload.
+ * @template TUser Specifies the type of the authenticated user (defaults to unknown).
  */
-export interface Context<T = unknown, V = unknown> {
-  readonly req: GenericRequest<T>;
-  readonly res: GenericResponse;
-  container?: Container;
+export interface Context<TBody = unknown, TUser = unknown> {
+  readonly req: NoonyRequest<TBody>;
+  readonly res: NoonyResponse;
+  container: ContainerInstance;
   error?: Error | null;
   readonly businessData: Map<string, unknown>;
-  user?: V;
+  user?: TUser;
   readonly startTime: number;
   readonly requestId: string;
   timeoutSignal?: AbortSignal;
@@ -117,7 +137,7 @@ export interface LegacyContext<T = unknown, V = unknown> {
  * Utility function to generate unique request IDs
  */
 export function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**
@@ -186,12 +206,14 @@ export function adaptGCPResponse(gcpResponse: Response): GenericResponse {
 
 /**
  * Creates a context object for framework-agnostic handlers
+ * @template TBody The type of the request body
+ * @template TUser The type of the authenticated user
  */
-export function createContext<T = unknown, V = unknown>(
-  req: GenericRequest<T>,
-  res: GenericResponse,
-  options: Partial<Context<T, V>> = {}
-): Context<T, V> {
+export function createContext<TBody = unknown, TUser = unknown>(
+  req: NoonyRequest<TBody>,
+  res: NoonyResponse,
+  options: Partial<Context<TBody, TUser>> = {}
+): Context<TBody, TUser> {
   return {
     req,
     res,

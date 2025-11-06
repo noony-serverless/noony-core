@@ -91,7 +91,9 @@ export function createFastifyServer(): FastifyInstance {
 
   // Register CORS plugin for development
   if (config.environment === 'development') {
-    fastify.register(require('@fastify/cors'), {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const cors = require('@fastify/cors');
+    fastify.register(cors, {
       origin: config.cors.origin,
       credentials: config.cors.credentials,
     });
@@ -325,7 +327,9 @@ export function createFastifyServer(): FastifyInstance {
    * Catches any errors not handled by individual routes
    */
   fastify.setErrorHandler(async (error, request, reply) => {
-    fastify.log.error(`💥 Unhandled server error: ${error.message} - URL: ${request.url} - Method: ${request.method}`);
+    fastify.log.error(
+      `💥 Unhandled server error: ${error.message} - URL: ${request.url} - Method: ${request.method}`
+    );
 
     const isDevelopment = config.environment === 'development';
 

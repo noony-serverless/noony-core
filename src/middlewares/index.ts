@@ -11,3 +11,4 @@ export * from './responseWrapperMiddleware';
 export * from './securityAuditMiddleware';
 export * from './securityHeadersMiddleware';
 export * from './validationMiddleware';
+export * from './guards';

@@ -1,2 +1,9 @@
+# Build directories
 build
+dist
 node_modules
+
+# Examples build output
+examples/*/dist
+examples/*/build
+examples/guard-system-showcase/dist
