@@ -247,8 +247,8 @@ const sanitizeForLogging = (data: unknown, maxSize = 1024): string => {
 /**
  * Extract client information from request
  */
-const extractClientInfo = (
-  context: Context
+const extractClientInfo = <TBody, TUser>(
+  context: Context<TBody, TUser>
 ): {
   clientIP: string;
   userAgent: string;
@@ -270,8 +270,13 @@ const extractClientInfo = (
 /**
  * Security Audit Middleware
  * Provides comprehensive security event logging and monitoring
+ *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  */
-export class SecurityAuditMiddleware implements BaseMiddleware {
+export class SecurityAuditMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   private options: Required<
     Omit<SecurityAuditOptions, 'onSecurityEvent' | 'suspiciousPatterns'>
   > &
@@ -296,7 +301,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
     };
   }
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     const startTime = Date.now();
     const { clientIP, userAgent, userId } = extractClientInfo(context);
 
@@ -388,7 +393,7 @@ export class SecurityAuditMiddleware implements BaseMiddleware {
     }
   }
 
-  async after(context: Context): Promise<void> {
+  async after(context: Context<TBody, TUser>): Promise<void> {
     const startTime = context.businessData.get('audit_start_time') as number;
     const clientInfo = context.businessData.get(
       'audit_client_info'

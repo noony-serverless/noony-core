@@ -19,7 +19,9 @@ const validateHeaders = (
  * Middleware class that validates the presence of required HTTP headers.
  * Throws a ValidationError if any required header is missing or empty.
  *
- * @implements {BaseMiddleware}
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
+ * @implements {BaseMiddleware<TBody, TUser>}
  *
  * @example
  * API key authentication via headers:
@@ -79,10 +81,12 @@ const validateHeaders = (
  *   });
  * ```
  */
-export class HeaderVariablesMiddleware implements BaseMiddleware {
+export class HeaderVariablesMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   constructor(private requiredHeaders: string[]) {}
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     context.req.headers = context.req.headers || {};
     validateHeaders(this.requiredHeaders, context.req.headers);
   }
@@ -92,6 +96,8 @@ export class HeaderVariablesMiddleware implements BaseMiddleware {
  * Factory function that creates a header validation middleware.
  * Validates that all required headers are present in the request.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param requiredHeaders - Array of header names that must be present
  * @returns BaseMiddleware object with header validation logic
  *
@@ -142,10 +148,10 @@ export class HeaderVariablesMiddleware implements BaseMiddleware {
  *   });
  * ```
  */
-export const headerVariablesMiddleware = (
+export const headerVariablesMiddleware = <TBody = unknown, TUser = unknown>(
   requiredHeaders: string[]
-): BaseMiddleware => ({
-  async before(context: Context): Promise<void> {
+): BaseMiddleware<TBody, TUser> => ({
+  async before(context: Context<TBody, TUser>): Promise<void> {
     context.req.headers = context.req.headers || {};
     validateHeaders(requiredHeaders, context.req.headers);
   },

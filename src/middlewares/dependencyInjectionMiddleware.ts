@@ -7,7 +7,9 @@ import { BaseMiddleware, Context } from '../core';
  * Middleware to inject dependencies into the request context using typedi.
  * This allows handlers to access shared services or data via context.container.
  *
- * @implements {BaseMiddleware}
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
+ * @implements {BaseMiddleware<TBody, TUser>}
  *
  * @example
  * Basic service injection:
@@ -149,10 +151,12 @@ import { BaseMiddleware, Context } from '../core';
  *   });
  * ```
  */
-export class DependencyInjectionMiddleware implements BaseMiddleware {
+export class DependencyInjectionMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   constructor(private services: { id: any; value: any }[]) {}
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     this.services.forEach((service) => {
       Container.set(service.id, service.value);
     });
@@ -164,6 +168,8 @@ export class DependencyInjectionMiddleware implements BaseMiddleware {
  * Factory function that creates a dependency injection middleware.
  * Creates a new container instance for each request to avoid shared state issues.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param services - Array of service definitions with id and value
  * @returns BaseMiddleware object with dependency injection logic
  *
@@ -252,10 +258,10 @@ export class DependencyInjectionMiddleware implements BaseMiddleware {
  *   });
  * ```
  */
-export const dependencyInjection = (
+export const dependencyInjection = <TBody = unknown, TUser = unknown>(
   services: { id: any; value: any }[] = []
-): BaseMiddleware => ({
-  before: async (context: Context): Promise<void> => {
+): BaseMiddleware<TBody, TUser> => ({
+  before: async (context: Context<TBody, TUser>): Promise<void> => {
     services.forEach((service) => {
       Container.set(service.id, service.value);
     });

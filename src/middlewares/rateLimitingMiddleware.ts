@@ -18,7 +18,7 @@ export interface RateLimitOptions {
    * Function to generate rate limiting key
    * @default Uses IP address
    */
-  keyGenerator?: (context: Context) => string;
+  keyGenerator?: <TBody, TUser>(context: Context<TBody, TUser>) => string;
 
   /**
    * Custom error message
@@ -35,7 +35,7 @@ export interface RateLimitOptions {
   /**
    * Skip rate limiting for certain requests
    */
-  skip?: (context: Context) => boolean;
+  skip?: <TBody, TUser>(context: Context<TBody, TUser>) => boolean;
 
   /**
    * Headers to include in response
@@ -49,7 +49,7 @@ export interface RateLimitOptions {
     [key: string]: {
       maxRequests: number;
       windowMs: number;
-      matcher: (context: Context) => boolean;
+      matcher: <TBody, TUser>(context: Context<TBody, TUser>) => boolean;
     };
   };
 
@@ -144,7 +144,9 @@ class MemoryStore implements RateLimitStore {
 /**
  * Default key generator using IP address with user identification
  */
-const defaultKeyGenerator = (context: Context): string => {
+const defaultKeyGenerator = <TBody, TUser>(
+  context: Context<TBody, TUser>
+): string => {
   const ip =
     context.req.ip ||
     (Array.isArray(context.req.headers?.['x-forwarded-for'])
@@ -164,7 +166,10 @@ const defaultKeyGenerator = (context: Context): string => {
 /**
  * Apply rate limit headers to response
  */
-const setRateLimitHeaders = (context: Context, info: RateLimitInfo): void => {
+const setRateLimitHeaders = <TBody, TUser>(
+  context: Context<TBody, TUser>,
+  info: RateLimitInfo
+): void => {
   context.res.header('X-RateLimit-Limit', String(info.limit));
   context.res.header(
     'X-RateLimit-Remaining',
@@ -183,8 +188,8 @@ const setRateLimitHeaders = (context: Context, info: RateLimitInfo): void => {
 /**
  * Determine the appropriate rate limit for the request
  */
-const getRateLimit = (
-  context: Context,
+const getRateLimit = <TBody, TUser>(
+  context: Context<TBody, TUser>,
   options: RateLimitOptions
 ): { maxRequests: number; windowMs: number } => {
   // Check dynamic limits first
@@ -243,7 +248,9 @@ const getRateLimit = (
  * - Implement multiple protection layers within middleware
  * - Critical for security in simple deployments
  *
- * @implements {BaseMiddleware}
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
+ * @implements {BaseMiddleware<TBody, TUser>}
  *
  * @example
  * Basic API rate limiting:
@@ -397,7 +404,9 @@ const getRateLimit = (
  *   });
  * ```
  */
-export class RateLimitingMiddleware implements BaseMiddleware {
+export class RateLimitingMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   private store: RateLimitStore;
   private options: Required<
     Omit<RateLimitOptions, 'keyGenerator' | 'skip' | 'dynamicLimits' | 'store'>
@@ -419,7 +428,7 @@ export class RateLimitingMiddleware implements BaseMiddleware {
     };
   }
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     // Skip rate limiting if configured
     if (this.options.skip && this.options.skip(context)) {
       return;

@@ -131,8 +131,13 @@ const isOriginAllowed = (
 /**
  * Security Headers Middleware
  * Implements comprehensive security headers following OWASP recommendations
+ *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  */
-export class SecurityHeadersMiddleware implements BaseMiddleware {
+export class SecurityHeadersMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   private options: Required<Omit<SecurityHeadersOptions, 'cors'>> & {
     cors?: SecurityHeadersOptions['cors'];
   };
@@ -141,7 +146,7 @@ export class SecurityHeadersMiddleware implements BaseMiddleware {
     this.options = { ...DEFAULT_OPTIONS, ...options };
   }
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     const headers: Record<string, string> = {};
 
     // Content Security Policy

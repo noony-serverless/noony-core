@@ -145,4 +145,113 @@ describe('Container Utilities', () => {
       Container.reset('type-test');
     });
   });
+
+  describe('String Identifier Support', () => {
+    let mockContext: Context<unknown, unknown>;
+    let testContainer: any;
+
+    beforeEach(() => {
+      testContainer = Container.of('string-test');
+
+      // Register services with string identifiers
+      testContainer.set('UserRepository', new MockUserService());
+      testContainer.set('EmailService', new MockEmailService());
+
+      mockContext = {
+        req: {
+          method: 'GET',
+          url: '/',
+          headers: {},
+          query: {},
+          params: {},
+        },
+        res: {
+          status: jest.fn().mockReturnThis(),
+          json: jest.fn(),
+          send: jest.fn(),
+          header: jest.fn().mockReturnThis(),
+          headers: jest.fn().mockReturnThis(),
+          end: jest.fn(),
+        },
+        container: testContainer,
+        businessData: new Map(),
+        startTime: Date.now(),
+        requestId: 'test-req-id',
+      } as any;
+    });
+
+    afterEach(() => {
+      Container.reset('string-test');
+    });
+
+    it('should retrieve service using string identifier with explicit generic', () => {
+      const userService = getService<MockUserService>(
+        mockContext,
+        'UserRepository'
+      );
+
+      expect(userService).toBeInstanceOf(MockUserService);
+      expect(userService.getUsers()).toEqual(['user1', 'user2']);
+    });
+
+    it('should retrieve service using string identifier without generic (returns unknown)', () => {
+      // Without generic, type is unknown - this is expected behavior
+      const userService = getService(mockContext, 'UserRepository');
+
+      // Type assertion needed when not using generic
+      expect((userService as MockUserService).getUsers()).toEqual([
+        'user1',
+        'user2',
+      ]);
+    });
+
+    it('should retrieve multiple services with string identifiers', () => {
+      const userService = getService<MockUserService>(
+        mockContext,
+        'UserRepository'
+      );
+      const emailService = getService<MockEmailService>(
+        mockContext,
+        'EmailService'
+      );
+
+      expect(userService.getUsers()).toEqual(['user1', 'user2']);
+      expect(emailService.sendEmail()).toBe('email sent');
+    });
+
+    it('should throw error for unregistered string identifier', () => {
+      expect(() => {
+        getService<MockUserService>(mockContext, 'UnregisteredService');
+      }).toThrow();
+    });
+
+    it('should work with mixed usage (class and string identifiers)', () => {
+      // Register class-based service
+      testContainer.set(MockUserService, new MockUserService());
+
+      // Get class-based service
+      const userServiceClass = getService(mockContext, MockUserService);
+
+      // Get string-based service
+      const userServiceString = getService<MockUserService>(
+        mockContext,
+        'UserRepository'
+      );
+
+      expect(userServiceClass.getUsers()).toEqual(['user1', 'user2']);
+      expect(userServiceString.getUsers()).toEqual(['user1', 'user2']);
+    });
+
+    it('should preserve type safety with string identifier and generic', () => {
+      const userService = getService<MockUserService>(
+        mockContext,
+        'UserRepository'
+      );
+
+      // TypeScript should recognize all methods
+      const users: string[] = userService.getUsers();
+
+      expect(users).toEqual(['user1', 'user2']);
+    });
+  });
 });

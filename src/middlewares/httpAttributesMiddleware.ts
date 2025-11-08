@@ -7,7 +7,9 @@ import { z, ZodSchema } from 'zod';
  * Middleware class that extracts path parameters from the URL.
  * Parses URL segments and extracts parameters based on colon-prefixed patterns.
  *
- * @implements {BaseMiddleware}
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
+ * @implements {BaseMiddleware<TBody, TUser>}
  *
  * @example
  * Basic path parameter extraction:
@@ -58,8 +60,10 @@ import { z, ZodSchema } from 'zod';
  *   });
  * ```
  */
-export class PathParametersMiddleware implements BaseMiddleware {
-  async before(context: Context): Promise<void> {
+export class PathParametersMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
+  async before(context: Context<TBody, TUser>): Promise<void> {
     const host =
       (Array.isArray(context.req.headers.host)
         ? context.req.headers.host[0]

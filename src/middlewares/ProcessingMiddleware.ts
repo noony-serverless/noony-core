@@ -52,7 +52,7 @@ export interface ProcessingMiddlewareConfig {
   parser?: BodyParserConfig;
   query?: QueryProcessingConfig;
   attributes?: AttributesConfig;
-  skipProcessing?: (context: Context) => boolean;
+  skipProcessing?: <TBody, TUser>(context: Context<TBody, TUser>) => boolean;
 }
 
 interface PubSubMessage {
@@ -71,6 +71,9 @@ interface PubSubMessage {
  * - BodyParserMiddleware
  * - QueryParametersMiddleware
  * - HttpAttributesMiddleware
+ *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  *
  * @example
  * Complete processing setup:
@@ -115,7 +118,9 @@ interface PubSubMessage {
  *   }));
  * ```
  */
-export class ProcessingMiddleware implements BaseMiddleware {
+export class ProcessingMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   private config: ProcessingMiddlewareConfig;
 
   constructor(config: ProcessingMiddlewareConfig = {}) {
@@ -145,7 +150,7 @@ export class ProcessingMiddleware implements BaseMiddleware {
     };
   }
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     // Skip processing if custom skip function returns true
     if (this.config.skipProcessing && this.config.skipProcessing(context)) {
       return;

@@ -1,9 +1,9 @@
 import { ValidationError, BaseMiddleware, Context } from '../core';
 import { z } from 'zod';
 
-const validate = async (
+const validate = async <TBody, TUser>(
   schema: z.ZodSchema,
-  context: Context
+  context: Context<TBody, TUser>
 ): Promise<void> => {
   try {
     const data =
@@ -16,7 +16,7 @@ const validate = async (
         string | string[] | undefined
       >;
     } else {
-      context.req.validatedBody = validated;
+      context.req.validatedBody = validated as TBody;
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -33,7 +33,9 @@ const validate = async (
  * Middleware class that validates request data (body or query parameters) using Zod schemas.
  * Automatically detects GET requests and validates query parameters, or validates body for other methods.
  *
- * @implements {BaseMiddleware}
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
+ * @implements {BaseMiddleware<TBody, TUser>}
  *
  * @example
  * User registration validation:
@@ -105,10 +107,12 @@ const validate = async (
  *   });
  * ```
  */
-export class ValidationMiddleware implements BaseMiddleware {
+export class ValidationMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser>
+{
   constructor(private readonly schema: z.ZodSchema) {}
 
-  async before(context: Context): Promise<void> {
+  async before(context: Context<TBody, TUser>): Promise<void> {
     await validate(this.schema, context);
   }
 }
@@ -117,6 +121,8 @@ export class ValidationMiddleware implements BaseMiddleware {
  * Factory function that creates a validation middleware using Zod schema.
  * Automatically validates request body for non-GET requests or query parameters for GET requests.
  *
+ * @template TBody - The type of the request body payload (preserves type chain)
+ * @template TUser - The type of the authenticated user (preserves type chain)
  * @param schema - Zod schema to validate against
  * @returns BaseMiddleware object with validation logic
  *
@@ -182,8 +188,10 @@ export class ValidationMiddleware implements BaseMiddleware {
  *   });
  * ```
  */
-export const validationMiddleware = (schema: z.ZodSchema): BaseMiddleware => ({
-  before: async (context: Context): Promise<void> => {
+export const validationMiddleware = <TBody = unknown, TUser = unknown>(
+  schema: z.ZodSchema
+): BaseMiddleware<TBody, TUser> => ({
+  before: async (context: Context<TBody, TUser>): Promise<void> => {
     await validate(schema, context);
   },
 });

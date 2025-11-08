@@ -1,6 +1,6 @@
 {
   "name": "@noony-serverless/core",
-  "version": "0.3.1",
+  "version": "0.3.4",
   "description": "A Middy base framework compatible with Firebase and GCP Cloud Functions with TypeScript",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -20,6 +20,8 @@
     "build/core/**/*.d.ts",
     "build/middlewares/**/*.js",
     "build/middlewares/**/*.d.ts",
+    "build/utils/**/*.js",
+    "build/utils/**/*.d.ts",
     "build/index.js",
     "build/index.d.ts",
     "README.md"
