@@ -432,11 +432,210 @@ EXPOSE 8080
 CMD ["npm", "start"]
 ```
 
+## Publishing to npm
+
+This package is published as `@noony-serverless/core` on npm. Follow these steps to publish a new version:
+
+### Prerequisites
+
+1. **npm Account**: You need an npm account. Create one at [npmjs.com/signup](https://www.npmjs.com/signup)
+2. **Organization Access**: You must have access to the `@noony-serverless` organization on npm
+   - If you own the organization, you're all set
+   - If not, you need to [create the organization](https://www.npmjs.com/org/create) first
+3. **Two-Factor Authentication**: Highly recommended for security
+
+### Publishing Steps
+
+#### 1. Login to npm
+
+```bash
+npm login
+```
+
+You'll be prompted for:
+
+- Username
+- Password
+- Email
+- One-time password (if 2FA is enabled)
+
+Verify you're logged in:
+
+```bash
+npm whoami
+```
+
+#### 2. Prepare the Package
+
+Ensure all changes are committed and tests pass:
+
+```bash
+# Run tests
+npm test
+
+# Run linter
+npm run lint
+
+# Build the package
+npm run build
+```
+
+#### 3. Update Version
+
+Update the version in `package.json` following [Semantic Versioning](https://semver.org/):
+
+```bash
+# For bug fixes (0.4.0 -> 0.4.1)
+npm version patch
+
+# For new features (0.4.0 -> 0.5.0)
+npm version minor
+
+# For breaking changes (0.4.0 -> 1.0.0)
+npm version major
+```
+
+This will:
+
+- Update `package.json` version
+- Create a git commit
+- Create a git tag
+
+#### 4. Publish to npm
+
+For scoped packages (like `@noony-serverless/core`), you must specify public access:
+
+```bash
+npm publish --access public
+```
+
+**For the first publish only**, you need the `--access public` flag. Subsequent publishes can use:
+
+```bash
+npm publish
+```
+
+#### 5. Push to Git
+
+Don't forget to push the version commit and tags:
+
+```bash
+git push && git push --tags
+```
+
+### Publishing Checklist
+
+Before publishing, verify:
+
+- [ ] All tests pass (`npm test`)
+- [ ] No linting errors (`npm run lint`)
+- [ ] Build succeeds (`npm run build`)
+- [ ] Version number updated in `package.json`
+- [ ] CHANGELOG.md updated (if applicable)
+- [ ] README.md is up to date
+- [ ] All changes committed to git
+- [ ] Logged into npm (`npm whoami`)
+
+### Troubleshooting
+
+#### Error: "Access token expired or revoked"
+
+**Solution**: Run `npm login` to re-authenticate
+
+#### Error: "404 Not Found - Not in this registry"
+
+**Solution**: For first publish of a scoped package, use:
+
+```bash
+npm publish --access public
+```
+
+#### Error: "You do not have permission to publish"
+
+**Solution**:
+
+- Verify you're logged in as the correct user
+- Check you have publish access to the `@noony-serverless` organization
+- Create the organization if it doesn't exist
+
+#### Error: "Cannot publish over existing version"
+
+**Solution**: Update the version number in `package.json` or use:
+
+```bash
+npm version patch  # or minor/major
+```
+
+#### Error: "403 Forbidden"
+
+**Solutions**:
+
+- Ensure you're logged in: `npm whoami`
+- Verify you own the package or have collaborator access
+- If this is a new scoped package, verify the organization exists
+
+### Automated Publishing with GitHub Actions
+
+For automated publishing, create `.github/workflows/publish.yml`:
+
+```yaml
+name: Publish to npm
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+To use this:
+
+1. Create an npm access token at [npmjs.com/settings/tokens](https://www.npmjs.com/settings/tokens)
+2. Add it as a GitHub secret named `NPM_TOKEN`
+3. Create a GitHub release to trigger publishing
+
+### Version Management
+
+This package follows [Semantic Versioning](https://semver.org/):
+
+- **MAJOR** version (1.0.0 → 2.0.0): Breaking changes
+- **MINOR** version (1.0.0 → 1.1.0): New features, backwards compatible
+- **PATCH** version (1.0.0 → 1.0.1): Bug fixes, backwards compatible
+
+Current version: **0.4.0**
+
+### Package Distribution
+
+When published, the package includes only the `build/` directory contents:
+
+- `build/core/**/*.js` and `*.d.ts`
+- `build/middlewares/**/*.js` and `*.d.ts`
+- `build/utils/**/*.js` and `*.d.ts`
+- `build/index.js` and `index.d.ts`
+- `README.md`
+
+Source TypeScript files are not included in the npm package.
+
 ## Community & Support
 
 - 📖 [Documentation](https://github.com/noony-org/noony-serverless)
 - 🐛 [Issue Tracker](https://github.com/noony-org/noony-serverless/issues)
 - 💬 [Discussions](https://github.com/noony-org/noony-serverless/discussions)
+- 📦 [npm Package](https://www.npmjs.com/package/@noony-serverless/core)
 
 ## License
 
