@@ -175,7 +175,7 @@ export function createFastifyHandler(
 
       // Graceful error handling - only send if response not already sent
       if (!reply.sent) {
-        reply.status(500).send({
+        reply.code(500).send({
           success: false,
           error: {
             code: 'INTERNAL_SERVER_ERROR',
