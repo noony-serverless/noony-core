@@ -35,3 +35,6 @@ export {
   isOTELInstalled,
   type OTELLogContext,
 } from './otel.helper';
+
+// Wrapper utilities for GCP Functions and Express
+export { createHttpFunction, wrapNoonyHandler } from './wrapper-utils';
