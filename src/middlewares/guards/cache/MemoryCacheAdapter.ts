@@ -88,14 +88,14 @@ interface CacheEntry<T> {
  * ```
  */
 export class MemoryCacheAdapter implements CacheAdapter {
-  private readonly cache = new Map<string, CacheEntry<any>>();
+  private readonly cache = new Map<string, CacheEntry<unknown>>();
   private readonly maxSize: number;
   private readonly defaultTTL: number;
   private readonly name: string;
 
   // Doubly-linked list for LRU tracking
-  private head?: CacheEntry<any>;
-  private tail?: CacheEntry<any>;
+  private head?: CacheEntry<unknown>;
+  private tail?: CacheEntry<unknown>;
 
   // Performance metrics
   private stats = {
@@ -344,7 +344,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
   /**
    * Add entry to head of linked list (most recently used)
    */
-  private addToHead(entry: CacheEntry<any>): void {
+  private addToHead(entry: CacheEntry<unknown>): void {
     entry.prev = undefined;
     entry.next = this.head;
 
@@ -362,7 +362,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
   /**
    * Move existing entry to head of linked list
    */
-  private moveToHead(entry: CacheEntry<any>): void {
+  private moveToHead(entry: CacheEntry<unknown>): void {
     // Remove from current position
     this.removeFromList(entry);
     // Add to head
@@ -372,7 +372,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
   /**
    * Remove entry from linked list (but not from cache)
    */
-  private removeFromList(entry: CacheEntry<any>): void {
+  private removeFromList(entry: CacheEntry<unknown>): void {
     if (entry.prev) {
       entry.prev.next = entry.next;
     } else {
@@ -391,7 +391,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
   /**
    * Remove entry from both cache and linked list
    */
-  private removeEntry(entry: CacheEntry<any>): void {
+  private removeEntry(entry: CacheEntry<unknown>): void {
     this.cache.delete(entry.key);
     this.removeFromList(entry);
   }
@@ -422,7 +422,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
   /**
    * Estimate memory usage of a cache entry (rough approximation)
    */
-  private estimateEntrySize(entry: CacheEntry<any>): number {
+  private estimateEntrySize(entry: CacheEntry<unknown>): number {
     let size = 0;
 
     // Key size (2 bytes per character for UTF-16)

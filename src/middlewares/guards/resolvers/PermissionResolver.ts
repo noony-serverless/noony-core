@@ -20,7 +20,7 @@
  * different types of permission requirements. The generic type T represents
  * the specific requirement format for each resolver.
  */
-export abstract class PermissionResolver<T = any> {
+export abstract class PermissionResolver<T = unknown> {
   /**
    * Check if user permissions satisfy the requirement
    *

@@ -160,7 +160,15 @@ abstract class BasePermissionGuard implements BaseMiddleware {
   /**
    * Get performance statistics
    */
-  getStats() {
+  getStats(): {
+    guardType: string;
+    checkCount: number;
+    successCount: number;
+    failureCount: number;
+    successRate: number;
+    averageProcessingTimeUs: number;
+    totalProcessingTimeUs: number;
+  } {
     return {
       guardType: this.getGuardType(),
       checkCount: this.checkCount,
@@ -196,7 +204,7 @@ abstract class BasePermissionGuard implements BaseMiddleware {
     result: 'granted' | 'denied',
     guardResult: PermissionGuardResult | null,
     context: Context,
-    error?: any
+    error?: unknown
   ): void {
     const emoji = result === 'granted' ? '✅' : '❌';
     const user = context.businessData.get('user') as UserContext;
@@ -591,7 +599,10 @@ export class PermissionGuardFactory {
   ): BasePermissionGuard {
     const fullConfig: GuardConfig = {
       requireAuth: true,
-      permissions: requirements as any, // Store requirements as permissions for cache key (complex composite type)
+      permissions: requirements as unknown as
+        | string[]
+        | PermissionExpression
+        | Record<string, unknown>, // Store requirements as permissions for cache key (complex composite type)
       cacheResults: true,
       auditTrail: false,
       ...config,
@@ -660,7 +671,18 @@ export class PermissionGuardFactory {
   /**
    * Get factory statistics
    */
-  getStats() {
+  getStats(): {
+    totalGuards: number;
+    guardsByType: Record<string, number>;
+    individualGuardStats: ReturnType<BasePermissionGuard['getStats']>[];
+    aggregatedStats: {
+      totalChecks: number;
+      totalSuccesses: number;
+      totalFailures: number;
+      overallSuccessRate: number;
+      averageProcessingTimeUs: number;
+    };
+  } {
     const guardStats = Array.from(this.guardCache.values()).map((guard) =>
       guard.getStats()
     );
@@ -781,7 +803,15 @@ export class PermissionGuardFactory {
   /**
    * Aggregate statistics from all guards
    */
-  private aggregateGuardStats(guardStats: any[]): any {
+  private aggregateGuardStats(
+    guardStats: ReturnType<BasePermissionGuard['getStats']>[]
+  ): {
+    totalChecks: number;
+    totalSuccesses: number;
+    totalFailures: number;
+    overallSuccessRate: number;
+    averageProcessingTimeUs: number;
+  } {
     if (guardStats.length === 0) {
       return {
         totalChecks: 0,

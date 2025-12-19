@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Container } from 'typedi';
 import { BaseMiddleware, Context } from '../core';
+import { containerPool, ServiceDefinition } from '../core/containerPool';
 
 /**
  * Middleware to inject dependencies into the request context using typedi.
@@ -154,13 +154,31 @@ import { BaseMiddleware, Context } from '../core';
 export class DependencyInjectionMiddleware<TBody = unknown, TUser = unknown>
   implements BaseMiddleware<TBody, TUser>
 {
-  constructor(private services: { id: any; value: any }[]) {}
+  constructor(
+    private services: ServiceDefinition[] = [],
+    private options?: {
+      /**
+       * Service scope: 'global' for process-lifetime, 'local' for request-lifetime
+       * @default 'local'
+       */
+      scope?: 'global' | 'local';
+    }
+  ) {}
 
   async before(context: Context<TBody, TUser>): Promise<void> {
-    this.services.forEach((service) => {
-      Container.set(service.id, service.value);
-    });
-    context.container = Container.of();
+    const scope = this.options?.scope || 'local';
+
+    if (scope === 'global') {
+      // Register services globally (process-lifetime)
+      // ⚠️ Use sparingly - only for truly shared services like DB connections
+      containerPool.initializeGlobal(this.services);
+    } else {
+      // Register services locally (request-lifetime)
+      // ✅ Recommended for most use cases - isolated per request
+      this.services.forEach((service) => {
+        context.container?.set(service.id, service.value);
+      });
+    }
   }
 }
 
@@ -259,13 +277,29 @@ export class DependencyInjectionMiddleware<TBody = unknown, TUser = unknown>
  * ```
  */
 export const dependencyInjection = <TBody = unknown, TUser = unknown>(
-  services: { id: any; value: any }[] = []
+  services: ServiceDefinition[] = [],
+  options?: {
+    /**
+     * Service scope: 'global' for process-lifetime, 'local' for request-lifetime
+     * @default 'local'
+     */
+    scope?: 'global' | 'local';
+  }
 ): BaseMiddleware<TBody, TUser> => ({
   before: async (context: Context<TBody, TUser>): Promise<void> => {
-    services.forEach((service) => {
-      Container.set(service.id, service.value);
-    });
-    context.container = Container.of();
+    const scope = options?.scope || 'local';
+
+    if (scope === 'global') {
+      // Register services globally (process-lifetime)
+      // ⚠️ Use sparingly - only for truly shared services like DB connections
+      containerPool.initializeGlobal(services);
+    } else {
+      // Register services locally (request-lifetime)
+      // ✅ Recommended for most use cases - isolated per request
+      services.forEach((service) => {
+        context.container?.set(service.id, service.value);
+      });
+    }
   },
 });
 

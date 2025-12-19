@@ -110,7 +110,90 @@ try {
 }
 ```
 
-### 4. Utility Functions (`src/utils/`)
+### 4. Hybrid Proxy Container (`src/core/containerPool.ts`)
+**Zero-Copy Dependency Injection for Serverless**
+
+The Hybrid Proxy Container replaces traditional container pooling with a lightweight proxy pattern optimized for serverless environments. It provides:
+- **Process Lifetime (Global)**: Services initialized once and shared across all requests (DB connections, loggers)
+- **Request Lifetime (Local)**: Services isolated per-request with zero memory overhead (trace IDs, current user)
+- **99% Memory Reduction**: O(1) proxy wrapper instead of O(N) container cloning
+- **True Isolation**: Local overrides shadow global services without mutation
+
+**Architecture:**
+
+```typescript
+// Startup: Initialize global services once
+containerPool.initializeGlobal([
+  { id: 'Database', value: new DatabaseService() },
+  { id: 'Logger', value: new LoggerService() }
+]);
+
+// Per-request: Create lightweight proxy
+const container = containerPool.createProxyContainer();
+
+// Read from global (zero-copy)
+const db = container.get('Database');  // From global singleton
+
+// Write to local (request-scoped)
+container.set('RequestId', 'req-123');  // Local override only
+container.set('CurrentUser', user);      // Local override only
+
+// Isolation guaranteed
+const nextRequestContainer = containerPool.createProxyContainer();
+nextRequestContainer.get('Database');  // ✅ Same global DB
+nextRequestContainer.get('RequestId'); // ❌ Throws - not in this request's scope
+```
+
+**Key Features:**
+
+1. **Global Fallback**: Reads check local overrides first, then fall back to global container
+2. **Local Shadowing**: Writes go to request-local Map, never mutate global state
+3. **Tombstone Pattern**: `container.remove('service')` marks as deleted in local scope only
+4. **Auto Cleanup**: No manual `release()` needed - proxy is garbage collected automatically
+5. **Concurrency Safe**: Multiple requests can read global services simultaneously without locking
+
+**Scope-Aware DI Middleware:**
+
+```typescript
+import { dependencyInjection } from '@noony-serverless/core';
+
+// Global scope - process lifetime (use sparingly)
+const globalMiddleware = dependencyInjection([
+  { id: 'Database', value: new DatabaseService() },
+  { id: 'Logger', value: new LoggerService() }
+], { scope: 'global' });
+
+// Local scope - request lifetime (recommended)
+const localMiddleware = dependencyInjection([
+  { id: 'RequestId', value: generateRequestId() },
+  { id: 'TraceContext', value: extractTraceContext(req) }
+], { scope: 'local' });  // Default
+
+const handler = new Handler()
+  .use(globalMiddleware)   // Initialize global services once
+  .use(localMiddleware)    // Add request-scoped data per request
+  .handle(async (context) => {
+    const db = context.container.get('Database');        // From global
+    const requestId = context.container.get('RequestId'); // From local
+  });
+```
+
+**Performance Comparison:**
+
+| Metric | Traditional Pool | Hybrid Proxy | Improvement |
+|--------|------------------|--------------|-------------|
+| Setup Time | O(N) clone | O(1) proxy | ~99% faster |
+| Memory/Request | 15-30KB | < 2KB | ~95% reduction |
+| Cleanup | Manual release() | Auto GC | Simpler |
+| Isolation | Medium | High | Safer |
+
+**Best Practices:**
+- Use **global scope** for expensive-to-create, stateless services (DB connections, external API clients)
+- Use **local scope** for request-specific data (trace IDs, authenticated user, request metadata)
+- Never mutate global services during request processing
+- Leverage `container.has()` to check service availability before accessing
+
+### 5. Utility Functions (`src/utils/`)
 
 #### Query Parameter Utilities (`src/utils/query-param.utils.ts`)
 Type-safe utilities for handling query parameters that can be `string | string[] | undefined`:
@@ -162,8 +245,9 @@ export async function createUserController(context: Context<CreateUserRequest>) 
 - Type-safe service resolution with full autocomplete
 - Clear error message if container not initialized
 
-### 5. Middleware Ecosystem (`src/middlewares/`)
+### 6. Middleware Ecosystem (`src/middlewares/`)
 Built-in middlewares for common patterns:
+- **openTelemetryMiddleware**: Distributed tracing with auto-provider detection and CloudPropagator for GCP
 - **errorHandlerMiddleware**: Centralized error handling with custom error types
 - **bodyParserMiddleware**: JSON and Pub/Sub message parsing
 - **bodyValidationMiddleware**: Zod schema validation with TypeScript integration
@@ -174,7 +258,7 @@ Built-in middlewares for common patterns:
 - **dependencyInjectionMiddleware**: TypeDI container setup
 - **httpAttributesMiddleware**: HTTP request attributes processing
 
-### 6. Schema Validation with Zod (`src/middlewares/bodyValidationMiddleware.ts`)
+### 7. Schema Validation with Zod (`src/middlewares/bodyValidationMiddleware.ts`)
 **Zod Integration for Type-Safe Endpoint Validation:**
 
 The framework integrates **Zod** for robust schema validation on all endpoints:
@@ -211,7 +295,137 @@ const handler = new Handler<CreateUserRequest, UserType>()
 - **Nested Objects**: Full support for complex nested schema validation
 - **Access Pattern**: Validated data available at `context.req.validatedBody`
 
-### 7. JWT Authentication and User Context (`src/middlewares/authenticationMiddleware.ts`)
+### 8. OpenTelemetry Integration (`src/middlewares/openTelemetryMiddleware.ts`)
+**Distributed Tracing and Observability:**
+
+The **OpenTelemetryMiddleware** provides automatic distributed tracing with zero-configuration setup and multi-platform support:
+
+```typescript
+import { OpenTelemetryMiddleware } from '@/middlewares/openTelemetryMiddleware';
+
+// Zero-config usage - auto-detects provider from environment
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .handle(async (context) => {
+    // Automatically traced with full context
+    const order = await orderService.create(context.req.validatedBody!);
+    return { orderId: order.id };
+  });
+```
+
+**Provider Auto-Detection (Priority Order):**
+1. **Explicit Provider**: `options.provider` if provided
+2. **New Relic**: `NEW_RELIC_LICENSE_KEY` + `newrelic` package
+3. **Datadog**: `DD_API_KEY`/`DD_SERVICE` + `dd-trace` package
+4. **Standard OTEL**: `OTEL_EXPORTER_OTLP_ENDPOINT`
+5. **Console**: `NODE_ENV=development` (local development)
+6. **Noop**: `NODE_ENV=test` or no configuration
+
+**Google Cloud Platform Integration:**
+
+When running on GCP (Cloud Run, Cloud Functions, App Engine), Noony automatically enables **CloudPropagator** for trace synchronization:
+
+```typescript
+// Install optional CloudPropagator for GCP
+npm install @google-cloud/opentelemetry-cloud-trace-propagator --save-optional
+
+// Auto-enabled on GCP - zero configuration needed
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .handle(async (context) => {
+    // Trace IDs synchronized with Cloud Run Load Balancer
+    // Three response headers automatically added:
+    // - X-Cloud-Trace-Context (GCP format)
+    // - traceparent (W3C format)
+    // - X-Trace-Id (clean 32-char hex for debugging)
+  });
+```
+
+**CloudPropagator Benefits:**
+- **Trace ID Synchronization**: Same trace ID flows from Cloud Run LB → Application → Services
+- **Cloud Trace UI**: Complete end-to-end traces visible in Google Cloud Console
+- **Cloud Logging Correlation**: Automatic log correlation via trace ID
+- **Zero Configuration**: Automatically enabled when `K_SERVICE`, `FUNCTION_NAME`, or `GAE_APPLICATION` env vars detected
+- **Graceful Degradation**: Works with or without CloudPropagator package installed
+
+**Response Headers on GCP:**
+```http
+X-Cloud-Trace-Context: 13ea7e3c2d3b4547baaa399062df1f2d/1234567890123456;o=1
+traceparent: 00-13ea7e3c2d3b4547baaa399062df1f2d-1234567890123456-01
+X-Trace-Id: 13ea7e3c2d3b4547baaa399062df1f2d
+```
+
+**Debugging with X-Trace-Id:**
+```bash
+# Extract trace ID from response for debugging
+TRACE_ID=$(curl -i https://api.example.com/orders | grep -i "X-Trace-Id:" | cut -d' ' -f2)
+echo "Trace ID: $TRACE_ID"
+
+# View in Cloud Trace Console
+gcloud logging read "trace=projects/my-project/traces/$TRACE_ID" --limit 50
+```
+
+**Pub/Sub Trace Propagation:**
+
+Automatically propagate traces across Pub/Sub messages using W3C Trace Context:
+
+```typescript
+import { injectTraceContext } from '@noony-serverless/core';
+
+// Publisher - inject trace context
+const publisherHandler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .handle(async (context) => {
+    const order = await orderService.create(context.req.validatedBody!);
+
+    // Inject trace context into Pub/Sub message
+    const message = injectTraceContext({
+      data: Buffer.from(JSON.stringify({ orderId: order.id })).toString('base64'),
+      attributes: { eventType: 'order.created' }
+    }, context);
+
+    await pubsub.topic('orders').publish(message);
+  });
+
+// Subscriber - automatically extracts trace context
+const subscriberHandler = new Handler()
+  .use(new BodyParserMiddleware())
+  .use(new OpenTelemetryMiddleware({ propagatePubSubTraces: true }))
+  .handle(async (context) => {
+    // Automatically linked to publisher's trace!
+    const { orderId } = context.req.parsedBody;
+    await inventoryService.reserveStock(orderId);
+  });
+```
+
+**Best Practices:**
+1. **Always use OpenTelemetryMiddleware first** in middleware chain for complete request coverage
+2. **Use injectTraceContext()** for all Pub/Sub publishes to maintain distributed traces
+3. **Enable CloudPropagator on GCP** by installing the optional package for trace synchronization
+4. **Use X-Trace-Id header** for debugging - clean format easier to work with than X-Cloud-Trace-Context
+5. **Configure custom attributes** via `extractAttributes` option for business-specific metadata
+6. **Filter health checks** using `shouldTrace` option to reduce noise in production
+
+**See:** `OTEL_NOONY.md` for complete OpenTelemetry documentation including provider configuration, custom attributes, and troubleshooting.
+
+### 9. Pub/Sub Utilities (`src/utils/pubsub-trace.utils.ts`)
+**Trace Propagation for Google Cloud Pub/Sub:**
+
+Utility functions for distributed tracing across Pub/Sub messages:
+
+```typescript
+import { injectTraceContext, extractTraceContext, isPubSubMessage } from '@noony-serverless/core';
+```
+
+**Available Functions:**
+- `injectTraceContext(message, context?)` - Injects W3C Trace Context into Pub/Sub message attributes
+- `extractTraceContext(pubsubMessage)` - Extracts trace context from incoming Pub/Sub messages
+- `isPubSubMessage(body)` - Type guard to check if request body is a Pub/Sub message
+- `createParentContext(traceContext)` - Creates OpenTelemetry parent context from trace headers
+
+**See:** Section 7 (OpenTelemetry Integration) for complete Pub/Sub trace propagation examples.
+
+### 10. JWT Authentication and User Context (`src/middlewares/authenticationMiddleware.ts`)
 **JWT Token Validation and User Access:**
 
 The **AuthenticationMiddleware** handles JWT token validation and populates `context.user`:
@@ -469,6 +683,9 @@ export const createOrder = http('createOrder', (req, res) => {
 - **@google-cloud/functions-framework**: Core GCP Functions runtime
 - **@google-cloud/firestore**: Firestore database client
 - **@google-cloud/pubsub**: Pub/Sub messaging
+- **@opentelemetry/sdk-node**: OpenTelemetry SDK 2.0 for distributed tracing
+- **@opentelemetry/api**: OpenTelemetry API for tracing and context propagation
+- **@google-cloud/opentelemetry-cloud-trace-propagator**: (Optional) CloudPropagator for GCP trace synchronization
 - **zod**: Schema validation
 - **typedi**: Dependency injection
 - **jsonwebtoken**: JWT handling
@@ -486,13 +703,19 @@ src/
 │   ├── errors.ts            # Built-in error classes
 │   ├── logger.ts            # Logger utility
 │   ├── containerPool.ts     # Container pool management
-│   └── performanceMonitor.ts # Performance monitoring
+│   ├── performanceMonitor.ts # Performance monitoring
+│   └── telemetry/           # OpenTelemetry integration
+│       ├── config.ts        # Telemetry configuration and presets
+│       ├── provider.ts      # TelemetryProvider interface
+│       └── providers/       # Provider implementations (OTEL, Console, Noop)
 ├── middlewares/             # Built-in middleware implementations
 │   ├── guards/              # Permission & auth guard system
+│   ├── openTelemetryMiddleware.ts # OpenTelemetry middleware with CloudPropagator
 │   └── *.ts                 # Individual middlewares
 ├── utils/                   # Utility functions (NEW in v0.3.0)
 │   ├── query-param.utils.ts # Query parameter helpers
 │   ├── container.utils.ts   # Container service resolution
+│   ├── pubsub-trace.utils.ts # Pub/Sub trace propagation utilities
 │   └── index.ts             # Utils exports
 └── index.ts                 # Main exports
 examples/

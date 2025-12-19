@@ -282,7 +282,7 @@ export class PlainPermissionResolver extends PermissionResolver<string[]> {
    * @param requirement - The requirement to check
    * @returns true if this resolver can handle the requirement
    */
-  canHandle(requirement: any): requirement is string[] {
+  canHandle(requirement: unknown): requirement is string[] {
     return (
       Array.isArray(requirement) &&
       requirement.length > 0 &&

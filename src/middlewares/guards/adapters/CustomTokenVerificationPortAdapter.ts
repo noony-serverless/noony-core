@@ -312,15 +312,15 @@ export class TokenVerificationAdapterFactory {
    * @param expirationField - Optional field name for expiration (e.g., 'expiresAt', 'exp')
    * @returns Configured adapter for API key tokens
    */
-  static forAPIKey<T extends Record<string, any>>(
+  static forAPIKey<T extends object>(
     verificationPort: CustomTokenVerificationPort<T>,
     userIdField: keyof T,
     expirationField?: keyof T
   ): CustomTokenVerificationPortAdapter<T> {
     return new CustomTokenVerificationPortAdapter(verificationPort, {
-      userIdExtractor: (user: T) => String(user[userIdField]),
+      userIdExtractor: (user: T): string => String(user[userIdField]),
       expirationExtractor: expirationField
-        ? (user: T) => user[expirationField] as number
+        ? (user: T): number | undefined => user[expirationField] as number
         : undefined,
     });
   }
@@ -337,10 +337,10 @@ export class TokenVerificationAdapterFactory {
     additionalScopes?: string[]
   ): CustomTokenVerificationPortAdapter<T> {
     return new CustomTokenVerificationPortAdapter(verificationPort, {
-      userIdExtractor: (user: T) => user.sub,
-      expirationExtractor: (user: T) => user.exp,
+      userIdExtractor: (user: T): string => user.sub,
+      expirationExtractor: (user: T): number | undefined => user.exp,
       additionalValidation: additionalScopes
-        ? (user: T) => {
+        ? (user: T): boolean => {
             if (!user.scope || !Array.isArray(user.scope)) {
               return false;
             }

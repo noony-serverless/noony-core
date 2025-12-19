@@ -12,3 +12,13 @@ export {
   asNumber,
   asBoolean,
 } from './query-param.utils';
+
+// Pub/Sub trace propagation utilities
+export {
+  isPubSubMessage,
+  extractTraceContext,
+  injectTraceContext,
+  createParentContext,
+  type PubSubMessage,
+  type TraceContext,
+} from './pubsub-trace.utils';

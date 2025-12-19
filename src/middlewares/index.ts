@@ -5,6 +5,7 @@ export * from './dependencyInjectionMiddleware';
 export * from './errorHandlerMiddleware';
 export * from './headerVariablesMiddleware';
 export * from './httpAttributesMiddleware';
+export * from './openTelemetryMiddleware';
 export * from './queryParametersMiddleware';
 export * from './rateLimitingMiddleware';
 export * from './responseWrapperMiddleware';

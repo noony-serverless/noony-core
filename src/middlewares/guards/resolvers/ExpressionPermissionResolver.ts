@@ -554,9 +554,9 @@ export class ExpressionPermissionResolver extends PermissionResolver<PermissionE
   /**
    * Check if this resolver can handle the given requirement type
    */
-  canHandle(requirement: any): requirement is PermissionExpression {
+  canHandle(requirement: unknown): requirement is PermissionExpression {
     return (
-      requirement &&
+      !!requirement &&
       typeof requirement === 'object' &&
       PermissionUtils.isValidExpression(requirement as PermissionExpression)
     );

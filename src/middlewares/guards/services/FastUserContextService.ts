@@ -57,7 +57,7 @@ export interface UserContext {
   userId: string;
   permissions: Set<string>;
   roles: string[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   expandedPermissions?: Set<string>; // For pre-expansion strategy
   lastUpdated: string;
   expiresAt?: string;
@@ -73,7 +73,7 @@ export interface UserPermissionSource {
   getUserPermissions(userId: string): Promise<{
     permissions: string[];
     roles: string[];
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   } | null>;
 
   /**
@@ -218,7 +218,7 @@ export class FastUserContextService {
    */
   async checkPermission(
     userId: string,
-    requirement: any,
+    requirement: unknown,
     options: PermissionCheckOptions = {}
   ): Promise<PermissionCheckResult> {
     const startTime = process.hrtime.bigint();
@@ -253,7 +253,10 @@ export class FastUserContextService {
       // Perform permission check
       const permissions =
         userContext.expandedPermissions || userContext.permissions;
-      const result = await resolver.checkWithResult(permissions, requirement);
+      const result = await resolver.checkWithResult(
+        permissions,
+        requirement as never
+      );
 
       // Add audit trail if enabled
       if (options.auditTrail && result.allowed) {
@@ -281,7 +284,7 @@ export class FastUserContextService {
   async checkPermissions(
     userId: string,
     requirements: Array<{
-      requirement: any;
+      requirement: unknown;
       resolverType?: PermissionResolverType;
     }>,
     options: PermissionCheckOptions = {}
@@ -322,7 +325,10 @@ export class FastUserContextService {
           continue;
         }
 
-        const result = await resolver.checkWithResult(permissions, requirement);
+        const result = await resolver.checkWithResult(
+          permissions,
+          requirement as never
+        );
         results.push(result);
 
         // Add audit trail for allowed permissions
@@ -399,7 +405,20 @@ export class FastUserContextService {
   /**
    * Get service performance statistics
    */
-  getStats() {
+  getStats(): {
+    contextLoads: number;
+    permissionChecks: number;
+    cacheHitRate: number;
+    cacheHits: number;
+    cacheMisses: number;
+    averageResolutionTimeUs: number;
+    totalResolutionTimeUs: number;
+    resolverStats: {
+      plain: ReturnType<PlainPermissionResolver['getStats']>;
+      wildcard: ReturnType<WildcardPermissionResolver['getStats']>;
+      expression: ReturnType<ExpressionPermissionResolver['getStats']>;
+    };
+  } {
     const totalCacheRequests = this.cacheHits + this.cacheMisses;
 
     return {
@@ -508,7 +527,7 @@ export class FastUserContextService {
     userData: {
       permissions: string[];
       roles: string[];
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<UserContext> {
     const now = new Date().toISOString();
@@ -546,9 +565,13 @@ export class FastUserContextService {
    * Select appropriate permission resolver
    */
   private selectResolver(
-    requirement: any,
+    requirement: unknown,
     preferredType?: PermissionResolverType
-  ): any {
+  ):
+    | PlainPermissionResolver
+    | WildcardPermissionResolver
+    | ExpressionPermissionResolver
+    | null {
     // Use preferred type if specified and resolver can handle it
     if (preferredType) {
       const resolver = this.getResolverByType(preferredType);

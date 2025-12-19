@@ -745,6 +745,7 @@ export const RateLimitPresets = {
     keyGenerator: (context: Context): string => {
       // Rate limit per IP + email combination for better security
       const ip = context.req.ip || 'unknown';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const email = (context.req.parsedBody as any)?.email;
       return email ? `auth:${email}:${ip}` : `auth:${ip}`;
     },
@@ -805,31 +806,37 @@ export const RateLimitPresets = {
         maxRequests: 100,
         windowMs: 60000,
         matcher: (context: Context): boolean =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           !context.user || (context.user as any)?.plan === 'free',
       },
       premium: {
         maxRequests: 1000,
         windowMs: 60000,
         matcher: (context: Context): boolean =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (context.user as any)?.plan === 'premium',
       },
       enterprise: {
         maxRequests: 5000,
         windowMs: 60000,
         matcher: (context: Context): boolean =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (context.user as any)?.plan === 'enterprise',
       },
       admin: {
         maxRequests: 10000,
         windowMs: 60000,
         matcher: (context: Context): boolean =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (context.user as any)?.role === 'admin',
       },
     },
     keyGenerator: (context: Context): string => {
       // Use user ID for authenticated, IP for anonymous
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (context.user as any)?.id
-        ? `user:${(context.user as any).id}`
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          `user:${(context.user as any).id}`
         : `ip:${context.req.ip}`;
     },
   } satisfies RateLimitOptions,

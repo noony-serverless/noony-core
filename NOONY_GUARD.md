@@ -2724,6 +2724,292 @@ interface CacheOptimizationReport {
 
 ---
 
+## OpenTelemetry Integration
+
+### Overview
+
+The Noony Guard System integrates seamlessly with **OpenTelemetry** for distributed tracing, allowing you to monitor authentication and authorization flows across your entire system.
+
+### Basic Integration
+
+Combine Guards with OpenTelemetry middleware for complete observability:
+
+```typescript
+import {
+  Handler,
+  RouteGuards,
+  OpenTelemetryMiddleware,
+  Context
+} from '@noony-serverless/core';
+
+// Configure guards
+RouteGuards.configure({
+  tokenValidator: myTokenValidator,
+  userContextService: myUserContextService,
+  cacheAdapter: new MemoryCacheAdapter({ maxSize: 1000 }),
+  monitoring: {
+    enabled: true,
+    auditLogger: true
+  }
+});
+
+// Create handler with telemetry + guards
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())  // Telemetry first
+  .use(RouteGuards.requirePermissions<CreateOrderRequest, AuthUser>(['orders:create']))
+  .handle(async (context: Context<CreateOrderRequest, AuthUser>) => {
+    // Fully traced and authorized!
+    const order = await orderService.create(context.req.validatedBody!);
+    return { orderId: order.id };
+  });
+```
+
+**What gets traced:**
+- JWT token validation time
+- Permission resolution strategy used
+- Cache hits/misses for permissions
+- Authorization decision (allow/deny)
+- Total guard middleware duration
+
+### Custom Attributes for Guards
+
+Add guard-specific attributes to your traces:
+
+```typescript
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>({
+    extractAttributes: (context: Context<CreateOrderRequest, AuthUser>) => ({
+      // Standard HTTP attributes
+      'http.method': context.req.method,
+      'http.url': context.req.url,
+
+      // Auth & Authorization attributes
+      'auth.user.id': context.user?.id,
+      'auth.user.role': context.user?.role,
+      'auth.token.type': 'jwt',
+
+      // Guard-specific attributes
+      'guard.permissions.checked': context.businessData.get('requiredPermissions'),
+      'guard.resolution.strategy': context.businessData.get('resolutionStrategy'),
+      'guard.cache.hit': context.businessData.get('cacheHit'),
+      'guard.authorization.decision': context.businessData.get('authDecision')
+    })
+  }))
+  .use(RouteGuards.requireWildcardPermissions<CreateOrderRequest, AuthUser>(['orders:*']))
+  .handle(async (context: Context<CreateOrderRequest, AuthUser>) => {
+    // All guard decisions visible in traces
+    const order = await orderService.create(context.req.validatedBody!);
+    return { orderId: order.id };
+  });
+```
+
+### Storing Guard Metadata for Tracing
+
+Enhance guards to store metadata in `context.businessData` for telemetry:
+
+```typescript
+class TracedPermissionGuard<T, U extends BaseAuthenticatedUser> implements BaseMiddleware<T, U> {
+  constructor(private requiredPermissions: string[]) {}
+
+  async before(context: Context<T, U>): Promise<void> {
+    const startTime = Date.now();
+
+    // Store required permissions for telemetry
+    context.businessData.set('requiredPermissions', this.requiredPermissions.join(', '));
+    context.businessData.set('resolutionStrategy', 'wildcard');
+
+    try {
+      // Check permissions
+      const hasPermission = await this.checkPermissions(context.user!);
+
+      // Store decision
+      context.businessData.set('authDecision', hasPermission ? 'allow' : 'deny');
+      context.businessData.set('cacheHit', true);  // Example - check actual cache
+
+      if (!hasPermission) {
+        throw new ForbiddenError('Insufficient permissions');
+      }
+
+      // Store duration
+      context.businessData.set('guardDuration', Date.now() - startTime);
+    } catch (error) {
+      context.businessData.set('authDecision', 'error');
+      context.businessData.set('guardError', error.message);
+      throw error;
+    }
+  }
+
+  private async checkPermissions(user: U): Promise<boolean> {
+    // Your permission logic
+    return true;
+  }
+}
+```
+
+### Multi-Service Authorization Tracing
+
+Track authorization across microservices with Pub/Sub:
+
+```typescript
+// ===== SERVICE A: API Gateway with Guards =====
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .use(RouteGuards.requirePermissions<CreateOrderRequest, AuthUser>(['orders:create']))
+  .handle(async (context: Context<CreateOrderRequest, AuthUser>) => {
+    // Authorization decision traced
+    const order = await orderService.create(context.req.validatedBody!);
+
+    // Propagate trace to downstream services
+    const message = injectTraceContext({
+      data: Buffer.from(JSON.stringify({
+        orderId: order.id,
+        userId: context.user!.id  // Authenticated user ID propagated
+      })).toString('base64'),
+      attributes: {
+        eventType: 'order.created',
+        userId: context.user!.id,  // Include user context in attributes
+        userRole: context.user!.role
+      }
+    }, context);
+
+    await pubsub.topic('orders').publish(message);
+    return { orderId: order.id };
+  });
+
+// ===== SERVICE B: Order Processor with Guards =====
+const processOrderHandler = new Handler()
+  .use(new BodyParserMiddleware())
+  .use(new OpenTelemetryMiddleware({ propagatePubSubTraces: true }))
+  .handle(async (context: Context) => {
+    // Trace linked to API Gateway request!
+    const { orderId, userId } = context.req.parsedBody;
+
+    // Load user context for authorization
+    const user = await userService.getById(userId);
+    context.user = user;
+
+    // Check permissions in downstream service
+    const hasPermission = await RouteGuards.checkPermissions(user, ['inventory:write']);
+    if (!hasPermission) {
+      throw new ForbiddenError('Cannot reserve inventory');
+    }
+
+    await inventoryService.reserveStock(orderId);
+    return { success: true };
+  });
+```
+
+**Trace visualization:**
+```
+Trace: 4bf92f3577b34da6a3ce929d0e0e4736
+├─ Span: POST /orders (api-gateway)                [120ms]
+│  ├─ auth.token.validation                        [2ms, cached]
+│  ├─ guard.permission.check                       [0.5ms, cache hit]
+│  │  ├─ guard.resolution.strategy: "plain"
+│  │  ├─ guard.permissions.checked: "orders:create"
+│  │  └─ guard.authorization.decision: "allow"
+│  └─ orderService.create                          [45ms]
+├─ Span: pubsub.publish (orders topic)             [15ms]
+└─ Span: process order (order-processor)           [80ms]
+   ├─ guard.permission.check                       [1ms]
+   │  └─ guard.authorization.decision: "allow"
+   └─ inventoryService.reserveStock                [75ms]
+
+Total: 215ms | Auth Decisions: 2 (allow, allow)
+```
+
+### Monitoring Guard Performance with Telemetry
+
+Track guard system metrics through OpenTelemetry:
+
+```typescript
+import { RouteGuards, OpenTelemetryMiddleware } from '@noony-serverless/core';
+
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>({
+    extractAttributes: (context: Context<CreateOrderRequest, AuthUser>) => {
+      // Get guard system stats
+      const stats = RouteGuards.getSystemStats();
+
+      return {
+        // Standard attributes
+        'http.method': context.req.method,
+        'http.url': context.req.url,
+
+        // Guard performance metrics
+        'guard.cache.hit_rate': stats.cacheHitRate,
+        'guard.auth.duration_ms': stats.averageAuthDuration,
+        'guard.permission.duration_ms': stats.averagePermissionCheckDuration,
+        'guard.total.checks': stats.totalChecks,
+        'guard.total.denials': stats.totalDenials
+      };
+    }
+  }))
+  .use(RouteGuards.requireWildcardPermissions<CreateOrderRequest, AuthUser>(['orders:*']))
+  .handle(async (context: Context<CreateOrderRequest, AuthUser>) => {
+    // Guard performance visible in every trace!
+    const order = await orderService.create(context.req.validatedBody!);
+    return { orderId: order.id };
+  });
+```
+
+### Security Audit Logging with OpenTelemetry
+
+Combine guard audit logs with distributed tracing:
+
+```typescript
+RouteGuards.configure({
+  tokenValidator: myTokenValidator,
+  userContextService: myUserContextService,
+  monitoring: {
+    enabled: true,
+    auditLogger: (event: SecurityAuditEvent) => {
+      // Log security events with trace context
+      console.log('[Security Audit]', {
+        event: event.type,
+        userId: event.userId,
+        resource: event.resource,
+        action: event.action,
+        decision: event.decision,
+        traceId: event.context.requestId,  // Correlate with OpenTelemetry trace
+        timestamp: event.timestamp
+      });
+
+      // Send to SIEM or security monitoring
+      securityMonitor.logEvent({
+        ...event,
+        traceId: event.context.requestId
+      });
+    }
+  }
+});
+
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .use(RouteGuards.requirePermissions<CreateOrderRequest, AuthUser>(['admin:users:delete']))
+  .handle(async (context: Context<CreateOrderRequest, AuthUser>) => {
+    // Security audit events linked to traces
+    await userService.delete(context.req.validatedBody!.userId);
+    return { success: true };
+  });
+```
+
+### Best Practices for Guards + OpenTelemetry
+
+1. **Place OpenTelemetryMiddleware first** to capture full request duration
+2. **Store guard decisions in `context.businessData`** for trace attributes
+3. **Include user context in Pub/Sub attributes** for cross-service authorization
+4. **Monitor guard cache hit rates** through telemetry attributes
+5. **Correlate security audit logs with trace IDs** for incident investigation
+6. **Track authorization denials** as separate metrics in your APM
+7. **Filter sensitive data** from trace attributes (passwords, tokens, PII)
+
+**See also:**
+- [OTEL_NOONY.md](../OTEL_NOONY.md) - Complete OpenTelemetry documentation
+- [NOONY_COMPLETE_GUIDE.md](../NOONY_COMPLETE_GUIDE.md) - Full framework guide
+
+---
+
 ## FAQ
 
 ### General Questions

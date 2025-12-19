@@ -150,8 +150,9 @@ describe('Performance Benchmarks', () => {
       );
       console.log(`Final pool stats:`, finalStats);
 
-      // Container pool should be actively reusing containers
-      expect(finalStats.available).toBeGreaterThan(0);
+      // Hybrid Proxy Container should be initialized
+      expect(finalStats.globalInitialized).toBe(true);
+      expect(finalStats.useProxy).toBe(true);
     });
   });
 

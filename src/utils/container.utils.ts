@@ -40,6 +40,7 @@ import type { Context } from '../core/core';
  */
 export function getService<T>(
   context: Context<unknown, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   serviceIdentifier: (new (...args: any[]) => T) | string
 ): T {
   if (!context.container) {
@@ -47,5 +48,6 @@ export function getService<T>(
       'Container not initialized. Did you forget to add DependencyInjectionMiddleware?'
     );
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return context.container.get(serviceIdentifier as any);
 }

@@ -76,7 +76,7 @@ interface CacheBackup {
   backupId: string;
   timestamp: string;
   scope: InvalidationScope;
-  data: Map<string, any>;
+  data: Map<string, unknown>;
   metadata: {
     totalEntries: number;
     sizeBytes: number;
@@ -477,7 +477,15 @@ export class ConservativeCacheInvalidation {
   /**
    * Get invalidation statistics
    */
-  getStats() {
+  getStats(): {
+    invalidationCount: number;
+    totalKeysCleared: number;
+    averageExecutionTimeMs: number;
+    totalExecutionTimeMs: number;
+    auditLogSize: number;
+    backupsAvailable: number;
+    oldestBackupAge: number;
+  } {
     return {
       invalidationCount: this.invalidationCount,
       totalKeysCleared: this.totalKeysCleared,

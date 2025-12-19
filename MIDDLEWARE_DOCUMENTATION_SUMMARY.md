@@ -160,6 +160,214 @@ Validates request data using Zod schemas (body or query parameters).
 ### `validationMiddleware`
 Factory function for general validation middleware.
 
+## OpenTelemetry Integration
+
+### `OpenTelemetryMiddleware<T, U>`
+Distributed tracing and observability middleware with automatic provider detection.
+
+**Key Features:**
+- Auto-detects telemetry providers from environment (OTEL, New Relic, Datadog)
+- Zero-configuration local development with ConsoleProvider
+- W3C Trace Context propagation for Google Cloud Pub/Sub messages
+- Type-safe with full generic support `<TBody, TUser>`
+- Graceful degradation when packages not installed
+- Fail-safe operation (telemetry errors never break application)
+- Custom attribute extraction from context
+- Request filtering capabilities
+- Graceful shutdown support
+
+**Provider Auto-Detection Priority:**
+1. Explicit provider (options.provider)
+2. New Relic (NEW_RELIC_LICENSE_KEY + newrelic package)
+3. Datadog (DD_API_KEY/DD_SERVICE + dd-trace package)
+4. Standard OTEL (OTEL_EXPORTER_OTLP_ENDPOINT)
+5. Console (NODE_ENV=development)
+6. Noop (NODE_ENV=test or no configuration)
+
+### `openTelemetry<T, U>`
+Factory function for creating OpenTelemetry middleware instances.
+
+**Usage Example:**
+```typescript
+import {
+  Handler,
+  OpenTelemetryMiddleware,
+  injectTraceContext,
+  Context
+} from '@noony-serverless/core';
+
+// Basic usage - auto-detects provider
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .handle(async (context) => {
+    const order = await orderService.create(context.req.validatedBody!);
+    return { orderId: order.id };
+  });
+
+// With custom attributes and filtering
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>({
+    shouldTrace: (context) => context.req.path !== '/health',
+    extractAttributes: (context) => ({
+      'http.method': context.req.method,
+      'user.id': context.user?.id,
+      'tenant.id': context.businessData.get('tenantId')
+    })
+  }))
+  .handle(async (context) => {
+    // Business logic with full tracing
+  });
+```
+
+### Pub/Sub Trace Propagation Utilities
+
+**`injectTraceContext(message, context?)`**
+Injects W3C Trace Context into Pub/Sub message attributes for distributed tracing.
+
+**`extractTraceContext(pubsubMessage)`**
+Extracts W3C Trace Context from incoming Pub/Sub message attributes.
+
+**`isPubSubMessage(body)`**
+Type guard to check if request body is a Pub/Sub message.
+
+**`createParentContext(traceContext)`**
+Internal utility to create parent context from extracted trace headers.
+
+**Pub/Sub Distributed Tracing Example:**
+```typescript
+import { PubSub } from '@google-cloud/pubsub';
+import {
+  Handler,
+  OpenTelemetryMiddleware,
+  BodyParserMiddleware,
+  injectTraceContext
+} from '@noony-serverless/core';
+
+const pubsub = new PubSub();
+
+// Publisher - Inject trace context
+const publisherHandler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware<CreateOrderRequest, AuthUser>())
+  .handle(async (context) => {
+    const order = await orderService.create(context.req.validatedBody!);
+
+    // Inject trace context into message
+    const message = injectTraceContext({
+      data: Buffer.from(JSON.stringify({ orderId: order.id })).toString('base64'),
+      attributes: { eventType: 'order.created' }
+    }, context);
+
+    await pubsub.topic('orders').publish(message);
+    return { orderId: order.id };
+  });
+
+// Subscriber - Automatically extract trace context
+const subscriberHandler = new Handler()
+  .use(new BodyParserMiddleware())
+  .use(new OpenTelemetryMiddleware({
+    propagatePubSubTraces: true  // default: true
+  }))
+  .handle(async (context) => {
+    // Automatically linked to publisher's trace!
+    const { orderId } = context.req.parsedBody;
+    await inventoryService.reserveStock(orderId);
+    return { success: true };
+  });
+```
+
+### Telemetry Providers
+
+**`TelemetryProvider`** - Interface for all telemetry provider implementations
+**`NoopProvider`** - Fallback provider when telemetry is disabled
+**`ConsoleProvider`** - Local development provider that logs to console
+**`OpenTelemetryProvider`** - Standard OpenTelemetry SDK 2.0 implementation
+
+### Configuration Interfaces
+
+**`OpenTelemetryOptions`**
+```typescript
+interface OpenTelemetryOptions {
+  provider?: TelemetryProvider;
+  enabled?: boolean;
+  extractAttributes?: (context: Context<unknown, unknown>) => Record<string, unknown>;
+  shouldTrace?: (context: Context<unknown, unknown>) => boolean;
+  onError?: (error: Error, context: Context<unknown, unknown>) => void;
+  failSilently?: boolean;
+  propagatePubSubTraces?: boolean;
+}
+```
+
+**`TelemetryConfig`**
+```typescript
+interface TelemetryConfig {
+  serviceName: string;
+  serviceVersion: string;
+  environment: string;
+  exporters?: {
+    traces?: Array<{ endpoint: string; headers?: Record<string, string> }>;
+    metrics?: Array<{ endpoint: string; headers?: Record<string, string> }>;
+  };
+  sampling?: { ratio: number };
+}
+```
+
+**`GenericSpan`** - Framework-agnostic span interface
+**`TraceContext`** - W3C Trace Context structure (traceparent, tracestate)
+**`PubSubMessage`** - Google Cloud Pub/Sub message type
+
+**Environment Variables:**
+```bash
+# Standard OTEL
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector:4318/v1/traces
+OTEL_SERVICE_NAME=order-service
+OTEL_SERVICE_VERSION=2.1.0
+
+# New Relic
+NEW_RELIC_LICENSE_KEY=your-key
+NEW_RELIC_APP_NAME=order-service
+
+# Datadog
+DD_API_KEY=your-key
+DD_SERVICE=order-service
+DD_ENV=production
+DD_VERSION=1.0.0
+
+# Local Development
+NODE_ENV=development  # Uses ConsoleProvider
+
+# GCP Cloud Trace (optional)
+# Automatically enabled on GCP (Cloud Run, Cloud Functions, App Engine)
+```
+
+**Cloud Trace Integration (Google Cloud Platform):**
+
+When running on GCP, Noony automatically integrates with Cloud Trace using **CloudPropagator**:
+
+```bash
+npm install @google-cloud/opentelemetry-cloud-trace-propagator --save-optional
+```
+
+**Benefits:**
+- Synchronizes trace IDs with Cloud Run Load Balancer
+- Complete end-to-end traces in Cloud Trace UI
+- Automatic correlation with Cloud Logging
+- Multiple response headers for debugging
+
+**Response headers:**
+```http
+X-Cloud-Trace-Context: 13ea7e3c2d3b4547baaa399062df1f2d/1234567890123456;o=1
+X-Trace-Id: 13ea7e3c2d3b4547baaa399062df1f2d
+traceparent: 00-13ea7e3c2d3b4547baaa399062df1f2d-1234567890123456-01
+```
+
+All three headers contain the **same trace ID**.
+
+**Auto-detection:** Enabled when `K_SERVICE`, `FUNCTION_NAME`, or `GAE_APPLICATION` env vars are present.
+
+**See also:**
+- [OTEL_NOONY.md](./OTEL_NOONY.md) - Complete OpenTelemetry documentation
+- [OTEL_NOONY.md - Cloud Trace Integration](./OTEL_NOONY.md#cloud-trace-integration-google-cloud-platform) - GCP-specific details
+
 ## Guards System
 
 ### `RouteGuards`

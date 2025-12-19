@@ -50,7 +50,7 @@ export interface AuthenticationResult {
   success: boolean;
   user?: UserContext;
   token?: {
-    decoded: any;
+    decoded: unknown;
     raw: string;
     expiresAt: string;
     issuer?: string;
@@ -71,7 +71,7 @@ export interface AuthGuardConfig {
   allowedIssuers?: string[];
   requireEmailVerification: boolean;
   allowInactiveUsers: boolean;
-  customValidation?: (token: any, user: UserContext) => Promise<boolean>;
+  customValidation?: (token: unknown, user: UserContext) => Promise<boolean>;
 }
 
 /**
@@ -83,19 +83,19 @@ export interface TokenValidator {
    */
   validateToken(token: string): Promise<{
     valid: boolean;
-    decoded?: any;
+    decoded?: unknown;
     error?: string;
   }>;
 
   /**
    * Extract user ID from decoded token
    */
-  extractUserId(decoded: any): string;
+  extractUserId(decoded: unknown): string;
 
   /**
    * Check if token is expired
    */
-  isTokenExpired(decoded: any): boolean;
+  isTokenExpired(decoded: unknown): boolean;
 }
 
 /**
@@ -302,16 +302,15 @@ export class FastAuthGuard implements BaseMiddleware {
       }
 
       // Build successful authentication result
+      const decoded = tokenValidation.decoded as Record<string, unknown>;
       const authResult: AuthenticationResult = {
         success: true,
         user: userContext,
         token: {
           decoded: tokenValidation.decoded,
           raw: token,
-          expiresAt: new Date(
-            (tokenValidation.decoded as any).exp * 1000
-          ).toISOString(),
-          issuer: (tokenValidation.decoded as any).iss,
+          expiresAt: new Date((decoded.exp as number) * 1000).toISOString(),
+          issuer: decoded.iss as string | undefined,
         },
         cached: false,
         resolutionTimeUs: Number(process.hrtime.bigint() - startTime) / 1000,

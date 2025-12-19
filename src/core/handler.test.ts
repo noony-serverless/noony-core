@@ -1,9 +1,9 @@
 import { Handler } from './handler';
-import { Context, CustomRequest, CustomResponse } from './core';
+import { Context, GenericRequest, GenericResponse } from './core';
 
 describe('Handler', () => {
-  let req: CustomRequest;
-  let res: CustomResponse;
+  let req: GenericRequest;
+  let res: GenericResponse;
 
   beforeEach(() => {
     req = {
@@ -16,7 +16,7 @@ describe('Handler', () => {
       ip: '127.0.0.1',
       get: jest.fn(),
       path: '/',
-    } as unknown as CustomRequest;
+    } as unknown as GenericRequest;
 
     res = {
       status: jest.fn().mockReturnThis(),
@@ -26,7 +26,7 @@ describe('Handler', () => {
       end: jest.fn(),
       statusCode: undefined,
       headersSent: false,
-    } as unknown as CustomResponse;
+    } as unknown as GenericResponse;
   });
 
   it('executes handler successfully', async () => {

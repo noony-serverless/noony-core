@@ -1,8 +1,6 @@
 // Container import removed - now using containerPool for performance
 import {
   Context,
-  CustomRequest,
-  CustomResponse,
   GenericRequest,
   GenericResponse,
   createContext,
@@ -100,12 +98,12 @@ export class Handler<T = unknown, U = unknown> {
     this.middlewaresPrecomputed = true;
   }
 
-  async execute(req: CustomRequest<T>, res: CustomResponse): Promise<void> {
+  async execute(req: GenericRequest<T>, res: GenericResponse): Promise<void> {
     const genericReq = adaptGCPRequest<T>(req as unknown as Request);
     const genericRes = adaptGCPResponse(res as unknown as Response);
 
-    // Performance optimization: Use container pool instead of creating new containers
-    const container = containerPool.acquire();
+    // Hybrid Proxy Container: Lightweight zero-copy container per request
+    const container = containerPool.createProxyContainer();
     const context = createContext<T, U>(genericReq, genericRes, {
       container,
     });
@@ -122,10 +120,8 @@ export class Handler<T = unknown, U = unknown> {
       context.error = error as Error;
       // Execute error handlers using pre-computed array
       await this.executeErrorMiddlewares(error as Error, context);
-    } finally {
-      // Always return container to pool for reuse
-      containerPool.release(container);
     }
+    // No finally block needed - proxy container is auto-GC'd
   }
 
   /**
@@ -175,8 +171,8 @@ export class Handler<T = unknown, U = unknown> {
     req: GenericRequest<T>,
     res: GenericResponse
   ): Promise<void> {
-    // Performance optimization: Use container pool instead of creating new containers
-    const container = containerPool.acquire();
+    // Hybrid Proxy Container: Lightweight zero-copy container per request
+    const container = containerPool.createProxyContainer();
     const context = createContext<T, U>(req, res, {
       container,
     });
@@ -193,9 +189,7 @@ export class Handler<T = unknown, U = unknown> {
       context.error = error as Error;
       // Execute error handlers using pre-computed array
       await this.executeErrorMiddlewares(error as Error, context);
-    } finally {
-      // Always return container to pool for reuse
-      containerPool.release(container);
     }
+    // No finally block needed - proxy container is auto-GC'd
   }
 }

@@ -482,7 +482,7 @@ export class WildcardPermissionResolver extends PermissionResolver<string[]> {
   /**
    * Check if this resolver can handle the given requirement type
    */
-  canHandle(requirement: any): requirement is string[] {
+  canHandle(requirement: unknown): requirement is string[] {
     return (
       Array.isArray(requirement) &&
       requirement.length > 0 &&
