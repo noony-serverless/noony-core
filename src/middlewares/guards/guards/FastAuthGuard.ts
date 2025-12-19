@@ -382,7 +382,19 @@ export class FastAuthGuard implements BaseMiddleware {
   /**
    * Get authentication statistics
    */
-  getStats() {
+  getStats(): {
+    authAttempts: number;
+    authFailures: number;
+    successRate: number;
+    cacheHitRate: number;
+    cacheHits: number;
+    cacheMisses: number;
+    averageResolutionTimeUs: number;
+    totalResolutionTimeUs: number;
+    suspiciousAttempts: number;
+    blockedTokens: number;
+    lastSecurityEvent: number;
+  } {
     const totalCacheRequests = this.cacheHits + this.cacheMisses;
 
     return {
@@ -555,7 +567,7 @@ export class FastAuthGuard implements BaseMiddleware {
   private recordSecurityEvent(
     eventType: string,
     context: Context | null,
-    additionalData?: any
+    additionalData?: Record<string, unknown>
   ): void {
     this.lastSecurityEvent = Date.now();
 
@@ -580,7 +592,7 @@ export class FastAuthGuard implements BaseMiddleware {
    */
   private logAuthenticationEvent(
     eventType: 'success' | 'failure',
-    data: any
+    data: Record<string, unknown>
   ): void {
     const logLevel = eventType === 'success' ? 'info' : 'warn';
     const emoji = eventType === 'success' ? '✅' : '❌';

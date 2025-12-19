@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Container } from 'typedi';
 import { getService } from './container.utils';
 import { Context } from '../core/core';

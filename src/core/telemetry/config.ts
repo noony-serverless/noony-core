@@ -9,6 +9,149 @@
  */
 
 /**
+ * Span processor configuration for aggressive export in serverless environments
+ */
+export interface SpanProcessorConfig {
+  /**
+   * Maximum queue size before dropping spans
+   * @default 100
+   */
+  maxQueueSize?: number;
+
+  /**
+   * Maximum number of spans to export in a single batch
+   * For scale-to-zero environments, set to 1 for immediate export
+   * @default 1 (immediate export for serverless)
+   */
+  maxExportBatchSize?: number;
+
+  /**
+   * Delay in milliseconds between export attempts
+   * For scale-to-zero environments, use aggressive timing (100ms)
+   * @default 100 (very aggressive for Cloud Run)
+   */
+  scheduledDelayMillis?: number;
+
+  /**
+   * Timeout in milliseconds for export operations
+   * @default 30000 (30 seconds)
+   */
+  exportTimeoutMillis?: number;
+
+  /**
+   * Enable detailed export logging for debugging
+   * @default false
+   */
+  enableExportLogging?: boolean;
+}
+
+/**
+ * HTTP instrumentation configuration
+ */
+export interface HttpInstrumentationConfig {
+  /**
+   * Enable HTTP instrumentation
+   * @default true
+   */
+  enabled?: boolean;
+
+  /**
+   * Require parent span for incoming HTTP requests
+   * Set to false to create root spans for all requests
+   * @default false (creates root spans)
+   */
+  requireParentforIncomingSpans?: boolean;
+
+  /**
+   * Require parent span for outgoing HTTP requests
+   * @default false
+   */
+  requireParentforOutgoingSpans?: boolean;
+
+  /**
+   * Ignore health check endpoints
+   * @default true
+   */
+  ignoreHealthChecks?: boolean;
+
+  /**
+   * Trace OPTIONS requests (CORS preflight)
+   * @default false (reduces noise)
+   */
+  traceOptionsRequests?: boolean;
+
+  /**
+   * Custom URL patterns to ignore (regex strings)
+   */
+  ignoreUrls?: string[];
+}
+
+/**
+ * Auto-instrumentation configuration
+ */
+export interface InstrumentationConfig {
+  /**
+   * Enable HTTP instrumentation
+   * @default true
+   */
+  http?: boolean | HttpInstrumentationConfig;
+
+  /**
+   * Enable MongoDB instrumentation
+   * @default true
+   */
+  mongodb?: boolean;
+
+  /**
+   * Enable Pino logger instrumentation
+   * @default true
+   */
+  pino?: boolean;
+
+  /**
+   * Enable Fastify instrumentation
+   * WARNING: Should be disabled when using HTTP instrumentation to prevent duplicates
+   * @default false (prevents duplicate spans)
+   */
+  fastify?: boolean;
+
+  /**
+   * Enable DNS instrumentation
+   * @default false (reduces noise)
+   */
+  dns?: boolean;
+
+  /**
+   * Enable Net instrumentation
+   * @default false (reduces noise)
+   */
+  net?: boolean;
+
+  /**
+   * Enable FS instrumentation
+   * @default false (reduces noise)
+   */
+  fs?: boolean;
+}
+
+/**
+ * Metrics configuration
+ */
+export interface MetricsConfig {
+  /**
+   * Enable metrics collection
+   * @default true
+   */
+  enabled?: boolean;
+
+  /**
+   * Export interval in milliseconds
+   * @default 60000 (60 seconds)
+   */
+  exportIntervalMillis?: number;
+}
+
+/**
  * Telemetry configuration interface
  */
 export interface TelemetryConfig {
@@ -75,6 +218,30 @@ export interface TelemetryConfig {
      */
     custom?: string[];
   };
+
+  /**
+   * Span processor configuration for aggressive export
+   * Optimized for scale-to-zero serverless environments
+   */
+  spanProcessor?: SpanProcessorConfig;
+
+  /**
+   * Auto-instrumentation configuration
+   * Controls which libraries are automatically instrumented
+   */
+  instrumentation?: InstrumentationConfig;
+
+  /**
+   * Metrics configuration
+   */
+  metrics?: MetricsConfig;
+
+  /**
+   * Auto-initialize SDK at module load
+   * When true, OTEL SDK initializes automatically when telemetry.config.ts is imported
+   * @default false (manual initialization via middleware)
+   */
+  autoInitialize?: boolean;
 }
 
 /**
@@ -89,6 +256,43 @@ export const TelemetryPresets = {
       cloudTrace: true,
       w3c: true,
     },
+  },
+
+  /**
+   * Cloud Run optimized preset with aggressive span export
+   * Prevents data loss during scale-to-zero container termination
+   */
+  CLOUD_RUN: {
+    propagation: {
+      cloudTrace: true,
+      w3c: true,
+    },
+    spanProcessor: {
+      maxQueueSize: 100,
+      maxExportBatchSize: 1, // Immediate export
+      scheduledDelayMillis: 100, // Very aggressive (vs 5s default)
+      exportTimeoutMillis: 30000,
+      enableExportLogging: true,
+    },
+    instrumentation: {
+      http: {
+        enabled: true,
+        requireParentforIncomingSpans: false, // Create root spans
+        ignoreHealthChecks: true,
+        traceOptionsRequests: false,
+      },
+      mongodb: true,
+      pino: true,
+      fastify: false, // Prevent duplicate spans
+      dns: false,
+      net: false,
+      fs: false,
+    },
+    metrics: {
+      enabled: true,
+      exportIntervalMillis: 60000,
+    },
+    autoInitialize: true,
   },
 
   /**

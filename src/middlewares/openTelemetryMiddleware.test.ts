@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { OpenTelemetryMiddleware } from './openTelemetryMiddleware';
 import { Context } from '../core';
 import { TelemetryProvider, GenericSpan } from '../core/telemetry/provider';

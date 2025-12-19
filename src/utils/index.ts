@@ -22,3 +22,16 @@ export {
   type PubSubMessage,
   type TraceContext,
 } from './pubsub-trace.utils';
+
+// OpenTelemetry logger integration utilities
+export {
+  createOTELMixin,
+  getOTELContext,
+  getOTELContextFromSpan,
+  getOTELContextFromContext,
+  formatTraceIdForCloudLogging,
+  createCloudLoggingEntry,
+  isOTELActive,
+  isOTELInstalled,
+  type OTELLogContext,
+} from './otel.helper';

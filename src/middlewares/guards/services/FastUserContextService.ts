@@ -260,7 +260,11 @@ export class FastUserContextService {
 
       // Add audit trail if enabled
       if (options.auditTrail && result.allowed) {
-        await this.recordAuditTrail(userId, requirement, result);
+        await this.recordAuditTrail(
+          userId,
+          requirement as string | string[] | PermissionExpression,
+          result
+        );
       }
 
       return result;
@@ -333,7 +337,11 @@ export class FastUserContextService {
 
         // Add audit trail for allowed permissions
         if (options.auditTrail && result.allowed) {
-          await this.recordAuditTrail(userId, requirement, result);
+          await this.recordAuditTrail(
+            userId,
+            requirement as string | string[] | PermissionExpression,
+            result
+          );
         }
       }
 
@@ -599,7 +607,13 @@ export class FastUserContextService {
   /**
    * Get resolver by type
    */
-  private getResolverByType(type: PermissionResolverType): any {
+  private getResolverByType(
+    type: PermissionResolverType
+  ):
+    | PlainPermissionResolver
+    | WildcardPermissionResolver
+    | ExpressionPermissionResolver
+    | null {
     switch (type) {
       case PermissionResolverType.PLAIN:
         return this.plainResolver;
@@ -617,7 +631,7 @@ export class FastUserContextService {
    */
   private async recordAuditTrail(
     userId: string,
-    requirement: any,
+    requirement: string | string[] | PermissionExpression,
     result: PermissionCheckResult
   ): Promise<void> {
     // In production, this would write to an audit log
