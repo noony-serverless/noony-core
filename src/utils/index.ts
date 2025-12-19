@@ -36,5 +36,6 @@ export {
   type OTELLogContext,
 } from './otel.helper';
 
-// Wrapper utilities for GCP Functions and Express
+// Wrapper utilities for GCP Functions, Express, and Fastify
 export { createHttpFunction, wrapNoonyHandler } from './wrapper-utils';
+export { createFastifyHandler } from './fastify-wrapper';
