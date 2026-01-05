@@ -99,6 +99,6 @@ export const bodyValidatorMiddleware = <T, U = unknown>(
   schema: z.ZodType<T>
 ): { before: (context: Context<T, U>) => Promise<void> } => ({
   before: async (context: Context<T, U>): Promise<void> => {
-    context.req.parsedBody = await validateBody(schema, context.req.body);
+    context.req.parsedBody = await validateBody(schema, context.req.parsedBody);
   },
 });
