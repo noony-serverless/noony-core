@@ -38,4 +38,8 @@ export {
 
 // Wrapper utilities for GCP Functions, Express, and Fastify
 export { createHttpFunction, wrapNoonyHandler } from './wrapper-utils';
-export { createFastifyHandler } from './fastify-wrapper';
+export {
+  createFastifyHandler,
+  extractAndStoreRequestBody,
+  CloudFunctionRequest,
+} from './fastify-wrapper';

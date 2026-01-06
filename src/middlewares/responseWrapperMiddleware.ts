@@ -153,7 +153,9 @@ export const responseWrapperMiddleware = <
   T = unknown,
   TBody = unknown,
   TUser = unknown,
->(defaultStatusCode?: number): BaseMiddleware<TBody, TUser> => ({
+>(
+  defaultStatusCode?: number
+): BaseMiddleware<TBody, TUser> => ({
   after: async (context: Context<TBody, TUser>): Promise<void> => {
     wrapResponse<T, TBody, TUser>(context, defaultStatusCode);
   },

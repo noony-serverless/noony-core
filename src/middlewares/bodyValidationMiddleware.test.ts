@@ -67,7 +67,7 @@ describe('bodyValidator', () => {
       await middleware.before(context as Context<{ name: string }>);
     }
 
-    expect(context.req.parsedBody).toEqual({ name: 'John Doe' });
+    expect(context.req.validatedBody).toEqual({ name: 'John Doe' });
   });
 
   it('throws ValidationError for invalid input', async () => {
@@ -75,11 +75,9 @@ describe('bodyValidator', () => {
     const middleware = bodyValidatorMiddleware<{ name: string }>(schema);
     context.req.parsedBody = { name: 123 };
 
-    if (middleware.before) {
-      await expect(
-        middleware.before(context as Context<{ name: string }>)
-      ).rejects.toThrow(ValidationError);
-    }
+    await expect(
+      middleware.before?.(context as Context<{ name: string }>)
+    ).rejects.toThrow(ValidationError);
   });
 
   it('throws original error if not a ZodError', async () => {
@@ -87,10 +85,8 @@ describe('bodyValidator', () => {
     const middleware = bodyValidatorMiddleware<{ name: string }>(schema);
     context.req.parsedBody = null;
 
-    if (middleware.before) {
-      await expect(
-        middleware.before(context as Context<{ name: string }>)
-      ).rejects.toThrow();
-    }
+    await expect(
+      middleware.before?.(context as Context<{ name: string }>)
+    ).rejects.toThrow();
   });
 });

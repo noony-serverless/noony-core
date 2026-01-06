@@ -78,7 +78,9 @@ export class Handler<T = unknown, U = unknown> {
     return handler;
   }
 
-  handle(handler: (context: Context<T, U>) => Promise<void | unknown>): Handler<T, U> {
+  handle(
+    handler: (context: Context<T, U>) => Promise<void | unknown>
+  ): Handler<T, U> {
     this.handler = handler;
     this.precomputeMiddlewareArrays();
     return this;
