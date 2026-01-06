@@ -2,10 +2,12 @@ import { BaseMiddleware } from '../core/handler';
 import { Context } from '../core/core';
 
 const wrapResponse = <T, TBody = unknown, TUser = unknown>(
-  context: Context<TBody, TUser>
+  context: Context<TBody, TUser>,
+  defaultStatusCode?: number
 ): void => {
   if (!context.res.headersSent) {
-    const statusCode = context.res.statusCode || 200;
+    // Use defaultStatusCode if provided, otherwise use context.res.statusCode, finally default to 200
+    const statusCode = defaultStatusCode || context.res.statusCode || 200;
     const body = context.responseData as T;
     context.res.status(statusCode).json({
       success: true,
@@ -83,8 +85,10 @@ export class ResponseWrapperMiddleware<
   TUser = unknown,
 > implements BaseMiddleware<TBody, TUser>
 {
+  constructor(private defaultStatusCode?: number) {}
+
   async after(context: Context<TBody, TUser>): Promise<void> {
-    wrapResponse<T, TBody, TUser>(context);
+    wrapResponse<T, TBody, TUser>(context, this.defaultStatusCode);
   }
 }
 
@@ -149,9 +153,9 @@ export const responseWrapperMiddleware = <
   T = unknown,
   TBody = unknown,
   TUser = unknown,
->(): BaseMiddleware<TBody, TUser> => ({
+>(defaultStatusCode?: number): BaseMiddleware<TBody, TUser> => ({
   after: async (context: Context<TBody, TUser>): Promise<void> => {
-    wrapResponse<T, TBody, TUser>(context);
+    wrapResponse<T, TBody, TUser>(context, defaultStatusCode);
   },
 });
 

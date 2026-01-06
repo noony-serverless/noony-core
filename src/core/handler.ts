@@ -52,7 +52,7 @@ export interface BaseMiddleware<T = unknown, U = unknown> {
  */
 export class Handler<T = unknown, U = unknown> {
   private baseMiddlewares: BaseMiddleware<T, U>[] = [];
-  private handler!: (context: Context<T, U>) => Promise<void>;
+  private handler!: (context: Context<T, U>) => Promise<void | unknown>;
 
   // Performance optimization: Pre-computed middleware arrays
   private reversedMiddlewares: BaseMiddleware<T, U>[] = [];
@@ -78,7 +78,7 @@ export class Handler<T = unknown, U = unknown> {
     return handler;
   }
 
-  handle(handler: (context: Context<T, U>) => Promise<void>): Handler<T, U> {
+  handle(handler: (context: Context<T, U>) => Promise<void | unknown>): Handler<T, U> {
     this.handler = handler;
     this.precomputeMiddlewareArrays();
     return this;
@@ -112,7 +112,13 @@ export class Handler<T = unknown, U = unknown> {
       // Execute before middlewares with performance optimizations
       await this.executeBeforeMiddlewares(context);
 
-      await this.handler(context);
+      // Capture return value from handler
+      const returnValue = await this.handler(context);
+
+      // If handler returns a value and responseData hasn't been set, use the return value
+      if (returnValue !== undefined && !context.responseData) {
+        context.responseData = returnValue;
+      }
 
       // Execute after middlewares in reverse order using pre-computed array
       await this.executeAfterMiddlewares(context);
@@ -181,7 +187,13 @@ export class Handler<T = unknown, U = unknown> {
       // Execute before middlewares with performance optimizations
       await this.executeBeforeMiddlewares(context);
 
-      await this.handler(context);
+      // Capture return value from handler
+      const returnValue = await this.handler(context);
+
+      // If handler returns a value and responseData hasn't been set, use the return value
+      if (returnValue !== undefined && !context.responseData) {
+        context.responseData = returnValue;
+      }
 
       // Execute after middlewares in reverse order using pre-computed array
       await this.executeAfterMiddlewares(context);

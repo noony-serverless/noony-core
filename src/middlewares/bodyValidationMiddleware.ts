@@ -2,19 +2,78 @@ import { BaseMiddleware } from '../core/handler';
 import { Context } from '../core/core';
 import { z } from 'zod';
 import { ValidationError } from '../core/errors';
+import { requestBodyMap } from '../utils/fastify-wrapper';
 
-const validateBody = async <T>(
-  schema: z.ZodType<T>,
-  data: unknown
-): Promise<T> => {
+// Reusable error objects for common cases (avoid allocations)
+const VALIDATION_ERROR_INVALID_JSON = new ValidationError(
+  'Invalid JSON in request body',
+  [
+    {
+      code: 'custom',
+      path: [],
+      message: 'Request body must be valid JSON',
+    },
+  ]
+);
+
+const VALIDATION_ERROR_MISSING_BODY = new ValidationError(
+  'Request body is required',
+  [
+    {
+      code: 'custom',
+      path: [],
+      message: 'Request body is missing or empty',
+    },
+  ]
+);
+
+// Use synchronous parse for better performance (Zod's parseAsync adds overhead)
+const validateWithZod = <T>(schema: z.ZodType<T>, data: unknown): T => {
   try {
-    return await schema.parseAsync(data);
+    return schema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new ValidationError('Validation error', error.issues);
     }
     throw error;
   }
+};
+
+/**
+ * Comprehensive body validation function that handles retrieval from multiple sources,
+ * JSON parsing, and Zod schema validation.
+ * @internal
+ */
+const validateBody = <T, U = unknown>(
+  schema: z.ZodType<T>,
+  context: Context<T, U>
+): T => {
+  // Try to get body from the original Fastify request via WeakMap
+  // This fixes the issue where req.body becomes undefined after Handler.executeGeneric copies properties
+  const originalReq = requestBodyMap.get(context.req) as any;
+
+  // Fast path: check most common case first (originalReq.body)
+  let bodyData = originalReq?.body;
+  if (!bodyData) {
+    bodyData =
+      context.req.validatedBody ?? context.req.parsedBody ?? context.req.body;
+  }
+
+  // If no parsed body found, try the raw body string (from Cloud Functions wrapper) and parse it
+  if (!bodyData && originalReq?.__rawBody) {
+    try {
+      bodyData = JSON.parse(originalReq.__rawBody);
+    } catch {
+      throw VALIDATION_ERROR_INVALID_JSON;
+    }
+  }
+
+  if (!bodyData) {
+    throw VALIDATION_ERROR_MISSING_BODY;
+  }
+
+  // Validate with Zod schema
+  return validateWithZod(schema, bodyData);
 };
 
 /**
@@ -55,10 +114,7 @@ export class BodyValidationMiddleware<T = unknown, U = unknown>
   constructor(private readonly schema: z.ZodSchema<T>) {}
 
   async before(context: Context<T, U>): Promise<void> {
-    context.req.validatedBody = await validateBody(
-      this.schema,
-      context.req.parsedBody
-    );
+    context.req.validatedBody = validateBody(this.schema, context);
   }
 }
 
@@ -94,11 +150,12 @@ export class BodyValidationMiddleware<T = unknown, U = unknown>
  *   .handle(handleLogin);
  * ```
  */
-// Modified to fix type instantiation error
 export const bodyValidatorMiddleware = <T, U = unknown>(
   schema: z.ZodType<T>
-): { before: (context: Context<T, U>) => Promise<void> } => ({
-  before: async (context: Context<T, U>): Promise<void> => {
-    context.req.parsedBody = await validateBody(schema, context.req.parsedBody);
-  },
-});
+): { before: (context: Context<T, U>) => Promise<void> } => {
+  return {
+    before: async (context: Context<T, U>): Promise<void> => {
+      context.req.validatedBody = validateBody(schema, context);
+    },
+  };
+};

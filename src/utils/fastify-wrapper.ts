@@ -3,27 +3,51 @@ import type { GenericRequest, GenericResponse } from '../core/core';
 import { Handler } from '../core/handler';
 import { logger } from '../core/logger';
 
+// Global WeakMap to store the original Fastify request for each GenericRequest
+// This allows middlewares to access the original request and its body
+// even after the GenericRequest properties have been copied by Handler.executeGeneric
+export const requestBodyMap = new WeakMap<any, FastifyRequest>();
+
+// Pre-allocated empty objects to avoid allocations in hot path
+const EMPTY_QUERY = Object.freeze({});
+const EMPTY_PARAMS = Object.freeze({});
+
 /**
  * Adapt Fastify Request to GenericRequest for Noony handlers
+ *
+ * IMPORTANT: Stores the original Fastify request in a WeakMap so middlewares
+ * can access the body even after properties are copied by Handler.executeGeneric
  *
  * @internal
  */
 function adaptFastifyRequest<T = unknown>(
   req: FastifyRequest
 ): GenericRequest<T> {
-  return {
+  // Fast path: use pre-allocated empty objects when no query/params
+  const query = req.query || EMPTY_QUERY;
+  const params = req.params || EMPTY_PARAMS;
+
+  // Inline path extraction to avoid optional chaining overhead
+  const routeUrl = (req.routeOptions as any)?.url;
+  const path = routeUrl || req.url;
+
+  const genericReq: GenericRequest<T> = {
     method: req.method,
     url: req.url,
-    path: (req.routeOptions as { url?: string })?.url || req.url,
+    path,
     headers: req.headers as Record<string, string | string[] | undefined>,
-    query: (req.query || {}) as Record<string, string | string[] | undefined>,
-    params: (req.params || {}) as Record<string, string>,
+    query: query as Record<string, string | string[] | undefined>,
+    params: params as Record<string, string>,
     body: req.body,
-    // Fastify already parses the body, so set parsedBody for BodyValidationMiddleware
     parsedBody: req.body as T,
     ip: req.ip,
     userAgent: req.headers['user-agent'] as string | undefined,
   };
+
+  // Store the original Fastify request in the WeakMap for middleware access
+  requestBodyMap.set(genericReq, req);
+
+  return genericReq;
 }
 
 /**
@@ -42,11 +66,17 @@ function adaptFastifyResponse(reply: FastifyReply): GenericResponse {
       return response;
     },
     json(data: unknown) {
+      // Early return if already sent (avoid duplicate sends)
+      if (reply.sent) return response;
+
       headersSent = true;
       reply.send(data);
       return response;
     },
     send(data: unknown) {
+      // Early return if already sent (avoid duplicate sends)
+      if (reply.sent) return response;
+
       headersSent = true;
       reply.send(data);
       return response;
@@ -56,12 +86,16 @@ function adaptFastifyResponse(reply: FastifyReply): GenericResponse {
       return response;
     },
     headers(headers: Record<string, string>) {
-      Object.entries(headers).forEach(([key, value]) => {
-        reply.header(key, value);
-      });
+      // Optimized header setting - direct iteration instead of Object.entries
+      for (const key in headers) {
+        reply.header(key, headers[key]);
+      }
       return response;
     },
     end() {
+      // Early return if already sent (avoid duplicate sends)
+      if (reply.sent) return;
+
       headersSent = true;
       reply.send();
     },
@@ -146,11 +180,26 @@ function adaptFastifyResponse(reply: FastifyReply): GenericResponse {
  * @see {@link createHttpFunction} for Cloud Functions Framework integration (production deployment)
  * @see {@link wrapNoonyHandler} for Express integration
  */
+// Pre-allocated error response object to avoid allocations
+const INTERNAL_ERROR_RESPONSE = Object.freeze({
+  success: false,
+  error: Object.freeze({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: 'An unexpected error occurred',
+  }),
+});
+
+// Constant for performance-critical string comparison
+const RESPONSE_SENT_MESSAGE = 'RESPONSE_SENT';
+
 export function createFastifyHandler(
   noonyHandler: Handler<unknown>,
   functionName: string,
   initializeDependencies: () => Promise<void>
 ): (req: FastifyRequest, reply: FastifyReply) => Promise<void> {
+  // Pre-bind the error log prefix to avoid string concatenation in hot path
+  const errorLogPrefix = `${functionName} handler error`;
+
   return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       // Ensure dependencies are initialized
@@ -163,25 +212,20 @@ export function createFastifyHandler(
       // Execute Noony handler with adapted request/response
       await noonyHandler.executeGeneric(genericReq, genericRes);
     } catch (error) {
-      // Ignore RESPONSE_SENT markers (response already sent by middleware)
-      if (error instanceof Error && error.message === 'RESPONSE_SENT') {
+      // Fast path: check RESPONSE_SENT first (most common error to ignore)
+      if (error instanceof Error && error.message === RESPONSE_SENT_MESSAGE) {
         return;
       }
 
-      logger.error(`${functionName} handler error`, {
+      // Log error with pre-allocated prefix
+      logger.error(errorLogPrefix, {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
       });
 
       // Graceful error handling - only send if response not already sent
       if (!reply.sent) {
-        reply.code(500).send({
-          success: false,
-          error: {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'An unexpected error occurred',
-          },
-        });
+        reply.code(500).send(INTERNAL_ERROR_RESPONSE);
       }
     }
   };

@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { createFastifyHandler } from './fastify-wrapper';
+import { createFastifyHandler, requestBodyMap } from './fastify-wrapper';
 import { Handler } from '../core/handler';
 import { logger } from '../core/logger';
 
@@ -587,6 +587,129 @@ describe('fastify-wrapper', () => {
 
       expect(singletonInit).toHaveBeenCalledTimes(3);
       expect(initCount).toBe(1); // Only initialized once
+    });
+  });
+
+  describe('requestBodyMap WeakMap functionality', () => {
+    it('should store original Fastify request in WeakMap', async () => {
+      const fastifyHandler = createFastifyHandler(
+        mockHandler,
+        'testHandler',
+        initializeDependencies
+      );
+
+      await fastifyHandler(mockRequest, mockReply);
+
+      const [adaptedReq] = (mockHandler.executeGeneric as jest.Mock).mock
+        .calls[0];
+
+      // Verify the WeakMap contains the mapping
+      const storedRequest = requestBodyMap.get(adaptedReq);
+      expect(storedRequest).toBe(mockRequest);
+    });
+
+    it('should allow middleware to retrieve original body from WeakMap', async () => {
+      (mockHandler.executeGeneric as jest.Mock).mockImplementation(
+        async (req) => {
+          // Simulate what bodyValidatorMiddleware does
+          const originalReq = requestBodyMap.get(req);
+          expect(originalReq).toBeDefined();
+          expect(originalReq).toBe(mockRequest);
+          expect(originalReq?.body).toEqual({
+            name: 'Test User',
+            email: 'test@example.com',
+          });
+        }
+      );
+
+      const fastifyHandler = createFastifyHandler(
+        mockHandler,
+        'testHandler',
+        initializeDependencies
+      );
+
+      await fastifyHandler(mockRequest, mockReply);
+    });
+
+    it('should handle body retrieval when req.body is undefined after property copy', async () => {
+      (mockHandler.executeGeneric as jest.Mock).mockImplementation(
+        async (req) => {
+          // Simulate scenario where adapted req.body becomes undefined
+          // but original Fastify request still has it
+          const originalReq = requestBodyMap.get(req);
+
+          // Even if req.body is cleared, we can get it from WeakMap
+          expect(originalReq?.body).toEqual({
+            name: 'Test User',
+            email: 'test@example.com',
+          });
+        }
+      );
+
+      const fastifyHandler = createFastifyHandler(
+        mockHandler,
+        'testHandler',
+        initializeDependencies
+      );
+
+      await fastifyHandler(mockRequest, mockReply);
+    });
+
+    it('should maintain WeakMap reference for multiple requests', async () => {
+      const fastifyHandler = createFastifyHandler(
+        mockHandler,
+        'testHandler',
+        initializeDependencies
+      );
+
+      // First request
+      await fastifyHandler(mockRequest, mockReply);
+      const [firstReq] = (mockHandler.executeGeneric as jest.Mock).mock
+        .calls[0];
+      expect(requestBodyMap.get(firstReq)).toBe(mockRequest);
+
+      // Second request with different body
+      const mockRequest2 = {
+        ...mockRequest,
+        body: {
+          different: 'data',
+        },
+      } as FastifyRequest;
+
+      await fastifyHandler(mockRequest2, mockReply);
+      const [secondReq] = (mockHandler.executeGeneric as jest.Mock).mock
+        .calls[1];
+
+      // Both requests should have correct WeakMap mappings
+      expect(requestBodyMap.get(firstReq)).toBe(mockRequest);
+      expect(requestBodyMap.get(secondReq)).toBe(mockRequest2);
+      expect(requestBodyMap.get(secondReq)?.body).toEqual({
+        different: 'data',
+      });
+    });
+
+    it('should allow WeakMap cleanup through garbage collection', async () => {
+      const fastifyHandler = createFastifyHandler(
+        mockHandler,
+        'testHandler',
+        initializeDependencies
+      );
+
+      await fastifyHandler(mockRequest, mockReply);
+
+      // Get the adapted request reference
+      let [adaptedReq] = (mockHandler.executeGeneric as jest.Mock).mock
+        .calls[0];
+
+      // Verify it's in the WeakMap
+      expect(requestBodyMap.get(adaptedReq)).toBe(mockRequest);
+
+      // Clear the reference (simulating request completion)
+      // In real scenarios, this would happen automatically when request goes out of scope
+      adaptedReq = null;
+
+      // WeakMap allows garbage collection (we can't test GC directly, but this verifies the pattern)
+      // This test documents the intended behavior - WeakMap won't prevent GC
     });
   });
 
