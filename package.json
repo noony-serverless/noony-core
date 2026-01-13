@@ -1,6 +1,6 @@
 {
   "name": "@noony-serverless/core",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "A Middy base framework compatible with Firebase and GCP Cloud Functions with TypeScript",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.1.0",
-    "@google-cloud/functions-framework": "^4.0.0",
+    "@google-cloud/functions-framework": "^5.0.0",
     "@google-cloud/pubsub": "^4.1.0",
     "@types/jsonwebtoken": "^9.0.10",
     "axios": "^1.11.0",
@@ -72,11 +72,10 @@
     "typescript": "^5.3.3"
   },
   "peerDependencies": {
-    "@fastify/otel": "^1.0.0",
     "@google-cloud/opentelemetry-cloud-trace-propagator": "^0.21.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.200.0",
-    "@opentelemetry/core": "^1.28.0",
+    "@opentelemetry/core": "^2.0.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.205.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
     "@opentelemetry/instrumentation-http": "^0.200.0",
@@ -117,9 +116,6 @@
     "@opentelemetry/auto-instrumentations-node": {
       "optional": true
     },
-    "@fastify/otel": {
-      "optional": true
-    },
     "newrelic": {
       "optional": true
     },
@@ -128,7 +124,18 @@
     }
   },
   "private": false,
+  "overrides": {
+    "body-parser": "2.2.2"
+  },
   "optionalDependencies": {
     "@google-cloud/opentelemetry-cloud-trace-propagator": "^0.21.0"
-  }
+  },
+  "directories": {
+    "doc": "docs",
+    "example": "examples"
+  },
+  "bugs": {
+    "url": "https://github.com/noony-serverless/noony-core/issues"
+  },
+  "homepage": "https://github.com/noony-serverless/noony-core#readme"
 }

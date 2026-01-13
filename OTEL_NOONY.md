@@ -7,6 +7,22 @@
 
 ---
 
+## ⚠️ Critical Notes
+
+**Before you start:**
+
+1. **❌ DO NOT install `@fastify/otel`** - It conflicts with Noony's HTTP instrumentation and causes 9+ second latency
+2. **✅ Use `OpenTelemetryMiddleware`** - It's zero-config and works with any framework
+3. **✅ HTTP instrumentation is built-in** - When using `telemetry.config.ts`, all requests are automatically traced
+4. **✅ All OTEL packages are optional** - Framework gracefully degrades if not installed
+
+**Common Questions:**
+- Q: Do I need @fastify/otel? **A: NO - it conflicts with Noony**
+- Q: Which pattern should I use? **A: OpenTelemetryMiddleware for most cases**
+- Q: Can I use this with Express/GCP Functions? **A: Yes, it's framework-agnostic**
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -253,13 +269,16 @@ Install Datadog tracer:
 npm install --save dd-trace@^5.0.0
 ```
 
-### Fastify Integration
+### ⚠️ Important Note About @fastify/otel
 
-Install Fastify OTEL plugin:
+**DO NOT install or use `@fastify/otel` with Noony's OpenTelemetry integration!**
 
-```bash
-npm install --save @fastify/otel@^1.0.0
-```
+Noony uses HTTP auto-instrumentation which already creates spans for all requests. Using `@fastify/otel` will cause:
+- ❌ Duplicate spans in traces
+- ❌ Massive latency (9+ seconds)
+- ❌ Broken distributed tracing
+
+See [Fastify Plugin Warning](#fastify-plugin-warning) section below for details.
 
 **Note:** All telemetry packages are **optional peer dependencies**. The framework will work without them and gracefully degrade to `NoopProvider`.
 
@@ -412,9 +431,10 @@ const handler = new Handler()
 
 ### Fastify Integration
 
+**✅ CORRECT - Using OpenTelemetryMiddleware with Fastify:**
+
 ```typescript
 import Fastify from 'fastify';
-import otelPlugin from '@fastify/otel';
 import {
   Handler,
   OpenTelemetryMiddleware,
@@ -424,11 +444,8 @@ import {
 
 const fastify = Fastify();
 
-// Register Fastify OTEL plugin
-fastify.register(otelPlugin, {
-  serviceName: 'order-service',
-  exposeHttpApi: true
-});
+// ⚠️ DO NOT register @fastify/otel plugin - it conflicts with HTTP instrumentation
+// OpenTelemetryMiddleware handles tracing automatically
 
 // Create Noony handler with OTEL
 const createOrderHandler = new Handler<CreateOrderRequest, AuthUser>()
@@ -1533,7 +1550,21 @@ const handler = new Handler()
 
 ## Best Practices
 
-### 1. Use Environment-Based Configuration
+### 1. ⚠️ Avoid @fastify/otel Plugin
+
+```typescript
+// ❌ CRITICAL ERROR - Causes 9+ second latency
+import otelPlugin from '@fastify/otel';
+app.register(otelPlugin);  // DO NOT DO THIS with Noony
+
+// ✅ CORRECT - Use OpenTelemetryMiddleware or HTTP auto-instrumentation
+import { OpenTelemetryMiddleware } from '@noony-serverless/core';
+.use(new OpenTelemetryMiddleware())
+```
+
+**Why:** Noony uses HTTP auto-instrumentation which already creates spans. Adding `@fastify/otel` creates duplicates and severe performance issues.
+
+### 2. Use Environment-Based Configuration
 
 ```typescript
 // ✅ Good - Configuration from environment
@@ -1975,6 +2006,19 @@ if (process.env.NODE_ENV === 'production') {
 
 ## FAQ
 
+### Q: Should I install @fastify/otel?
+
+**A:** **NO - DO NOT install it!** It conflicts with Noony's HTTP instrumentation and causes:
+- ❌ Duplicate spans
+- ❌ 9+ second request latency
+- ❌ Broken distributed tracing
+
+**Use instead:**
+- ✅ `OpenTelemetryMiddleware` (recommended)
+- ✅ HTTP auto-instrumentation (from `telemetry.config.ts`)
+
+See [Fastify Plugin Warning](#fastify-plugin-warning) for detailed explanation.
+
 ### Q: Do I need to install OpenTelemetry packages?
 
 **A:** No, they are optional. The framework will work without them and gracefully degrade to `NoopProvider`. Install them only when you want to use standard OTEL features.
@@ -2355,22 +2399,93 @@ traceparent: 00-13ea7e3c2d3b4547baaa399062df1f2d-1234567890123456-01
 X-Trace-Id: 13ea7e3c2d3b4547baaa399062df1f2d
 ```
 
-### Fastify Plugin Warning
+### ⚠️ Fastify Plugin Warning
 
-**❌ DO NOT register @fastify/otel plugin:**
+**CRITICAL: DO NOT use @fastify/otel with Noony!**
+
+#### ❌ WRONG - Causes Critical Issues:
 
 ```typescript
-// ❌ WRONG - Causes duplicate spans and 9+ second latency
-app.register(require('@fastify/otel'));
+// ❌ DO NOT DO THIS!
+import otelPlugin from '@fastify/otel';
+app.register(otelPlugin);
+
+// Problems caused:
+// - Duplicate spans (HTTP instrumentation + Fastify plugin)
+// - 9+ second latency per request
+// - Broken trace correlation
+// - High memory usage
 ```
 
-**✅ INSTEAD - HTTP instrumentation handles everything:**
+#### ✅ CORRECT - Two Valid Patterns:
+
+**Pattern 1: OpenTelemetryMiddleware (Recommended for Noony handlers)**
 
 ```typescript
-// ✅ CORRECT - HTTP instrumentation creates spans automatically
-// (configured in telemetry.config.ts)
+import Fastify from 'fastify';
+import { Handler, OpenTelemetryMiddleware } from '@noony-serverless/core';
+
+const app = Fastify();
+
+// Create Noony handler with telemetry
+const handler = new Handler<CreateOrderRequest, AuthUser>()
+  .use(new OpenTelemetryMiddleware())  // ✅ Handles tracing
+  .handle(async (context) => {
+    // Your business logic - automatically traced
+  });
+
+app.post('/orders', async (request, reply) => {
+  await handler.executeGeneric(request as NoonyRequest, reply as NoonyResponse);
+});
+```
+
+**Pattern 2: HTTP Auto-Instrumentation (For non-Noony routes)**
+
+```typescript
+// Import telemetry config FIRST (before Fastify)
+import '@config/telemetry.config';  // ✅ MUST BE FIRST
+
+import Fastify from 'fastify';
+
+const app = Fastify();
+
+// ✅ HTTP instrumentation creates spans automatically
 app.get('/api/users/:id', async (request, reply) => {
   // Automatically traced by HTTP instrumentation
+  // NO need for @fastify/otel plugin
+});
+```
+
+#### Why @fastify/otel Conflicts:
+
+1. **HTTP Instrumentation** (from `@opentelemetry/instrumentation-http`):
+   - Automatically instruments ALL HTTP servers (including Fastify)
+   - Creates root spans for every request
+   - Extracts trace context from headers
+   - Works at the Node.js HTTP level
+
+2. **@fastify/otel Plugin**:
+   - Also instruments Fastify at the framework level
+   - Creates its own spans
+   - Results in DUPLICATE instrumentation
+
+3. **Result**: Both create spans → duplicates → conflicts → 9s+ latency
+
+#### When You Might See @fastify/otel Mentioned:
+
+- ✅ **Old tutorials** (before HTTP auto-instrumentation was stable)
+- ✅ **Standalone Fastify apps** (without auto-instrumentation)
+- ❌ **NOT for Noony** (we use HTTP auto-instrumentation)
+
+#### Verification:
+
+Check that Fastify instrumentation is disabled:
+
+```typescript
+// src/config/telemetry.config.ts
+getNodeAutoInstrumentations({
+  '@opentelemetry/instrumentation-http': { enabled: true },     // ✅ Enabled
+  '@opentelemetry/instrumentation-fastify': { enabled: false }, // ✅ Disabled
 });
 ```
 
@@ -2471,6 +2586,34 @@ if (isOTELActive()) {
 | Data Loss (Scale-to-Zero) | N/A | 0% | ✅ Zero loss |
 
 ### Troubleshooting
+
+#### 🚨 CRITICAL: Request latency 9+ seconds
+
+**Cause:** `@fastify/otel` plugin registered with HTTP auto-instrumentation
+
+**Symptoms:**
+- Requests take 9+ seconds
+- Duplicate spans in Cloud Trace
+- High memory usage
+
+**Fix:**
+1. Remove `@fastify/otel` plugin registration:
+   ```typescript
+   // ❌ Remove this line
+   app.register(require('@fastify/otel'));
+   ```
+
+2. Verify Fastify instrumentation is disabled:
+   ```typescript
+   // src/config/telemetry.config.ts
+   getNodeAutoInstrumentations({
+     '@opentelemetry/instrumentation-fastify': { enabled: false }, // ✅ Must be false
+   })
+   ```
+
+3. Restart your application
+
+**Result:** Latency should drop to normal (<100ms)
 
 #### No traces in Cloud Trace
 

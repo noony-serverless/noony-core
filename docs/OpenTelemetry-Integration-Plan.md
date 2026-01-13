@@ -1,5 +1,19 @@
 # OpenTelemetry Integration Plan for Noony Framework
 
+> **⚠️ HISTORICAL DOCUMENT - DESIGN PHASE ONLY**
+> 
+> This document contains the **original design plan** from January 2025, before implementation.
+> Many features described here were implemented differently or not implemented at all.
+> 
+> **❌ DO NOT use this as implementation guide**
+> **✅ For current implementation, see: [OTEL_NOONY.md](../OTEL_NOONY.md)**
+> 
+> **Key differences from actual implementation:**
+> - ❌ `@fastify/otel` is NOT used (causes conflicts)
+> - ❌ `NewRelicProvider` and `DatadogProvider` not implemented
+> - ✅ `OpenTelemetryMiddleware` works differently than planned
+> - ✅ Pub/Sub tracing uses different utilities than planned
+
 ## Overview
 
 This document outlines the strategy for integrating OpenTelemetry (OTEL) SDK 2.0 into the Noony serverless middleware framework to extend observability to platforms like New Relic, Datadog, Jaeger, and other OTEL-compatible systems.
