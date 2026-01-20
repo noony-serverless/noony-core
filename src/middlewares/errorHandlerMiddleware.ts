@@ -204,8 +204,8 @@ const handleError = async <TBody = unknown, TUser = unknown>(
   if (DEBUG_API_RESPONSE) {
     responsePayload.payload.debug = {
       originalError: error.message,
-      stack: error.stack,
-      errorType: error.constructor?.name,
+      stack: error.stack || 'No stack trace available',
+      errorType: error.constructor?.name || 'UnknownError',
     };
   }
 

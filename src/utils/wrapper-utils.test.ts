@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import type { Request, Response } from 'express';
 import { createHttpFunction, wrapNoonyHandler } from './wrapper-utils';
 import { Handler } from '../core/handler';
@@ -65,6 +66,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(initializeDependencies).toHaveBeenCalledTimes(1);
@@ -77,6 +79,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(mockHandler.execute).toHaveBeenCalledTimes(1);
@@ -95,6 +98,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(mockHandler.execute).toHaveBeenCalled();
@@ -111,6 +115,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(logger.error).not.toHaveBeenCalled();
@@ -127,6 +132,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testFunction function error', {
@@ -155,6 +161,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalled();
@@ -171,6 +178,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testFunction function error', {
@@ -191,6 +199,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testFunction function error', {
@@ -219,6 +228,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(executionOrder).toEqual(['init', 'execute']);
@@ -233,6 +243,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(initializeDependencies).toHaveBeenCalledTimes(1);
@@ -245,6 +256,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(mockHandler.executeGeneric).toHaveBeenCalledTimes(1);
@@ -263,6 +275,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(mockHandler.executeGeneric).toHaveBeenCalled();
@@ -281,6 +294,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(logger.error).not.toHaveBeenCalled();
@@ -297,6 +311,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
@@ -325,6 +340,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalled();
@@ -343,6 +359,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
@@ -363,6 +380,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
@@ -391,6 +409,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(executionOrder).toEqual(['init', 'executeGeneric']);
@@ -405,6 +424,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(mockHandler.executeGeneric).toHaveBeenCalledWith(
@@ -424,6 +444,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(mockHandler.execute).toHaveBeenCalled();
@@ -437,6 +458,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(mockHandler.executeGeneric).toHaveBeenCalled();
@@ -453,6 +475,7 @@ describe('wrapper-utils', () => {
         'testFunction',
         initializeDependencies
       );
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testFunction function error', {
@@ -469,6 +492,7 @@ describe('wrapper-utils', () => {
         'testHandler',
         initializeDependencies
       );
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
@@ -490,6 +514,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       expect(initializeDependencies).toHaveBeenCalled();
@@ -508,6 +533,7 @@ describe('wrapper-utils', () => {
         initializeDependencies
       );
 
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(initializeDependencies).toHaveBeenCalled();
@@ -531,8 +557,11 @@ describe('wrapper-utils', () => {
       );
 
       // Call three times
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await httpFunction(mockRequest, mockResponse);
 
       // Init function called 3 times, but logic only executes once
@@ -554,8 +583,11 @@ describe('wrapper-utils', () => {
       );
 
       // Call three times
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
+      // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
       expect(singletonInit).toHaveBeenCalledTimes(3);

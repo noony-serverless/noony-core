@@ -26,10 +26,14 @@ const wrapResponse = <T, TBody = unknown, TUser = unknown>(
  * @template TUser - The type of the authenticated user (preserves type chain)
  * @implements {BaseMiddleware}
  *
+ * @remarks
+ * **Important:** Do not use the deprecated `setResponseData()` helper function.
+ * Simply return values from your handler - the Handler automatically sets context.responseData.
+ *
  * @example
  * Basic response wrapping:
  * ```typescript
- * import { Handler, ResponseWrapperMiddleware, setResponseData } from '@noony-serverless/core';
+ * import { Handler, ResponseWrapperMiddleware } from '@noony-serverless/core';
  *
  * interface UserResponse {
  *   id: string;
@@ -41,7 +45,7 @@ const wrapResponse = <T, TBody = unknown, TUser = unknown>(
  *   .use(new ResponseWrapperMiddleware<UserResponse>())
  *   .handle(async (context) => {
  *     const user = await getUser(context.params.id);
- *     setResponseData(context, user);
+ *     return user;  // Handler automatically sets context.responseData
  *     // Response will be: { success: true, payload: user, timestamp: "..." }
  *   });
  * ```
@@ -58,11 +62,10 @@ const wrapResponse = <T, TBody = unknown, TUser = unknown>(
  *   .use(new ResponseWrapperMiddleware<ApiResponse>())
  *   .handle(async (context) => {
  *     const items = await getItems();
- *     const response: ApiResponse = {
+ *     return {
  *       items,
  *       pagination: { page: 1, total: items.length }
  *     };
- *     setResponseData(context, response);
  *   });
  * ```
  *
@@ -75,7 +78,7 @@ const wrapResponse = <T, TBody = unknown, TUser = unknown>(
  *   .use(new ErrorHandlerMiddleware())
  *   .handle(async (context) => {
  *     const data = await getSecureData(context.user.id);
- *     setResponseData(context, data);
+ *     return data;
  *   });
  * ```
  */
@@ -101,18 +104,22 @@ export class ResponseWrapperMiddleware<
  * @template TUser - The type of the authenticated user (preserves type chain)
  * @returns BaseMiddleware object with response wrapping logic
  *
+ * @remarks
+ * **Important:** Do not use the deprecated `setResponseData()` helper function.
+ * Simply return values from your handler - the Handler automatically sets context.responseData.
+ *
  * @example
  * Simple API endpoint:
  * ```typescript
- * import { Handler, responseWrapperMiddleware, setResponseData } from '@noony-serverless/core';
+ * import { Handler, responseWrapperMiddleware } from '@noony-serverless/core';
  *
  * const healthCheckHandler = new Handler()
  *   .use(responseWrapperMiddleware<{ status: string; uptime: number }>())
  *   .handle(async (context) => {
- *     setResponseData(context, {
+ *     return {
  *       status: 'healthy',
  *       uptime: process.uptime()
- *     });
+ *     };
  *     // Response: { success: true, payload: { status: "healthy", uptime: 12345 }, timestamp: "..." }
  *   });
  * ```
@@ -126,10 +133,10 @@ export class ResponseWrapperMiddleware<
  *   .handle(async (context) => {
  *     const userData = context.req.parsedBody;
  *     const newUser = await createUser(userData);
- *     setResponseData(context, {
+ *     return {
  *       id: newUser.id,
  *       message: 'User created successfully'
- *     });
+ *     };
  *   });
  * ```
  *
@@ -141,11 +148,11 @@ export class ResponseWrapperMiddleware<
  *   .use(responseWrapperMiddleware<{ orderId: string; status: string; estimatedDelivery: string }>())
  *   .handle(async (context) => {
  *     const order = await processOrder(context.req.parsedBody);
- *     setResponseData(context, {
+ *     return {
  *       orderId: order.id,
  *       status: order.status,
  *       estimatedDelivery: order.estimatedDelivery
- *     });
+ *     };
  *   });
  * ```
  */
@@ -160,69 +167,3 @@ export const responseWrapperMiddleware = <
     wrapResponse<T, TBody, TUser>(context, defaultStatusCode);
   },
 });
-
-/**
- * Helper function to set response data in context for later wrapping.
- * This function should be used in handlers when using ResponseWrapperMiddleware.
- *
- * @template T - The type of data being set
- * @template TBody - The type of the request body payload (preserves type chain)
- * @template TUser - The type of the authenticated user (preserves type chain)
- * @param context - The request context
- * @param data - The data to be included in the response payload
- *
- * @example
- * Setting simple response data:
- * ```typescript
- * import { setResponseData } from '@noony-serverless/core';
- *
- * const handler = new Handler()
- *   .use(responseWrapperMiddleware())
- *   .handle(async (context) => {
- *     const message = "Hello, World!";
- *     setResponseData(context, { message, timestamp: new Date().toISOString() });
- *   });
- * ```
- *
- * @example
- * Setting complex response data:
- * ```typescript
- * const dashboardHandler = new Handler()
- *   .use(responseWrapperMiddleware())
- *   .handle(async (context) => {
- *     const stats = await getDashboardStats(context.user.id);
- *     const notifications = await getNotifications(context.user.id);
- *
- *     setResponseData(context, {
- *       user: context.user,
- *       stats,
- *       notifications,
- *       lastLogin: new Date().toISOString()
- *     });
- *   });
- * ```
- *
- * @example
- * Conditional response data:
- * ```typescript
- * const userProfileHandler = new Handler()
- *   .use(responseWrapperMiddleware())
- *   .handle(async (context) => {
- *     const userId = context.params.id;
- *     const user = await getUser(userId);
- *
- *     if (user) {
- *       setResponseData(context, { user, found: true });
- *     } else {
- *       context.res.status(404);
- *       setResponseData(context, { message: 'User not found', found: false });
- *     }
- *   });
- * ```
- */
-export function setResponseData<T, TBody = unknown, TUser = unknown>(
-  context: Context<TBody, TUser>,
-  data: T
-): void {
-  context.responseData = data;
-}
