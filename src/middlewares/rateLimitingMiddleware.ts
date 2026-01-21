@@ -404,9 +404,10 @@ const getRateLimit = <TBody, TUser>(
  *   });
  * ```
  */
-export class RateLimitingMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class RateLimitingMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   private store: RateLimitStore;
   private options: Required<
     Omit<RateLimitOptions, 'keyGenerator' | 'skip' | 'dynamicLimits' | 'store'>

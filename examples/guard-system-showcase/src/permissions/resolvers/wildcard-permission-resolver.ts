@@ -90,9 +90,9 @@ export interface WildcardResolverStats {
  * - Intelligent pattern caching and optimization
  * - Comprehensive performance monitoring
  */
-export class WildcardPermissionResolver
-  implements PermissionResolver<string[]>
-{
+export class WildcardPermissionResolver implements PermissionResolver<
+  string[]
+> {
   private readonly permissionSource: PermissionSource;
   private readonly stats: WildcardResolverStats;
   private readonly patternCache = new Map<string, PatternCacheEntry>();

@@ -107,9 +107,10 @@ const validate = async <TBody, TUser>(
  *   });
  * ```
  */
-export class ValidationMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class ValidationMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   constructor(private readonly schema: z.ZodSchema) {}
 
   async before(context: Context<TBody, TUser>): Promise<void> {

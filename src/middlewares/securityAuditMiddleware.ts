@@ -274,9 +274,10 @@ const extractClientInfo = <TBody, TUser>(
  * @template TBody - The type of the request body payload (preserves type chain)
  * @template TUser - The type of the authenticated user (preserves type chain)
  */
-export class SecurityAuditMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class SecurityAuditMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   private options: Required<
     Omit<SecurityAuditOptions, 'onSecurityEvent' | 'suspiciousPatterns'>
   > &

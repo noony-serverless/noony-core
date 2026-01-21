@@ -263,9 +263,10 @@ const handleError = async <TBody = unknown, TUser = unknown>(
  *   .handle(...);
  * ```
  */
-export class ErrorHandlerMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class ErrorHandlerMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   /**
    * Creates an instance of ErrorHandlerMiddleware.
    * @param {ErrorHandlerOptions} [options] - Configuration options for the middleware, including custom error categories.

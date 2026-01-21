@@ -86,8 +86,7 @@ export class ResponseWrapperMiddleware<
   T = unknown,
   TBody = unknown,
   TUser = unknown,
-> implements BaseMiddleware<TBody, TUser>
-{
+> implements BaseMiddleware<TBody, TUser> {
   constructor(private defaultStatusCode?: number) {}
 
   async after(context: Context<TBody, TUser>): Promise<void> {

@@ -151,9 +151,10 @@ import { containerPool, ServiceDefinition } from '../core/containerPool';
  *   });
  * ```
  */
-export class DependencyInjectionMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class DependencyInjectionMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   constructor(
     private services: ServiceDefinition[] = [],
     private options?: {

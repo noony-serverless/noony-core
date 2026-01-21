@@ -118,9 +118,10 @@ interface PubSubMessage {
  *   }));
  * ```
  */
-export class ProcessingMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class ProcessingMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   private config: ProcessingMiddlewareConfig;
 
   constructor(config: ProcessingMiddlewareConfig = {}) {

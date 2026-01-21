@@ -120,9 +120,7 @@ export interface ExpressionResolverStats {
  * - Expression parsing and compilation
  * - Comprehensive performance monitoring
  */
-export class ExpressionPermissionResolver
-  implements PermissionResolver<PermissionExpression>
-{
+export class ExpressionPermissionResolver implements PermissionResolver<PermissionExpression> {
   private readonly permissionSource: PermissionSource;
   private readonly stats: ExpressionResolverStats;
   private readonly expressionCache = new Map<string, ExpressionCacheEntry>();

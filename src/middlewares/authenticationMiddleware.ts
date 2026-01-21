@@ -509,9 +509,10 @@ async function verifyToken<TUser, TBody = unknown>(
  * });
  * ```
  */
-export class AuthenticationMiddleware<TUser = unknown, TBody = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class AuthenticationMiddleware<
+  TUser = unknown,
+  TBody = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   constructor(
     private tokenVerificationPort: CustomTokenVerificationPort<TUser>,
     private options: AuthenticationOptions = {}

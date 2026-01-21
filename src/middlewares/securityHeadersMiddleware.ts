@@ -135,9 +135,10 @@ const isOriginAllowed = (
  * @template TBody - The type of the request body payload (preserves type chain)
  * @template TUser - The type of the authenticated user (preserves type chain)
  */
-export class SecurityHeadersMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class SecurityHeadersMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   private options: Required<Omit<SecurityHeadersOptions, 'cors'>> & {
     cors?: SecurityHeadersOptions['cors'];
   };

@@ -60,9 +60,10 @@ import { z, ZodSchema } from 'zod';
  *   });
  * ```
  */
-export class PathParametersMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class PathParametersMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   async before(context: Context<TBody, TUser>): Promise<void> {
     const host =
       (Array.isArray(context.req.headers.host)

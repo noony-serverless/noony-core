@@ -81,9 +81,10 @@ const validateHeaders = (
  *   });
  * ```
  */
-export class HeaderVariablesMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class HeaderVariablesMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   constructor(private requiredHeaders: string[]) {}
 
   async before(context: Context<TBody, TUser>): Promise<void> {

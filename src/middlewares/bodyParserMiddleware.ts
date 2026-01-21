@@ -246,9 +246,10 @@ const parseBody = async <T = unknown>(body: unknown): Promise<T> => {
  *   });
  * ```
  */
-export class BodyParserMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class BodyParserMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   private maxSize: number;
 
   constructor(maxSize: number = MAX_JSON_SIZE) {

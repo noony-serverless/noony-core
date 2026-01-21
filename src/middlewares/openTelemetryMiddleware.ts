@@ -115,9 +115,10 @@ export interface OpenTelemetryOptions {
  *     // Your business logic
  *   });
  */
-export class OpenTelemetryMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class OpenTelemetryMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   private provider: TelemetryProvider;
   private enabled: boolean;
   private failSilently: boolean;

@@ -72,9 +72,10 @@ const convertQueryToRecord = (
  *   });
  * ```
  */
-export class QueryParametersMiddleware<TBody = unknown, TUser = unknown>
-  implements BaseMiddleware<TBody, TUser>
-{
+export class QueryParametersMiddleware<
+  TBody = unknown,
+  TUser = unknown,
+> implements BaseMiddleware<TBody, TUser> {
   constructor(private readonly requiredParams: string[] = []) {}
 
   async before(context: Context<TBody, TUser>): Promise<void> {

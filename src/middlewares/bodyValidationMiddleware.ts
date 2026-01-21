@@ -108,9 +108,10 @@ const validateBody = <T, U = unknown>(
  *   .handle(handleCreateUser);
  * ```
  */
-export class BodyValidationMiddleware<T = unknown, U = unknown>
-  implements BaseMiddleware<T, U>
-{
+export class BodyValidationMiddleware<
+  T = unknown,
+  U = unknown,
+> implements BaseMiddleware<T, U> {
   constructor(private readonly schema: z.ZodSchema<T>) {}
 
   async before(context: Context<T, U>): Promise<void> {
