@@ -35,6 +35,30 @@ export interface BaseMiddleware<T = unknown, U = unknown> {
  * process a request/response flow either before the main handler (via `before`),
  * after the main handler (via `after`), or handle errors (via `onError`).
  *
+ * @example Type-safe handler with explicit types
+ * interface LoginRequest {
+ *   email: string;
+ *   password: string;
+ * }
+ *
+ * interface AuthUser extends BaseAuthenticatedUser {
+ *   role: 'admin' | 'user';
+ * }
+ *
+ * const handler = new Handler<LoginRequest, AuthUser>()
+ *   .use(new ErrorHandlerMiddleware<LoginRequest, AuthUser>())
+ *   .use(new BodyValidationMiddleware<LoginRequest, AuthUser>(loginSchema))
+ *   .handle(loginController);  // ✅ No 'as any' needed
+ *
+ * @example Type inference with createTypedHandler
+ * async function loginController(context: Context<LoginRequest, AuthUser>) {
+ *   // controller logic
+ * }
+ *
+ * const handler = createTypedHandler(loginController)
+ *   .use(new ErrorHandlerMiddleware())  // Types inferred
+ *   .handle(loginController);  // ✅ No 'as any' needed
+ *
  * interface MessagePayload {
  *   action: string;
  *   data: Record<string, unknown>;
@@ -67,15 +91,9 @@ export class Handler<T = unknown, U = unknown> {
     return handler;
   }
 
-  use<NewT = T, NewU = U>(
-    middleware: BaseMiddleware<NewT, NewU>
-  ): Handler<NewT, NewU> {
-    const handler = new Handler<NewT, NewU>();
-    handler.baseMiddlewares = [
-      ...(this.baseMiddlewares as unknown as BaseMiddleware<NewT, NewU>[]),
-      middleware,
-    ];
-    return handler;
+  use(middleware: BaseMiddleware<T, U>): Handler<T, U> {
+    this.baseMiddlewares.push(middleware);
+    return this;
   }
 
   handle(
@@ -206,4 +224,35 @@ export class Handler<T = unknown, U = unknown> {
     }
     // No finally block needed - proxy container is auto-GC'd
   }
+}
+
+/**
+ * Helper to infer types automatically from the controller function.
+ *
+ * This helper is a permanent feature that improves Developer Experience (DX).
+ * It eliminates the need to write explicit generic type parameters when they
+ * are already defined in the controller signature.
+ *
+ * @example
+ * // Controller with explicit types
+ * async function loginController(context: Context<LoginRequest, AuthUser>) {
+ *   const { email, password } = context.req.validatedBody!;
+ *   // ... authentication logic
+ * }
+ *
+ * // Helper infers LoginRequest and AuthUser automatically
+ * const handler = createTypedHandler(loginController)
+ *   .use(new ErrorHandlerMiddleware())  // Types inferred
+ *   .use(new BodyValidationMiddleware(loginSchema))
+ *   .handle(loginController);  // ✅ Types match perfectly, no 'as any' needed
+ *
+ * @template T - The request body type (inferred from controller's Context<T, U>)
+ * @template U - The user type (inferred from controller's Context<T, U>)
+ * @param controller - The controller function with explicit Context<T, U> types
+ * @returns A new Handler instance with types inferred from the controller
+ */
+export function createTypedHandler<T, U>(
+  _controller: (context: Context<T, U>) => Promise<void | unknown>
+): Handler<T, U> {
+  return new Handler<T, U>();
 }

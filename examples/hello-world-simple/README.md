@@ -300,11 +300,266 @@ gcloud functions deploy helloWorld \
    gcloud services enable cloudbuild.googleapis.com
    ```
 
+## ⚡ Fastify Integration for Local Development
+
+The Noony framework supports **framework-agnostic handlers** that work with both Google Cloud Functions (production) and Fastify (local development). Using Fastify for local development provides ~2x faster startup and iteration compared to the Cloud Functions emulator.
+
+### Why Fastify?
+
+- **Faster Development**: ~2x faster than Cloud Functions emulator
+- **Same Handler Code**: Write once, run in both environments
+- **Production-Grade**: Fastify is a high-performance HTTP framework
+- **Type-Safe**: Full TypeScript support maintained
+- **Zero Changes**: Handler code requires no modifications
+
+### Adding Fastify to Your Project
+
+#### 1. Install Fastify
+
+```bash
+npm install fastify
+```
+
+#### 2. Create Fastify Server
+
+Create a new file [src/server.ts](src/server.ts):
+
+```typescript
+import Fastify from 'fastify';
+import { createFastifyHandler } from '@noony-serverless/core';
+import { helloWorldHandler } from './index';
+
+// Initialize Fastify server
+const server = Fastify({
+  logger: {
+    level: 'info',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname',
+      },
+    },
+  },
+});
+
+// Dependency initialization (singleton pattern)
+let initialized = false;
+async function initializeDependencies(): Promise<void> {
+  if (initialized) return;
+
+  // Initialize your services here (database, external APIs, etc.)
+  console.log('🚀 Dependencies initialized');
+  initialized = true;
+}
+
+// Shorthand helper for creating Fastify handlers
+const adapt = (handler: any, name: string) =>
+  createFastifyHandler(handler, name, initializeDependencies);
+
+// Register routes with the same handler used in Cloud Functions
+server.post('/helloWorld', adapt(helloWorldHandler, 'helloWorld'));
+
+// Health check endpoint
+server.get('/health', async (request, reply) => {
+  reply.send({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Graceful shutdown
+const shutdown = async () => {
+  console.log('🛑 Shutting down server...');
+  await server.close();
+  process.exit(0);
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+// Start server
+const start = async () => {
+  try {
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+    const host = process.env.HOST || '0.0.0.0';
+
+    await server.listen({ port, host });
+    console.log(`✨ Fastify server running on http://${host}:${port}`);
+    console.log(`📝 POST http://localhost:${port}/helloWorld - Hello World endpoint`);
+    console.log(`🏥 GET  http://localhost:${port}/health - Health check`);
+  } catch (err) {
+    server.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+```
+
+#### 3. Update package.json Scripts
+
+Add a new script to [package.json](package.json):
+
+```json
+{
+  "scripts": {
+    "dev": "functions-framework --target=helloWorld --port=8080",
+    "dev:fastify": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "npm run build && functions-framework --target=helloWorld --port=8080",
+    "deploy": "gcloud functions deploy helloWorld --runtime nodejs18 --trigger-http --allow-unauthenticated"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
+  }
+}
+```
+
+#### 4. Run with Fastify
+
+```bash
+# Start Fastify server with hot reload
+npm run dev:fastify
+
+# Server available at: http://localhost:3000
+```
+
+#### 5. Test the Same Endpoint
+
+```bash
+# Test with Fastify (port 3000)
+curl -X POST http://localhost:3000/helloWorld \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Fastify"}'
+
+# Test with Cloud Functions Framework (port 8080)
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Cloud Functions"}'
+```
+
+### How It Works: Framework-Agnostic Pattern
+
+The same `helloWorldHandler` works in both environments through Noony's **Generic Approach**:
+
+```typescript
+// src/index.ts - Handler Definition (UNCHANGED!)
+export const helloWorldHandler = new Handler()
+  .use(new ErrorHandlerMiddleware())
+  .use(new BodyParserMiddleware())
+  .use(new BodyValidationMiddleware(helloWorldSchema))
+  .use({ before: validateBusinessRules })
+  .use(new ResponseWrapperMiddleware())
+  .use({ after: performanceMonitoring })
+  .handle(async (context: Context) => {
+    // Business logic here
+  });
+
+// Entry Point 1: Cloud Functions (Production)
+export const helloWorld = http('helloWorld', async (req, res) => {
+  await helloWorldHandler.execute(req, res);  // Built-in adapter
+});
+
+// Entry Point 2: Fastify (Local Development)
+server.post('/helloWorld',
+  createFastifyHandler(helloWorldHandler, 'helloWorld', initializeDependencies)
+);
+```
+
+### Architecture: Adapter Flow
+
+```
+Fastify Request → adaptFastifyRequest() → GenericRequest
+                                              ↓
+                                       Handler.executeGeneric()
+                                              ↓
+                                       GenericResponse
+                                              ↓
+Fastify Reply   ← adaptFastifyResponse() ← GenericResponse
+```
+
+### Benefits of Dual-Entry Pattern
+
+| Feature | Cloud Functions | Fastify |
+|---------|----------------|---------|
+| **Development Speed** | ~3-5s cold start | ~1-2s startup |
+| **Hot Reload** | ✅ Supported | ✅ Supported |
+| **Production Deploy** | ✅ Native | ❌ N/A |
+| **Type Safety** | ✅ Full | ✅ Full |
+| **Handler Code** | Same code | Same code |
+| **Testing** | Functions Framework | Real HTTP server |
+
+### Path Parameters with Fastify
+
+Fastify supports dynamic route parameters seamlessly:
+
+```typescript
+// Handler that uses path parameters
+const getUserHandler = new Handler()
+  .use(new ErrorHandlerMiddleware())
+  .handle(async (context) => {
+    const userId = context.req.params.userId;  // Type-safe access
+    const user = await getUserService(userId);
+    context.res.json({ data: user });
+  });
+
+// Register with Fastify path syntax
+server.get('/users/:userId', adapt(getUserHandler, 'getUser'));
+
+// Test: curl http://localhost:3000/users/123
+```
+
+### Multiple Routes Example
+
+```typescript
+// Register multiple endpoints
+server.post('/helloWorld', adapt(helloWorldHandler, 'helloWorld'));
+server.get('/users/:userId', adapt(getUserHandler, 'getUser'));
+server.post('/users', adapt(createUserHandler, 'createUser'));
+server.patch('/users/:userId', adapt(updateUserHandler, 'updateUser'));
+server.delete('/users/:userId', adapt(deleteUserHandler, 'deleteUser'));
+```
+
+### Development Workflow
+
+**Recommended workflow for new features:**
+
+1. **Develop with Fastify**: Use `npm run dev:fastify` for fast iteration
+2. **Test locally**: Exercise all endpoints with curl/Postman
+3. **Switch to Cloud Functions**: Use `npm run dev` to verify GCP compatibility
+4. **Deploy**: Use `npm run deploy` to push to production
+
+### Troubleshooting
+
+**Port already in use:**
+```bash
+# Change port in src/server.ts or set environment variable
+PORT=3001 npm run dev:fastify
+```
+
+**TypeScript errors:**
+```bash
+# Ensure fastify is installed
+npm install fastify
+
+# Check TypeScript version
+npm install -D typescript@latest
+```
+
+**Handler not found:**
+- Ensure you're exporting `helloWorldHandler` from [src/index.ts](src/index.ts)
+- Check import path in [src/server.ts](src/server.ts)
+
+### Additional Resources
+
+- [Fastify Documentation](https://www.fastify.io/)
+- [Noony Framework-Agnostic Patterns](../../docs/NOONY_SKILLS.md)
+- [Complete Fastify Example](../fastify-production-api/)
+
 ## 🔧 Development Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start with hot reload |
+| `npm run dev` | Start with Cloud Functions Framework (port 8080) |
+| `npm run dev:fastify` | Start with Fastify for faster local dev (port 3000) |
 | `npm run build` | Compile TypeScript |
 | `npm start` | Run compiled version |
 | `npm run deploy` | Deploy to GCP |
