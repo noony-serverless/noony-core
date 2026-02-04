@@ -8,7 +8,6 @@ import {
 // Import trace for dynamic OTEL operations
 let trace: typeof import('@opentelemetry/api').trace | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   trace = require('@opentelemetry/api').trace;
 } catch {
   // OTEL not available

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { BaseMiddleware, Context } from '../core';
 import { containerPool, ServiceDefinition } from '../core/containerPool';
 

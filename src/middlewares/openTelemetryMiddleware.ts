@@ -301,7 +301,6 @@ export class OpenTelemetryMiddleware<
 
           // Try to extract parent context using OpenTelemetry API
           try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const otelApi = require('@opentelemetry/api');
             const { propagation, context: otelContext } = otelApi;
 
@@ -375,7 +374,6 @@ export class OpenTelemetryMiddleware<
 
         // Add X-Trace-Id header with clean trace ID
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
           const otelApi = require('@opentelemetry/api');
           const { context: otelContext, trace } = otelApi;
 

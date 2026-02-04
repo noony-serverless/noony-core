@@ -85,23 +85,19 @@ export class OpenTelemetryProvider implements TelemetryProvider {
   async initialize(config: TelemetryConfig): Promise<void> {
     try {
       // Dynamic require to avoid compile-time dependency on OTEL packages
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+
       const otelApi = require('@opentelemetry/api');
       const { trace, metrics } = otelApi;
 
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const sdkNode = require('@opentelemetry/sdk-node');
       const { NodeSDK } = sdkNode;
 
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const exporterHttp = require('@opentelemetry/exporter-trace-otlp-http');
       const { OTLPTraceExporter } = exporterHttp;
 
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const resources = require('@opentelemetry/resources');
       const { Resource } = resources;
 
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const semConv = require('@opentelemetry/semantic-conventions');
       const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } = semConv;
 
@@ -253,7 +249,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 
     try {
       // Try to get active span for correlation
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+
       const { trace } = require('@opentelemetry/api');
       const span = trace.getActiveSpan();
 
@@ -333,7 +329,6 @@ export class OpenTelemetryProvider implements TelemetryProvider {
       // Add Cloud Trace propagator (priority 1 - reads X-Cloud-Trace-Context from GCP)
       if (useCloudTrace) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
           const cloudPropagator = require('@google-cloud/opentelemetry-cloud-trace-propagator');
           const { CloudPropagator } = cloudPropagator;
           propagators.push(new CloudPropagator());
@@ -353,7 +348,6 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 
       // Add W3C Trace Context propagator (priority 2 - standard traceparent)
       if (useW3C) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const otelCore = require('@opentelemetry/core');
         const { W3CTraceContextPropagator } = otelCore;
         propagators.push(new W3CTraceContextPropagator());
@@ -362,7 +356,6 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 
       // If multiple propagators, use CompositePropagator
       if (propagators.length > 1) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const otelCore = require('@opentelemetry/core');
         const { CompositePropagator } = otelCore;
         return new CompositePropagator({ propagators });
@@ -374,7 +367,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
       }
 
       // Fallback to W3C if no propagators configured
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+
       const otelCore = require('@opentelemetry/core');
       const { W3CTraceContextPropagator } = otelCore;
       return new W3CTraceContextPropagator();
@@ -382,7 +375,6 @@ export class OpenTelemetryProvider implements TelemetryProvider {
       console.error('[Telemetry] Failed to create propagator:', error);
       // Return W3C propagator as safe fallback
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const otelCore = require('@opentelemetry/core');
         const { W3CTraceContextPropagator } = otelCore;
         return new W3CTraceContextPropagator();

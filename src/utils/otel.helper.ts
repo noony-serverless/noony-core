@@ -14,7 +14,6 @@ import type { Context as OtelContext, Span } from '@opentelemetry/api';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let trace: any;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const otelApi = require('@opentelemetry/api');
   trace = otelApi.trace;
 } catch {

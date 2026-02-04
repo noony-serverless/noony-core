@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type */
 /**
  * CustomTokenVerificationPort Integration Tests
  *

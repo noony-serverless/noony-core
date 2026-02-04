@@ -84,61 +84,59 @@ let CloudPropagator: (new () => unknown) | null;
 function loadOTELModules(): boolean {
   try {
     // Load SDK
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const sdkNode = require('@opentelemetry/sdk-node');
     NodeSDK = sdkNode.NodeSDK;
 
     // Load resources
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const resources = require('@opentelemetry/resources');
     Resource = resources.Resource;
 
     // Load semantic conventions
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const semConv = require('@opentelemetry/semantic-conventions');
     ATTR_SERVICE_NAME = semConv.ATTR_SERVICE_NAME;
     ATTR_SERVICE_VERSION = semConv.ATTR_SERVICE_VERSION;
     ATTR_DEPLOYMENT_ENVIRONMENT = semConv.ATTR_DEPLOYMENT_ENVIRONMENT;
 
     // Load trace SDK
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const traceNode = require('@opentelemetry/sdk-trace-node');
     BatchSpanProcessor = traceNode.BatchSpanProcessor;
 
     // Load exporters
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const traceExporter = require('@opentelemetry/exporter-trace-otlp-http');
     OTLPTraceExporter = traceExporter.OTLPTraceExporter;
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const metricExporter = require('@opentelemetry/exporter-metrics-otlp-http');
     OTLPMetricExporter = metricExporter.OTLPMetricExporter;
 
     // Load metrics SDK
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const metricsSDK = require('@opentelemetry/sdk-metrics');
     PeriodicExportingMetricReader = metricsSDK.PeriodicExportingMetricReader;
 
     // Load auto-instrumentations
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const autoInst = require('@opentelemetry/auto-instrumentations-node');
     getNodeAutoInstrumentations = autoInst.getNodeAutoInstrumentations;
 
     // Load core
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const core = require('@opentelemetry/core');
     CompositePropagator = core.CompositePropagator;
     W3CTraceContextPropagator = core.W3CTraceContextPropagator;
 
     // Load samplers
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const traceBase = require('@opentelemetry/sdk-trace-base');
     ParentBasedSampler = traceBase.ParentBasedSampler;
     AlwaysOnSampler = traceBase.AlwaysOnSampler;
 
     // Try to load CloudPropagator (optional)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cloudProp = require('@google-cloud/opentelemetry-cloud-trace-propagator');
       CloudPropagator = cloudProp.CloudPropagator;
     } catch {
@@ -207,7 +205,6 @@ function getEnvironment(): string {
  */
 function getServiceVersion(): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const packageJson = require('../../package.json');
     return packageJson.version || '0.0.0';
   } catch {
@@ -269,7 +266,7 @@ function createResource(): unknown {
  * - Application → Cloud Trace UI
  * - Application → Downstream services
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function createPropagator() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const propagators: any[] = [];

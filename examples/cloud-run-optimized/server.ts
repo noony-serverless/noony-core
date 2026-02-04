@@ -112,7 +112,7 @@ app.get('/api/error', async () => {
  */
 app.post('/api/orders', async (request, _reply) => {
   // Get tracer from OTEL API
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   const { trace } = require('@opentelemetry/api');
   const tracer = trace.getTracer('order-service');
 
