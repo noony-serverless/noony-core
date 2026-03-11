@@ -31,7 +31,8 @@ export const TELEMETRY = {
 } as const;
 
 export const ENV = {
-  IS_DEVELOPMENT: process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true',
+  IS_DEVELOPMENT:
+    process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true',
   IS_TEST: process.env.NODE_ENV === 'test',
   DEBUG_API_RESPONSE: process.env.DEBUG_API_RESPONSE === 'true',
 } as const;

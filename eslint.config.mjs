@@ -16,6 +16,7 @@ export default [
       '**/*.js',
       '*.config.js',
       '*.config.mjs',
+      'src/**/*.d.ts',
     ],
   },
   js.configs.recommended,
@@ -86,6 +87,7 @@ export default [
       },
       globals: {
         ...globals.node,
+        NodeJS: 'readonly',
       },
     },
     plugins: {

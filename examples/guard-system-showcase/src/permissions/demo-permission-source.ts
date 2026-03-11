@@ -117,7 +117,7 @@ export class DemoPermissionSource extends BasePermissionSource {
           if (user) {
             console.log(`🧪 Found test user in permission source: ${userId}`);
           }
-        } catch (error) {
+        } catch {
           // Test user registry not available or user not found
         }
       }
@@ -213,7 +213,7 @@ export class DemoPermissionSource extends BasePermissionSource {
               `🧪 Found test user in permission source (roles): ${userId}`
             );
           }
-        } catch (error) {
+        } catch {
           // Test user registry not available or user not found
         }
       }

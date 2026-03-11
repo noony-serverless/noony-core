@@ -262,7 +262,7 @@ export class AuthHandlers {
         // Attempt authentication to ensure test users are registered
         // But don't require it to succeed (restricted users may be rate limited)
         await this.guardService.authenticate(authRequest);
-      } catch (error) {
+      } catch {
         // Continue even if authentication fails - restricted users may be rate limited
         // but we still want to allow context refresh
       }
@@ -945,7 +945,7 @@ export class AuthHandlers {
         ) {
           await (this.authService as any).clearCaches();
         }
-      } catch (error) {
+      } catch {
         // Method might not exist, ignore
       }
 
@@ -957,7 +957,7 @@ export class AuthHandlers {
         ) {
           await (this.guardService as any).clearCaches();
         }
-      } catch (error) {
+      } catch {
         // Method might not exist, ignore
       }
 

@@ -14,6 +14,7 @@ import type { Context as OtelContext, Span } from '@opentelemetry/api';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let trace: any;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const otelApi = require('@opentelemetry/api');
   trace = otelApi.trace;
 } catch {
@@ -56,7 +57,9 @@ function extractSpanContext(span: Span | null): OTELLogContext {
  * Extract span context or undefined if not available
  * @internal
  */
-function extractSpanContextOrUndefined(span: Span | null): OTELLogContext | undefined {
+function extractSpanContextOrUndefined(
+  span: Span | null
+): OTELLogContext | undefined {
   if (!span) {
     return undefined;
   }

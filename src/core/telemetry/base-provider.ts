@@ -48,7 +48,9 @@ export abstract class BaseProvider implements TelemetryProvider {
    * Create a span for the given context
    * Subclasses must implement this
    */
-  abstract createSpan(_context: Context<unknown, unknown>): GenericSpan | undefined;
+  abstract createSpan(
+    _context: Context<unknown, unknown>
+  ): GenericSpan | undefined;
 
   /**
    * Record a metric

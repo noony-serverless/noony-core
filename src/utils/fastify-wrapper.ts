@@ -2,7 +2,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { GenericRequest, GenericResponse } from '../core/core';
 import { Handler } from '../core/handler';
 import { logger } from '../core/logger';
-import { isResponseAlreadySent, INTERNAL_ERROR_RESPONSE, logHandlerError } from './http-wrapper-base';
+import {
+  isResponseAlreadySent,
+  INTERNAL_ERROR_RESPONSE,
+  logHandlerError,
+} from './http-wrapper-base';
 type FastifyHeaderValue = string | string[] | undefined;
 
 // Global WeakMap to store the original Fastify request for each GenericRequest

@@ -81,6 +81,7 @@ let CloudPropagator: (new () => unknown) | null;
 /**
  * Load OTEL modules (called once during initialization)
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 function loadOTELModules(): boolean {
   try {
     // Load SDK
@@ -153,6 +154,7 @@ function loadOTELModules(): boolean {
     return false;
   }
 }
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
  * Determine if OpenTelemetry should be enabled
@@ -205,6 +207,7 @@ function getEnvironment(): string {
  */
 function getServiceVersion(): string {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const packageJson = require('../../package.json');
     return packageJson.version || '0.0.0';
   } catch {

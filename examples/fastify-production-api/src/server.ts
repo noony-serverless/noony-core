@@ -91,6 +91,7 @@ export function createFastifyServer(): FastifyInstance {
 
   // Register CORS plugin for development
   if (config.environment === 'development') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const cors = require('@fastify/cors');
     fastify.register(cors, {
       origin: config.cors.origin,

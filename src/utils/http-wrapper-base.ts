@@ -12,7 +12,10 @@ import { HTTP_ERRORS } from '../core/constants';
  * Used to avoid handling errors when response has already been sent by middleware
  */
 export function isResponseAlreadySent(error: unknown): boolean {
-  return error instanceof Error && error.message === HTTP_ERRORS.RESPONSE_ALREADY_SENT;
+  return (
+    error instanceof Error &&
+    error.message === HTTP_ERRORS.RESPONSE_ALREADY_SENT
+  );
 }
 
 /**
@@ -42,7 +45,10 @@ export function logHandlerError(functionName: string, error: unknown): void {
  * Check if response headers have already been sent
  * Works with both Express and Fastify replies
  */
-export function hasHeadersBeenSent(response: { headersSent?: boolean; sent?: boolean }): boolean {
+export function hasHeadersBeenSent(response: {
+  headersSent?: boolean;
+  sent?: boolean;
+}): boolean {
   return response.headersSent === true || response.sent === true;
 }
 
@@ -62,7 +68,11 @@ export function sendInternalError(res: any): void {
  * @param functionName - Name for logging
  * @param response - Response object to send error to (if headers not sent)
  */
-export function handleWrapperError(error: unknown, functionName: string, response: any): void {
+export function handleWrapperError(
+  error: unknown,
+  functionName: string,
+  response: any
+): void {
   // Ignore RESPONSE_ALREADY_SENT marker errors (response already handled by middleware)
   if (isResponseAlreadySent(error)) {
     return;

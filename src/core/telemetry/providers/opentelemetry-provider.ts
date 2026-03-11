@@ -84,6 +84,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
    */
   async initialize(config: TelemetryConfig): Promise<void> {
     try {
+      /* eslint-disable @typescript-eslint/no-require-imports */
       // Dynamic require to avoid compile-time dependency on OTEL packages
 
       const otelApi = require('@opentelemetry/api');
@@ -100,6 +101,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 
       const semConv = require('@opentelemetry/semantic-conventions');
       const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } = semConv;
+      /* eslint-enable @typescript-eslint/no-require-imports */
 
       // Create resource with service metadata
       const resource = new Resource({
@@ -250,6 +252,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
     try {
       // Try to get active span for correlation
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { trace } = require('@opentelemetry/api');
       const span = trace.getActiveSpan();
 
@@ -270,7 +273,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
           timestamp: new Date().toISOString(),
         })
       );
-    } catch (error) {
+    } catch {
       // Fallback to simple logging
       console.log(JSON.stringify({ level, message, ...attributes }));
     }
@@ -317,6 +320,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createPropagator(config: TelemetryConfig): any {
+    /* eslint-disable @typescript-eslint/no-require-imports */
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const propagators: any[] = [];
@@ -386,6 +390,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
         return undefined;
       }
     }
+    /* eslint-enable @typescript-eslint/no-require-imports */
   }
 
   /**

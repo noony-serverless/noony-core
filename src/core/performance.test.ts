@@ -21,6 +21,7 @@ import {
   containerPool,
 } from '../core';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const testSchema = z.object({
   name: z.string(),
   email: z.string().email(),

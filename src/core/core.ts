@@ -59,6 +59,7 @@ export interface CustomRequest<T = unknown> extends Request {
  * Legacy GCP Functions-specific response interface for backward compatibility
  * @deprecated Use GenericResponse instead
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CustomResponse extends Response {}
 
 /**

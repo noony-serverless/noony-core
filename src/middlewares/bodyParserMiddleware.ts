@@ -140,7 +140,7 @@ const decodeBase64Async = async (base64Data: string): Promise<string> => {
           return;
         }
         resolve(decoded);
-      } catch (error: unknown) {
+      } catch {
         reject(new ValidationError('Failed to decode base64 Pub/Sub message'));
       }
     });

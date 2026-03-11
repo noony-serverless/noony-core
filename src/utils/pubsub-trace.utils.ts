@@ -110,6 +110,7 @@ export function injectTraceContext(
   try {
     // Try to use OpenTelemetry API if available
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const otelApi = require('@opentelemetry/api');
     const { trace, propagation, context: otelContext } = otelApi;
 

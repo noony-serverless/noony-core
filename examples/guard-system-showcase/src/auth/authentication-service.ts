@@ -477,7 +477,7 @@ export class AuthenticationService {
               payload.sub && payload.sub.includes('user-restricted-');
           }
         }
-      } catch (error) {
+      } catch {
         // If we can't decode, treat as non-restricted
         isRestrictedUserToken = false;
       }

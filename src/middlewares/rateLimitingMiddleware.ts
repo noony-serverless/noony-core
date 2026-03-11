@@ -81,7 +81,7 @@ export interface RateLimitInfo {
  */
 class MemoryStore implements RateLimitStore {
   private store = new Map<string, { count: number; resetTime: number }>();
-  private cleanupInterval: NodeJS.Timeout;
+  private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor() {
     // Cleanup expired entries every 5 minutes
