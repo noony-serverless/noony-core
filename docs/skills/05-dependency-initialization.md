@@ -1,176 +1,51 @@
-# Skill 5: Dependency Initialization Pattern
+# Skill 05: Dependency Initialization Pattern
 
-## Triggers
+## Does exactly this
 
-When user asks to:
+Provides singleton initialization guard pattern that ensures database connections and services initialize exactly once. Handles concurrent requests, failures, and safe state resets.
+
+## When to use
+
 - "Initialize database connection"
 - "Set up dependency injection"
 - "Singleton pattern for services"
 - "Initialize services once"
 - "Connect to database on startup"
 - "Prevent multiple DB connections"
-- "Cold start optimization"
 
-## What it provides
+## Steps
 
-Reusable singleton initialization pattern that ensures services (database, caches, etc.) are initialized exactly once across all requests.
+1. Create three-condition guard with `initialized` flag, `initializationPromise`, and first-run logic
+   → See resources/05-dependency-init.md#singleton-pattern-with-three-condition-guard for exact code to copy
+2. Register all services via `containerPool.initializeGlobal()` — never use `Container.set()` in init
+3. Reset state on failure: `initialized = false; containerPool.reset();` so next request can retry
+4. Call `await initializeDependencies()` at server startup (eager) or on first request (lazy)
+5. Add graceful shutdown with cleanup: `await cleanup()` on SIGTERM/SIGINT
 
-## Complete Example
+## Rules
 
-```typescript
-// src/core/initialization.ts
-import { logger, containerPool } from '@noony-serverless/core';
-import { databaseService } from '../services/database.service';
-import { UserRepository } from '../repositories/user.repository';
-import { AuthService } from '../services/auth.service';
+- Three-condition guard REQUIRED: check `initialized`, check `initializationPromise`, then initialize
+- Services registered ONLY via `containerPool.initializeGlobal()` with id/value pairs
+- Never call `initializeDependencies()` inside a handler function — adds latency per request
+- Always reset `initialized = false` on error so next request can retry
+- Always clear `initializationPromise = null` in finally block
+- Graceful shutdown MUST call `cleanup()` before process exit
 
-let initialized = false;
-let initializationPromise: Promise<void> | null = null;
+## Anti-patterns
 
-/**
- * Initialize all application dependencies (singleton pattern)
- *
- * This function ensures that:
- * 1. Dependencies are initialized exactly once
- * 2. Concurrent initialization requests wait for the first one to complete
- * 3. Initialization failures are properly handled
- * 4. Services are registered in the dependency injection container
- */
-export async function initializeDependencies(): Promise<void> {
-  // Fast path: already initialized
-  if (initialized && containerPool.isInitialized()) {
-    logger.debug('[Init] Dependencies already initialized');
-    return;
-  }
+- ❌ Missing CONDITION 2 (initPromise check) — concurrent requests initialize multiple times
+- ❌ Forgetting to reset `initialized` on failure — stuck in failure state forever
+- ❌ Calling init inside handler — adds 300-500ms per request
+- ❌ Using `Container.set()` instead of `containerPool.initializeGlobal()` — breaks framework DI
+- ❌ No cleanup on shutdown — database connections leak, sockets unclosed
 
-  // Concurrent request path: wait for in-progress initialization
-  if (initializationPromise) {
-    logger.debug('[Init] Waiting for in-progress initialization');
-    await initializationPromise;
-    return;
-  }
+## Done when
 
-  // First request path: perform initialization
-  logger.info('[Init] Starting dependency initialization');
+- You understand all three conditions in the guard pattern
+- You can implement the pattern correctly without referring to docs
+- You know when to use lazy (cloud functions) vs eager (Fastify)
+- You understand the performance impact of per-request initialization
 
-  initializationPromise = (async () => {
-    try {
-      // 1. Connect to database
-      logger.debug('[Init] Connecting to database');
-      const db = await databaseService.connect();
-      logger.info('[Init] Database connected', {
-        host: db.connection.host,
-        name: db.connection.name,
-      });
+## If you need more detail
 
-      // 2. Initialize repositories
-      logger.debug('[Init] Initializing repositories');
-      const userRepository = new UserRepository(db);
-      const configRepository = new ConfigRepository(db);
-
-      // 3. Initialize services
-      logger.debug('[Init] Initializing services');
-      const authService = new AuthService(userRepository);
-      const configService = new ConfigService(configRepository);
-
-      // 4. Register services in container pool for DI
-      logger.debug('[Init] Registering services in container');
-      containerPool.register('UserRepository', userRepository);
-      containerPool.register('ConfigRepository', configRepository);
-      containerPool.register('AuthService', authService);
-      containerPool.register('ConfigService', configService);
-
-      // 5. Mark as initialized
-      containerPool.setInitialized();
-      initialized = true;
-
-      logger.info('[Init] Dependency initialization complete', {
-        duration: process.uptime(),
-      });
-    } catch (error) {
-      logger.error('[Init] Failed to initialize dependencies', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      // Reset state on failure so next request can retry
-      initialized = false;
-      containerPool.reset();
-
-      throw error;
-    } finally {
-      initializationPromise = null;
-    }
-  })();
-
-  await initializationPromise;
-}
-
-/**
- * Cleanup function for graceful shutdown
- */
-export async function cleanup(): Promise<void> {
-  logger.info('[Init] Starting cleanup');
-
-  try {
-    await databaseService.disconnect();
-    containerPool.reset();
-    initialized = false;
-
-    logger.info('[Init] Cleanup complete');
-  } catch (error) {
-    logger.error('[Init] Error during cleanup', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-}
-```
-
-### Usage in Fastify Server
-
-```typescript
-// src/server.ts
-import Fastify from 'fastify';
-import { initializeDependencies, cleanup } from './core/initialization';
-
-const server = Fastify();
-
-// Initialize on server start (optional - can also be lazy)
-server.addHook('onReady', async () => {
-  await initializeDependencies();
-});
-
-// Cleanup on shutdown
-const gracefulShutdown = async () => {
-  await server.close();
-  await cleanup();
-  process.exit(0);
-};
-
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
-```
-
-### Usage in Cloud Functions
-
-```typescript
-// src/functions.ts
-import { http } from '@google-cloud/functions-framework';
-import { initializeDependencies } from './core/initialization';
-
-export const myFunction = http('myFunction', async (req, res) => {
-  // Lazy initialization on first request (cold start)
-  await initializeDependencies();
-
-  await myHandler.execute(req, res);
-});
-```
-
-## When to use
-
-- Database connection management
-- Service initialization (caches, external API clients)
-- Cold start optimization for serverless
-- Preventing duplicate resource initialization
-- Managing singleton services
+→ resources/05-dependency-init.md — Complete guard implementation with comments, usage in Fastify (eager) and Cloud Functions (lazy), service access patterns, performance implications, troubleshooting for common problems

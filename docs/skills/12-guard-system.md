@@ -1,47 +1,47 @@
 # Skill 12: Comprehensive Guard System
 
-## Triggers
+## Does exactly this
 
-When user asks to:
-- "Setup authentication"
-- "Protect routes"
-- "Configure guards"
-- "Setup RBAC"
-
-## What it provides
-
-Configuration pattern for `RouteGuards` with `TokenValidator` and `PermissionSource`.
-
-## Complete Example
-
-```typescript
-import { RouteGuards, TokenValidator, UserPermissionSource } from '@noony-serverless/core';
-
-// 1. Validator
-class JwtValidator implements TokenValidator {
-    async validateToken(token: string) { /* verify JWT */ return { valid: true, decoded: { sub: '123' } }; }
-    extractUserId(decoded: any) { return decoded.sub; }
-    isTokenExpired(decoded: any) { return false; }
-}
-
-// 2. Permission Source
-class DbPermissions implements UserPermissionSource {
-    async getUserPermissions(userId: string) { 
-        return { permissions: ['read:data'], roles: ['user'] }; 
-    }
-    async getRolePermissions(roles: string[]) { return []; } 
-    async isUserContextStale() { return false; }
-}
-
-// 3. Initialize
-const guards = new RouteGuards(new JwtValidator(), new DbPermissions());
-
-// 4. Use in Handler
-// .use(guards.requirePermissions(['read:data']))
-```
+Covers RouteGuards for RBAC (role-based access control): requirePermissions for simple checks, three protection methods, GuardSetup presets, and ordering rules.
 
 ## When to use
 
-- Application startup (singleton initialization)
-- Protecting sensitive endpoints
-- Managing complex permission logic
+- "Restrict endpoint to admins"
+- "Check user permissions"
+- "Role-based access control"
+- "Ownership-based access"
+
+## Steps
+
+1. Use `GuardSetup.production()` or `GuardSetup.development()` presets to configure guards
+2. Add guard after AuthenticationMiddleware (user must exist first)
+3. Use `RouteGuards.requirePermissions()` for simple permission checks
+4. For complex logic, use `requireWildcardPermissions()` or `requireComplexPermissions()`
+   → See resources/12-guard-patterns.md#three-protection-methods for each approach
+
+## Rules
+
+- AuthenticationMiddleware MUST run before guards — user is required
+- Guards check `context.user.permissions` array for required permissions
+- Use simple permissions (e.g., `'admin'`, `'write'`) for most cases
+- GuardSetup configured ONCE at startup — never per-request
+- Middleware ordering: ErrorHandler → Auth → Guards → business logic
+
+## Anti-patterns
+
+- ❌ Using RouteGuards instead of AuthenticationMiddleware for token validation — guards check permissions, not auth
+- ❌ RouteGuards.configure() inside request handler — initialization latency
+- ❌ Complex wildcard expressions when simple permissions work — unnecessary performance cost
+- ❌ Guards before AuthenticationMiddleware — user context not populated yet
+- ❌ Same permissions for all endpoints — no granularity, all-or-nothing access
+
+## Done when
+
+- You know difference between authentication (who are you) and authorization (what can you do)
+- You can set up simple permission checks
+- You know middleware ordering rule (Auth before Guards)
+- You understand three protection methods
+
+## If you need more detail
+
+→ resources/12-guard-patterns.md — GuardSetup presets, three protection methods (simple, wildcard, complex), RBAC patterns, owner-based and team-based access, multi-route setup, testing guard authorization, common gotchas

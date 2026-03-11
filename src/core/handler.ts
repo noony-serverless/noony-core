@@ -121,10 +121,30 @@ export class Handler<T = unknown, U = unknown> {
   async execute(req: GenericRequest<T>, res: GenericResponse): Promise<void> {
     const genericReq = adaptGCPRequest<T>(req as unknown as Request);
     const genericRes = adaptGCPResponse(res as unknown as Response);
+    return this.executeCore(genericReq, genericRes);
+  }
 
+  /**
+   * Framework-agnostic execute method that works with GenericRequest/GenericResponse
+   */
+  async executeGeneric(
+    req: GenericRequest<T>,
+    res: GenericResponse
+  ): Promise<void> {
+    return this.executeCore(req, res);
+  }
+
+  /**
+   * Core middleware execution pipeline (shared by execute and executeGeneric)
+   * Single source of truth for request handling logic
+   */
+  private async executeCore(
+    req: GenericRequest<T>,
+    res: GenericResponse
+  ): Promise<void> {
     // Hybrid Proxy Container: Lightweight zero-copy container per request
     const container = containerPool.createProxyContainer();
-    const context = createContext<T, U>(genericReq, genericRes, {
+    const context = createContext<T, U>(req, res, {
       container,
     });
 
@@ -188,41 +208,6 @@ export class Handler<T = unknown, U = unknown> {
         await middleware.onError(error, context);
       }
     }
-  }
-
-  /**
-   * Framework-agnostic execute method that works with GenericRequest/GenericResponse
-   */
-  async executeGeneric(
-    req: GenericRequest<T>,
-    res: GenericResponse
-  ): Promise<void> {
-    // Hybrid Proxy Container: Lightweight zero-copy container per request
-    const container = containerPool.createProxyContainer();
-    const context = createContext<T, U>(req, res, {
-      container,
-    });
-
-    try {
-      // Execute before middlewares with performance optimizations
-      await this.executeBeforeMiddlewares(context);
-
-      // Capture return value from handler
-      const returnValue = await this.handler(context);
-
-      // If handler returns a value and responseData hasn't been set, use the return value
-      if (returnValue !== undefined && !context.responseData) {
-        context.responseData = returnValue;
-      }
-
-      // Execute after middlewares in reverse order using pre-computed array
-      await this.executeAfterMiddlewares(context);
-    } catch (error) {
-      context.error = error as Error;
-      // Execute error handlers using pre-computed array
-      await this.executeErrorMiddlewares(error as Error, context);
-    }
-    // No finally block needed - proxy container is auto-GC'd
   }
 }
 

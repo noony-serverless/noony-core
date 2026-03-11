@@ -1,110 +1,50 @@
-# Skill 2: Convert Cloud Functions Handler to Fastify
+# Skill 02: Convert Cloud Functions Handler to Fastify
 
-## Triggers
+## Does exactly this
 
-When user asks to:
-- "Make this work with Fastify"
-- "I want to run this handler locally"
-- "Convert to Fastify"
-- "Use the same handler for local and production"
-- "Add Fastify support to existing handlers"
-- "How do I test this without deploying?"
-
-## What it provides
-
-Step-by-step pattern for enabling existing Cloud Functions handlers to work with both Fastify (local) and Cloud Functions (production) using the same handler code.
-
-## Complete Example
-
-### Step 1: Handler Definition (No Changes!)
-
-```typescript
-// src/handlers/order.handlers.ts
-import { Handler, Context } from '@noony-serverless/core';
-
-// Handler remains unchanged - works with both Fastify and Cloud Functions
-export const createOrderHandler = new Handler<CreateOrderRequest, AuthenticatedUser>()
-  .use(new ErrorHandlerMiddleware<CreateOrderRequest, AuthenticatedUser>())
-  .use(new AuthenticationMiddleware(tokenVerifier))
-  .use(new BodyValidationMiddleware(createOrderSchema))
-  .use(new ResponseWrapperMiddleware())
-  .handle(async (context: Context<CreateOrderRequest, AuthenticatedUser>) => {
-    const { productId, quantity } = context.req.validatedBody!;
-    const user = context.user!;
-
-    const order = await orderService.create({
-      productId,
-      quantity,
-      userId: user.id,
-    });
-
-    context.res.status(201).json({ data: order });
-  });
-```
-
-### Step 2: Fastify Entry Point (Local Development)
-
-```typescript
-// src/server.ts
-import Fastify from 'fastify';
-import { createFastifyHandler } from '@noony-serverless/core';
-import { createOrderHandler } from './handlers/order.handlers';
-
-const server = Fastify();
-
-// Wrap Noony handler for Fastify
-server.post(
-  '/api/orders',
-  createFastifyHandler(createOrderHandler, 'createOrder', initializeDependencies)
-);
-
-server.listen({ port: 3000 });
-```
-
-### Step 3: Cloud Functions Entry Point (Production)
-
-```typescript
-// src/functions.ts
-import { http } from '@google-cloud/functions-framework';
-import { createOrderHandler } from './handlers/order.handlers';
-
-// Export for Cloud Functions
-export const createOrder = http('createOrder', async (req, res) => {
-  await initializeDependencies();
-  await createOrderHandler.execute(req, res);
-});
-```
-
-## Pattern Summary
-
-```typescript
-// ✅ BEFORE: Cloud Functions only
-export const myFunction = http('myFunction', (req, res) => {
-  return myHandler.execute(req, res);
-});
-
-// ✅ AFTER: Works with BOTH Fastify and Cloud Functions
-
-// 1. Handler definition (unchanged)
-const myHandler = new Handler<MyRequest, MyUser>()
-  .use(...)
-  .handle(myController);
-
-// 2. Fastify entry (src/server.ts)
-server.post('/api/my-endpoint',
-  createFastifyHandler(myHandler, 'myFunction', initDeps)
-);
-
-// 3. Cloud Functions entry (src/functions.ts)
-export const myFunction = http('myFunction', async (req, res) => {
-  await initDeps();
-  await myHandler.execute(req, res);
-});
-```
+Shows how to run same handler in both Cloud Functions and Fastify with zero code duplication. Handler is written once, deployed to both environments via different entry points.
 
 ## When to use
 
-- You have existing Cloud Functions handlers
-- Want to test handlers locally without deploying
-- Need faster development iteration
-- Want to maintain same codebase for local and production
+- "Test handler locally before deploying"
+- "Speed up development iteration"
+- "Support both Fastify and Cloud Functions"
+- "No code changes between environments"
+
+## Steps
+
+1. Define handler once with all middlewares (same for both environments)
+2. For Fastify: wrap with `createFastifyHandler()` and register route
+   → See resources/02-cloud-to-fastify.md#fastify-entry-point for code
+3. For Cloud Functions: call `handler.execute()` after init
+   → See resources/02-cloud-to-fastify.md#cloud-functions-entry-point for code
+4. Test locally with Fastify (2-3x faster iteration)
+5. Deploy to Cloud Functions with confidence — exact same code
+
+## Rules
+
+- Same handler instance for both entry points — never duplicate
+- Same middleware chain in both environments — testing breaks if different
+- `handler.execute()` for Cloud Functions only
+- `createFastifyHandler()` wrapper for Fastify only
+- Initialize once via `initializeDependencies()` in both paths
+- No environment-specific logic in handlers
+
+## Anti-patterns
+
+- ❌ Different middleware chains for Fastify vs Cloud Functions — production differs from local
+- ❌ Duplicating handler code between entry points — bugs in one won't catch in other
+- ❌ Using different validation schemas — behavior changes between environments
+- ❌ Calling `handler.executeGeneric()` with Cloud Functions req/res — wrong API
+- ❌ Importing server startup code into Cloud Functions — framework mismatch
+
+## Done when
+
+- You can run same handler in Fastify and Cloud Functions
+- You understand handler.execute() vs createFastifyHandler()
+- You can test locally and deploy with confidence
+- You know there's zero code changes between environments
+
+## If you need more detail
+
+→ resources/02-cloud-to-fastify.md — Architecture diagram, handler definition, both entry points, shared initialization, project structure, migration checklist, local testing, performance comparison, environment config, dual-entry examples, gotchas

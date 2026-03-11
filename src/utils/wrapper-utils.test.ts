@@ -314,7 +314,7 @@ describe('wrapper-utils', () => {
       // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Test error',
         stack: testError.stack,
       });
@@ -362,7 +362,7 @@ describe('wrapper-utils', () => {
       // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Unknown error',
         stack: undefined,
       });
@@ -383,7 +383,7 @@ describe('wrapper-utils', () => {
       // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Database connection failed',
         stack: initError.stack,
       });
@@ -495,7 +495,7 @@ describe('wrapper-utils', () => {
       // @ts-ignore - Type conflict between Express and GCF Request types
       await expressHandler(mockRequest, mockResponse);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Consistent error',
         stack: testError.stack,
       });

@@ -2,7 +2,7 @@ import type { HttpFunction } from '@google-cloud/functions-framework';
 import type { Request, Response } from 'express';
 import type { GenericRequest, GenericResponse } from '../core/core';
 import { Handler } from '../core/handler';
-import { logger } from '../core/logger';
+import { handleWrapperError } from './http-wrapper-base';
 
 /**
  * Create an HttpFunction wrapper for a Noony handler
@@ -85,32 +85,12 @@ export function createHttpFunction(
       await initializeDependencies();
 
       // Execute Noony handler (runs middleware chain + controller)
-      // Cast is safe because Handler.execute internally adapts GCP Request/Response
       await noonyHandler.execute(
         req as unknown as GenericRequest<unknown>,
         res as unknown as GenericResponse
       );
     } catch (error) {
-      // Only handle errors if they're real errors (not RESPONSE_SENT markers)
-      if (error instanceof Error && error.message === 'RESPONSE_SENT') {
-        return;
-      }
-
-      logger.error(`${functionName} function error`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      // Graceful error handling - only send if headers not already sent
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'An unexpected error occurred',
-          },
-        });
-      }
+      handleWrapperError(error, functionName, res);
     }
   };
 }
@@ -226,30 +206,13 @@ export function wrapNoonyHandler(
       // Ensure dependencies are initialized
       await initializeDependencies();
 
-      // Execute Noony handler with Express req/res (cast to generic types)
+      // Execute Noony handler with Express req/res
       await noonyHandler.executeGeneric(
         req as unknown as GenericRequest<unknown>,
         res as unknown as GenericResponse
       );
     } catch (error) {
-      if (error instanceof Error && error.message === 'RESPONSE_SENT') {
-        return;
-      }
-
-      logger.error(`${functionName} handler error`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'An unexpected error occurred',
-          },
-        });
-      }
+      handleWrapperError(error, functionName, res);
     }
   };
 }

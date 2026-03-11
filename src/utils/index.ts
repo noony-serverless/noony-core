@@ -36,6 +36,16 @@ export {
   type OTELLogContext,
 } from './otel.helper';
 
+// HTTP wrapper base utilities (shared across frameworks)
+export {
+  isResponseAlreadySent,
+  INTERNAL_ERROR_RESPONSE,
+  logHandlerError,
+  hasHeadersBeenSent,
+  sendInternalError,
+  handleWrapperError,
+} from './http-wrapper-base';
+
 // Wrapper utilities for GCP Functions, Express, and Fastify
 export { createHttpFunction, wrapNoonyHandler } from './wrapper-utils';
 export {

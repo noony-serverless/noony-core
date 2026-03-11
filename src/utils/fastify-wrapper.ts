@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { GenericRequest, GenericResponse } from '../core/core';
 import { Handler } from '../core/handler';
 import { logger } from '../core/logger';
+import { isResponseAlreadySent, INTERNAL_ERROR_RESPONSE, logHandlerError } from './http-wrapper-base';
 type FastifyHeaderValue = string | string[] | undefined;
 
 // Global WeakMap to store the original Fastify request for each GenericRequest
@@ -181,17 +182,6 @@ function adaptFastifyResponse(reply: FastifyReply): GenericResponse {
  * @see {@link createHttpFunction} for Cloud Functions Framework integration (production deployment)
  * @see {@link wrapNoonyHandler} for Express integration
  */
-// Pre-allocated error response object to avoid allocations
-const INTERNAL_ERROR_RESPONSE = Object.freeze({
-  success: false,
-  error: Object.freeze({
-    code: 'INTERNAL_SERVER_ERROR',
-    message: 'An unexpected error occurred',
-  }),
-});
-
-// Constant for performance-critical string comparison
-const RESPONSE_SENT_MESSAGE = 'RESPONSE_SENT';
 
 export interface CloudFunctionRequest {
   method?: string;
@@ -276,15 +266,12 @@ export function createFastifyHandler(
       });
     } catch (error) {
       // Fast path: check RESPONSE_SENT first (most common error to ignore)
-      if (error instanceof Error && error.message === RESPONSE_SENT_MESSAGE) {
+      if (isResponseAlreadySent(error)) {
         return;
       }
 
-      // Log error with pre-allocated prefix
-      logger.error(errorLogPrefix, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      // Log error and send response
+      logHandlerError(functionName, error);
 
       // Graceful error handling - only send if response not already sent
       if (!reply.sent) {

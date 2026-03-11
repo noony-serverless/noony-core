@@ -2,6 +2,14 @@
 
 Complete guide for integrating OAuth 2.0 authentication with Noony's Guard System for modern authentication and permission-based access control.
 
+## Anti-Patterns
+
+> ❌ Avoid these common mistakes:
+
+- **Don't hardcode OAuth client secrets — always use environment variables.**
+- **Don't skip PKCE for authorization code flow — required for public clients to prevent authorization code interception.**
+- **Don't trust tokens without JWKS verification — always verify the token signature against the provider's public keys.**
+
 ## Table of Contents
 
 - [Overview](#overview)

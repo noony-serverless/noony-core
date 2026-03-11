@@ -155,7 +155,7 @@ describe('fastify-wrapper', () => {
 
       await fastifyHandler(mockRequest, mockReply);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Database connection failed',
         stack: testError.stack,
       });
@@ -204,7 +204,7 @@ describe('fastify-wrapper', () => {
 
       await fastifyHandler(mockRequest, mockReply);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Unknown error',
         stack: undefined,
       });
@@ -224,7 +224,7 @@ describe('fastify-wrapper', () => {
 
       await fastifyHandler(mockRequest, mockReply);
 
-      expect(logger.error).toHaveBeenCalledWith('testHandler handler error', {
+      expect(logger.error).toHaveBeenCalledWith('testHandler function error', {
         error: 'Service initialization failed',
         stack: initError.stack,
       });

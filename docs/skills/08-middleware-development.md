@@ -1,50 +1,49 @@
-# Skill 8: Type-Safe Middleware Development
+# Skill 08: Type-Safe Middleware Development
 
-## Triggers
+## Does exactly this
 
-When user asks to:
-- "Create middleware"
-- "Add custom logic to handler"
-- "Intercept requests"
-- "How to write middleware"
-- "Implement BaseMiddleware"
-
-## What it provides
-
-Template for `BaseMiddleware` implementation with:
-- Full generic type safety
-- `before`, `after`, and `onError` lifecycle hooks
-- Context access
-
-## Complete Example
-
-```typescript
-import { BaseMiddleware, Context } from '@noony-serverless/core';
-
-// ✅ CORRECT: Full generic implementation
-class CustomMiddleware<T, U> implements BaseMiddleware<T, U> {
-  async before(context: Context<T, U>): Promise<void> {
-    // Pre-processing logic with full type safety
-    const requestData = context.req.validatedBody; // Type: T | undefined
-    const user = context.user; // Type: U | undefined
-  }
-  
-  async after(context: Context<T, U>): Promise<void> {
-    // Post-processing logic
-    const processingTime = Date.now() - context.startTime;
-    console.log(`Request ${context.requestId} processed in ${processingTime}ms`);
-  }
-  
-  async onError(error: Error, context: Context<T, U>): Promise<void> {
-    // Error handling logic
-    console.error(`Error in request ${context.requestId}:`, error.message);
-  }
-}
-```
+Provides 5 patterns for middleware: class-based, factory functions, DI-aware, conditional logic, and inter-middleware communication via context.businessData.
 
 ## When to use
 
-- Need to process request before handler
-- Need to process response after handler
-- Need global error handling logic
-- Adding cross-cutting concerns (logging, metrics, etc.)
+- "Create custom middleware"
+- "Add cross-cutting concerns"
+- "Intercept requests/responses"
+- "Implement before/after/onError logic"
+
+## Steps
+
+1. Define middleware class implementing `BaseMiddleware<TBody, TUser>` with both generics required
+   → See resources/08-middleware-patterns.md#pattern-1-class-based-middleware for structure
+2. Implement lifecycle hooks as needed: `before()` for preprocessing, `after()` for postprocessing, `onError()` for errors
+3. Use `context.businessData` Map for inter-middleware communication — never extend Context interface
+4. Access injected services via `getService(context, ServiceClass)` helper
+   → See resources/08-middleware-patterns.md#pattern-3-middleware-with-dependency-injection
+5. Use factory functions for stateless reusable middleware
+
+## Rules
+
+- MANDATORY: `implements BaseMiddleware<TBody, TUser>` with both generics — type chain breaks without them
+- Default generic values: `<TBody = unknown, TUser = unknown>` — allows optional type specification
+- Inter-middleware data ONLY via `context.businessData.set()` — never modify Context properties directly
+- All lifecycle methods are optional — implement only what you need
+- Middleware must not have side effects on framework state — readonly context properties
+
+## Anti-patterns
+
+- ❌ `BaseMiddleware` without generics — breaks type chain silently
+- ❌ Extending Context interface for custom data — not portable, breaks compatibility
+- ❌ Returning data from `before()` — return value is ignored, use businessData instead
+- ❌ Mutating context.user or context.req directly — these are read-only, use businessData
+- ❌ Multiple middlewares with same businessData key — key conflicts, lost data
+
+## Done when
+
+- You can write class-based middleware with proper generics
+- You understand lifecycle hooks (before, after, onError)
+- You can pass data between middlewares via businessData
+- You know how to access DI services in middleware
+
+## If you need more detail
+
+→ resources/08-middleware-patterns.md — 5 patterns (class-based, factory, DI-aware, conditional, inter-middleware), anti-patterns with code examples, testing examples with assertions

@@ -1,48 +1,48 @@
-# Skill 9: Advanced Validation Schemas
+# Skill 09: Validation Schemas with Zod
 
-## Triggers
+## Does exactly this
 
-When user asks to:
-- "Add validation"
-- "Validate request body"
-- "Use Zod schema"
-- "Type safe validation"
-
-## What it provides
-
-Zod schema patterns with type inference and complex validation rules (nested objects, arrays).
-
-## Complete Example
-
-```typescript
-import { z } from 'zod';
-import { Handler, BodyValidationMiddleware, ErrorHandlerMiddleware } from '@noony-serverless/core';
-
-// define complex schema
-const orderSchema = z.object({
-  customerId: z.string().uuid('Invalid customer ID format'),
-  items: z.array(z.object({
-    productId: z.string().uuid(),
-    quantity: z.number().min(1).max(99),
-    price: z.number().positive(),
-  })).min(1, 'Order must contain at least one item')
-});
-
-// Extract TypeScript type from schema
-type CreateOrderRequest = z.infer<typeof orderSchema>;
-
-// Use in handler
-const handler = new Handler<CreateOrderRequest, AuthenticatedUser>()
-  .use(new ErrorHandlerMiddleware())
-  .use(new BodyValidationMiddleware(orderSchema))
-  .handle(async (ctx) => {
-    // Fully typed access
-    const { customerId, items } = ctx.req.validatedBody!; 
-  });
-```
+Provides Zod integration patterns: schema definition, parsedBody vs validatedBody access, BodyParserMiddleware ordering, and Pub/Sub validation flow.
 
 ## When to use
 
-- Every endpoint that accepts input
-- When you need strict type checking
-- To generate TypeScript types automatically
+- "Validate request body"
+- "Use Zod schema"
+- "How to test validation"
+- "Pub/Sub message validation"
+
+## Steps
+
+1. Define Zod schema and infer TypeScript type via `z.infer<typeof schema>`
+   → See resources/09-validation-patterns.md#pattern-1-basic-schema for code
+2. Always use `BodyParserMiddleware` BEFORE `BodyValidationMiddleware` to parse body first
+3. In handler, access validated data via `context.req.validatedBody!` (not body)
+4. For Pub/Sub, use `isPubSubMessage()` guard to detect message type, then parse
+   → See resources/09-validation-patterns.md#pattern-4-pubsub-message-validation
+
+## Rules
+
+- Never access `context.req.body` directly — use validatedBody after validation middleware
+- Always use `z.infer<typeof schema>` for TypeScript types — don't define interface separately
+- BodyParserMiddleware MUST come before BodyValidationMiddleware in middleware chain
+- Async validation supported via `schema.parseAsync()` — use for database lookups
+- ValidationError (400) thrown automatically for invalid data — no manual error handling needed
+
+## Anti-patterns
+
+- ❌ Accessing `context.req.body` directly without validation — unsafe, untyped
+- ❌ Skipping BodyParserMiddleware — base64 Pub/Sub messages not decoded
+- ❌ Defining TypeScript interface separately from Zod schema — duplicates type
+- ❌ Validating in handler instead of middleware — defeats middleware benefits
+- ❌ Using `context.req.parsedBody` after BodyValidationMiddleware — use validatedBody instead
+
+## Done when
+
+- You can define Zod schema and infer types
+- You understand parsedBody vs validatedBody
+- You know middleware ordering (parser before validator)
+- You can validate Pub/Sub messages
+
+## If you need more detail
+
+→ resources/09-validation-patterns.md — 6 patterns (basic, arrays, enums, async, custom, Pub/Sub), parsedBody vs validatedBody, error handling, testing examples, performance, anti-patterns

@@ -31,6 +31,49 @@ export interface OTELLogContext {
 }
 
 /**
+ * Extract span context from a span object
+ * Returns empty object if span is null or extraction fails
+ * @internal
+ */
+function extractSpanContext(span: Span | null): OTELLogContext {
+  if (!span) {
+    return {};
+  }
+
+  try {
+    const spanContext = span.spanContext();
+    return {
+      traceId: spanContext.traceId,
+      spanId: spanContext.spanId,
+      traceFlags: spanContext.traceFlags,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Extract span context or undefined if not available
+ * @internal
+ */
+function extractSpanContextOrUndefined(span: Span | null): OTELLogContext | undefined {
+  if (!span) {
+    return undefined;
+  }
+
+  try {
+    const spanContext = span.spanContext();
+    return {
+      traceId: spanContext.traceId,
+      spanId: spanContext.spanId,
+      traceFlags: spanContext.traceFlags,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Create Pino mixin for automatic trace/span ID injection
  *
  * This function creates a Pino mixin that automatically adds OpenTelemetry
@@ -69,22 +112,8 @@ export const createOTELMixin = (): OTELLogContext => {
     return {};
   }
 
-  try {
-    const span = trace.getActiveSpan();
-    if (!span) {
-      return {};
-    }
-
-    const spanContext = span.spanContext();
-    return {
-      traceId: spanContext.traceId,
-      spanId: spanContext.spanId,
-      traceFlags: spanContext.traceFlags,
-    };
-  } catch (error) {
-    // Gracefully handle any errors in trace extraction
-    return {};
-  }
+  const span = trace.getActiveSpan();
+  return extractSpanContext(span);
 };
 
 /**
@@ -100,21 +129,8 @@ export const getOTELContext = (): OTELLogContext | undefined => {
     return undefined;
   }
 
-  try {
-    const span = trace.getActiveSpan();
-    if (!span) {
-      return undefined;
-    }
-
-    const spanContext = span.spanContext();
-    return {
-      traceId: spanContext.traceId,
-      spanId: spanContext.spanId,
-      traceFlags: spanContext.traceFlags,
-    };
-  } catch (error) {
-    return undefined;
-  }
+  const span = trace.getActiveSpan();
+  return extractSpanContextOrUndefined(span);
 };
 
 /**
@@ -127,16 +143,7 @@ export const getOTELContext = (): OTELLogContext | undefined => {
  * @returns OTEL context from the span
  */
 export const getOTELContextFromSpan = (span: Span): OTELLogContext => {
-  try {
-    const spanContext = span.spanContext();
-    return {
-      traceId: spanContext.traceId,
-      spanId: spanContext.spanId,
-      traceFlags: spanContext.traceFlags,
-    };
-  } catch (error) {
-    return {};
-  }
+  return extractSpanContext(span);
 };
 
 /**
@@ -155,21 +162,8 @@ export const getOTELContextFromContext = (
     return undefined;
   }
 
-  try {
-    const span = trace.getSpan(context);
-    if (!span) {
-      return undefined;
-    }
-
-    const spanContext = span.spanContext();
-    return {
-      traceId: spanContext.traceId,
-      spanId: spanContext.spanId,
-      traceFlags: spanContext.traceFlags,
-    };
-  } catch (error) {
-    return undefined;
-  }
+  const span = trace.getSpan(context);
+  return extractSpanContextOrUndefined(span);
 };
 
 /**

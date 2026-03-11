@@ -1,5 +1,13 @@
 # Improving Noony Container: Hybrid Lifetime Architecture
 
+## Anti-Patterns
+
+> ❌ Avoid these common mistakes:
+
+- **Don't treat the global container as writable during request processing** — the global scope is sealed after initialization; write only to the local (request) scope.
+- **Don't clone the entire container per request** — cloning is expensive in serverless; the Hybrid Proxy pattern avoids this by design.
+- **Don't mix request-lifetime and process-lifetime dependencies without explicit scoping** — services that hold request state must be registered in the local scope, not the global scope.
+
 ## Overview
 This document details the architectural improvements to the `ContainerPool` to fully integrate it with the Noony Framework. The goal is to provide a high-performance, memory-efficient Dependency Injection system that supports both **Process Lifetime** (Singletons) and **Request Lifetime** (Scoped) dependencies without the overhead of cloning containers.
 
