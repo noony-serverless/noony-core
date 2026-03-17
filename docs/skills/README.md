@@ -1,30 +1,40 @@
 # Noony Framework Skills
 
-This directory contains essential skills and code patterns for working with the Noony framework.
+Type-safe serverless middleware framework for Google Cloud Functions with Fastify local dev support.
 
-## Skills Index
+## Skill Router
 
-| Skill | Description | Triggers |
-|-------|-------------|----------|
-| [1. Create Fastify Server](01-create-fastify-server.md) | Set up a type-safe Fastify server for local dev | "Create a Fastify server", "Local dev setup" |
-| [2. Convert Cloud Functions](02-convert-cloud-functions-to-fastify.md) | Run Cloud Functions handlers locally with Fastify | "Convert to Fastify", "Run locally" |
-| [3. Custom Adapter](03-custom-adapter.md) | Create adapters for unsupported frameworks | "Add support for Koa", "Custom adapter" |
-| [4. Path Parameters](04-path-parameters.md) | Handle dynamic route parameters | "Path parameters", ":userId" |
-| [5. Dependency Initialization](05-dependency-initialization.md) | Implement singleton initialization pattern | "Init database", "Dependency injection setup" |
-| [6. Dual-Entry Example](06-complete-dual-entry.md) | Complete example of Fastify + Cloud Functions | "Dual entry", "Production example" |
-| [7. Type Inference](07-type-inference.md) | Use `createTypedHandler` for less boilerplate | "Reduce boilerplate", "Infer types" |
-| [8. Middleware Development](08-middleware-development.md) | Create type-safe custom middleware | "Create middleware", "BaseMiddleware" |
-| [9. Validation Schemas](09-validation-schemas.md) | Type-safe Zod validation patterns | "Add validation", "Zod schema" |
-| [10. Error Handling](10-error-handling.md) | Correct usage of built-in error classes | "Handle errors", "Return 400" |
-| [11. Dependency Injection](11-dependency-injection.md) | Best practices for TypeDI | "Inject service", "DI setup" |
-| [12. Guard System](12-guard-system.md) | Auth and permission guard configuration | "Setup auth", "Protect routes" |
-| [13. Performance](13-performance-optimization.md) | Optimizing cold starts with container pool | "Optimize cold start", "Container pool" |
-| [14. Testing](14-testing-handlers.md) | Unit testing patterns for handlers | "Test handler", "Mock services" |
+| Skill | Trigger | Purpose |
+|-------|---------|---------|
+| [`uncle-noony`](uncle-noony/SKILL.md) | "Help me with Noony", "how do I...", "where do I start" | **Start here if unsure.** Orchestrator that routes to all other skills. |
+| [`create-fastify-server`](create-fastify-server/SKILL.md) | "Create Fastify server", "local dev setup" | Set up Fastify server for local development |
+| [`convert-cloud-functions-to-fastify`](convert-cloud-functions-to-fastify/SKILL.md) | "Convert to Fastify", "run locally" | Run Cloud Functions handlers locally via Fastify |
+| [`custom-adapter`](custom-adapter/SKILL.md) | "Custom adapter", "add Koa/Hapi support" | Create adapters for unsupported frameworks |
+| [`path-parameters`](path-parameters/SKILL.md) | "Path parameters", ":userId", "route params" | Handle dynamic route parameters |
+| [`dependency-initialization`](dependency-initialization/SKILL.md) | "Init database", "singleton guard" | Singleton initialization pattern |
+| [`complete-dual-entry`](complete-dual-entry/SKILL.md) | "Dual entry", "complete example" | Full Fastify + Cloud Functions dual-entry example |
+| [`type-inference`](type-inference/SKILL.md) | "Reduce boilerplate", "infer types" | Use createTypedHandler for less boilerplate |
+| [`middleware-development`](middleware-development/SKILL.md) | "Create middleware", "BaseMiddleware" | Create type-safe custom middleware |
+| [`validation-schemas`](validation-schemas/SKILL.md) | "Add validation", "Zod schema" | Type-safe Zod validation patterns |
+| [`error-handling`](error-handling/SKILL.md) | "Handle errors", "return 400/401/500" | Built-in error classes and error handling |
+| [`dependency-injection`](dependency-injection/SKILL.md) | "Inject service", "DI setup" | TypeDI dependency injection patterns |
+| [`guard-system`](guard-system/SKILL.md) | "Setup auth", "protect routes", "guards" | Auth and permission guard configuration |
+| [`performance-optimization`](performance-optimization/SKILL.md) | "Optimize cold start", "performance" | Performance optimization with container pool |
+| [`testing-handlers`](testing-handlers/SKILL.md) | "Test handler", "mock services" | Unit testing patterns for handlers |
+| [`middleware-ordering`](middleware-ordering/SKILL.md) | "Middleware order", "which middleware first" | Correct middleware chain ordering |
 
-## Usage
+## Skill Clusters
 
-Each skill file contains:
-- **Triggers**: When to use the skill
-- **Explanation**: What problem it solves
-- **Code Template**: Copy-paste ready code
-- **Best Practices**: When and how to apply it
+| Cluster | Skills | Covers |
+|---------|--------|--------|
+| **Framework Setup** | `create-fastify-server`, `convert-cloud-functions-to-fastify`, `custom-adapter`, `complete-dual-entry` | Local dev, migration, adapters, dual-entry |
+| **Type Safety** | `type-inference`, `middleware-development` | Generic inference, custom middleware types |
+| **Request Pipeline** | `path-parameters`, `validation-schemas`, `error-handling`, `middleware-ordering` | Path params, validation, errors, ordering |
+| **Data & Auth** | `dependency-initialization`, `dependency-injection`, `guard-system`, `performance-optimization` | Init, DI, guards, performance |
+| **Quality** | `testing-handlers` | Testing patterns |
+
+## Hard Rules
+
+1. **Always preserve generics `<TBody, TUser>` through the entire chain** — Handler, middleware, Context must share the same type parameters.
+2. **ErrorHandlerMiddleware must be first** in every middleware chain — it catches errors from all downstream middleware.
+3. **Never duplicate handler code between entry points** — define once in a handler module, import into both `server.ts` (Fastify) and `functions.ts` (Cloud Functions).

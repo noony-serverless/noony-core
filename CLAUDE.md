@@ -8,12 +8,14 @@ Guidance for Claude Code when working with the **Noony Serverless Framework** �
 
 **Key Files**:
 
-- Getting Started: → `docs/00-getting-started.md`
-- Handler Guide: → `docs/01-handler-guide.md`
-- API Reference: → `docs/02-api-reference.md`
-- Container Architecture: → `docs/03-container-architecture.md`
-- Middleware Guides: → `docs/middlewares/`
-- Auth Guides: → `docs/auth/`
+- Documentation Index: → `docs/INDEX.md`
+- Getting Started: → `docs/tutorials/01-getting-started.md`
+- API Reference: → `docs/reference/api.md`
+- Architecture: → `docs/explanation/architecture.md`
+- Container Model: → `docs/explanation/container-model.md`
+- Middleware Reference: → `docs/reference/middlewares/INDEX.md`
+- Auth Reference: → `docs/reference/auth/INDEX.md`
+- Guides: → `docs/guides/`
 - Adopter Template: → `docs/meta/ADOPTER_CLAUDE_MD_TEMPLATE.md`
 
 
@@ -31,7 +33,7 @@ Context<TBody, TUser>          (Type-safe request/response/user)
   └─ container: ContainerPool  (DI with global+local scopes)
 ```
 
-→ See `docs/03-container-architecture.md` for complete diagrams and patterns
+→ See `docs/explanation/container-model.md` for complete diagrams and patterns
 
 ## Core Principles
 
@@ -89,7 +91,7 @@ Context<TBody, TUser>          (Type-safe request/response/user)
 
 ### Adding a New Middleware
 
-→ `docs/middlewares/01-overview.md`
+→ `docs/guides/custom-middleware.md`
 
 Required:
 - Implement `BaseMiddleware<TBody, TUser>`
@@ -98,20 +100,20 @@ Required:
 
 ### Integrating with Fastify (Local Dev)
 
-→ `docs/00-getting-started.md`
+→ `docs/tutorials/03-local-dev-with-fastify.md`
 
 Use `createFastifyHandler()` wrapper for type-safe integration.
 
 ### Using Dependency Injection
 
-→ `docs/03-container-architecture.md`
+→ `docs/guides/dependency-injection.md`
 
 Global services: Initialize once at startup.
 Local services: Add per-request in middleware.
 
 ### Error Handling
 
-→ `docs/02-api-reference.md`
+→ `docs/guides/error-handling.md`
 
 Use framework error classes:
 - `ValidationError` (400), `UnauthorizedError` (401), `ForbiddenError` (403)
@@ -119,7 +121,7 @@ Use framework error classes:
 
 ### OpenTelemetry & Tracing
 
-→ `docs/02-api-reference.md`
+→ `docs/reference/telemetry.md`
 
 Auto-detects provider from environment; works with GCP CloudPropagator.
 
@@ -144,12 +146,24 @@ src/
 └── index.ts                  # Main exports
 
 docs/
-├── 00-getting-started.md        # Practical adoption guide with real examples
-├── 01-handler-guide.md          # Handler class deep dive, generics, lifecycle
-├── 02-api-reference.md          # Full API reference, OTel, error system
-├── 03-container-architecture.md # Hybrid Proxy Container, zero-copy DI
-├── middlewares/                 # Middleware guides (body, headers, query, DI)
-├── auth/                        # Auth guides (RouteGuards, Firebase, OAuth2)
+├── INDEX.md                     # Site map + audience reading paths
+├── tutorials/                   # Learning-oriented, sequential
+│   ├── 01-getting-started.md    # First handler setup
+│   ├── 02-add-authentication.md # Auth integration
+│   ├── 03-local-dev-with-fastify.md # Local development
+│   └── 04-testing-handlers.md   # Testing patterns
+├── guides/                      # Task-oriented how-to guides
+├── reference/                   # Lookup-oriented
+│   ├── api.md                   # Full API reference
+│   ├── errors.md                # Error class hierarchy
+│   ├── telemetry.md             # OpenTelemetry config
+│   ├── middlewares/             # All 15 middleware reference docs
+│   └── auth/                    # Auth system reference
+├── explanation/                 # Understanding-oriented
+│   ├── architecture.md          # Handler pipeline deep dive
+│   ├── container-model.md       # Zero-copy DI explanation
+│   └── design-patterns.md       # Framework design patterns
+├── skills/                      # Claude Code skill cards
 └── meta/                        # Adopter templates
 ```
 
@@ -161,7 +175,7 @@ docs/
 3. Ensure type generics flow: `Handler<T, U>` → all middlewares → `Context<T, U>`
 
 **Middleware Type Chain (CRITICAL)**:
-All middlewares **must** preserve generics `<TBody, TUser>`. See `docs/middlewares/01-overview.md`.
+All middlewares **must** preserve generics `<TBody, TUser>`. See `docs/reference/middlewares/INDEX.md`.
 
 **Testing**:
 - Write tests alongside implementation
@@ -192,11 +206,12 @@ Current branch: `open-telemetry` | Main branch: `main`
 |----------|--------|
 | How do I set up the project? | `npm install && npm run build` |
 | How do I run tests? | `npm run test` or `npm run test:coverage` |
-| Where's the handler pattern? | → `docs/01-handler-guide.md` |
-| How does DI work? | → `docs/03-container-architecture.md` |
-| How do I add a custom middleware? | → `docs/middlewares/01-overview.md` |
-| How do I trace requests? | → `docs/02-api-reference.md` |
-| What error classes should I use? | → `docs/02-api-reference.md` |
+| Where's the handler pattern? | → `docs/explanation/architecture.md` |
+| How does DI work? | → `docs/guides/dependency-injection.md` |
+| How do I add a custom middleware? | → `docs/guides/custom-middleware.md` |
+| How do I trace requests? | → `docs/reference/telemetry.md` |
+| What error classes should I use? | → `docs/reference/errors.md` |
+| Full documentation index? | → `docs/INDEX.md` |
 
 ## Task Management Workflow
 
