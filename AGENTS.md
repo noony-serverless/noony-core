@@ -20,7 +20,7 @@ Guidance for Codex when working with the **Noony Serverless Framework** — a Ty
 
 
 ## Architecture at a Glance
-
+`
 ```
 Handler<TBody, TUser>          (Middleware pipeline orchestrator)
   ├─ .use(BaseMiddleware)      (Before → After → OnError hooks)
