@@ -1,13 +1,13 @@
 ---
-name: middleware-development
-description: Use when creating custom middleware, adding cross-cutting concerns, intercepting requests or responses, implementing before/after/onError lifecycle hooks, passing data between middlewares via businessData, or accessing DI services inside middleware. PREREQUISITE — read `middleware-ordering` first for where to place your middleware, then come here for how to build it.
+name: noony-middleware-development
+description: Use when creating custom middleware, adding cross-cutting concerns, intercepting requests or responses, implementing before/after/onError lifecycle hooks, passing data between middlewares via businessData, or accessing DI services inside middleware. PREREQUISITE — read `noony-middleware-ordering` first for where to place your middleware, then come here for how to build it.
 ---
 
-# skill:middleware-development
+# skill:noony-middleware-development
 
 ## Does exactly this
 
-Provides 5 patterns for building type-safe middleware: class-based, factory functions, DI-aware, conditional logic, and inter-middleware communication via `context.businessData`. All with proper `<TBody, TUser>` generics. This skill is the BRIDGE between the pipeline order (`middleware-ordering`) and your custom logic.
+Provides 5 patterns for building type-safe middleware: class-based, factory functions, DI-aware, conditional logic, and inter-middleware communication via `context.businessData`. All with proper `<TBody, TUser>` generics. This skill is the BRIDGE between the pipeline order (`noony-middleware-ordering`) and your custom logic.
 
 ## When to use
 
@@ -20,16 +20,16 @@ Provides 5 patterns for building type-safe middleware: class-based, factory func
 
 ## Do not use this skill when
 
-- You need middleware ordering guidance -> `middleware-ordering` is the authority on positioning
-- You need body validation schemas -> `validation-schemas` for Zod integration
-- You need error class selection -> `error-handling` for error types and cause chaining
-- You need type inference guidance -> `type-inference` for generics flow
-- For built-in middleware configuration -> see individual middleware skills: `validation-schemas`, `error-handling`, `dependency-injection`, `guard-system`
+- You need middleware ordering guidance -> `noony-middleware-ordering` is the authority on positioning
+- You need body validation schemas -> `noony-validation-schemas` for Zod integration
+- You need error class selection -> `noony-error-handling` for error types and cause chaining
+- You need type inference guidance -> `noony-type-inference` for generics flow
+- For built-in middleware configuration -> see individual middleware skills: `noony-validation-schemas`, `noony-error-handling`, `noony-dependency-injection`, `noony-guard-system`
 
 ## Steps
 
-1. **Read `middleware-ordering` first** to determine where your middleware belongs in the canonical order — ordering determines when your `before`/`after`/`onError` hooks run relative to other middleware
-2. Define middleware class implementing `BaseMiddleware<TBody, TUser>` — both generics required to preserve the type chain (see `type-inference` for why this matters)
+1. **Read `noony-middleware-ordering` first** to determine where your middleware belongs in the canonical order — ordering determines when your `before`/`after`/`onError` hooks run relative to other middleware
+2. Define middleware class implementing `BaseMiddleware<TBody, TUser>` — both generics required to preserve the type chain (see `noony-type-inference` for why this matters)
    -> See `references/middleware-patterns.md#pattern-1-class-based-middleware` for structure
 3. Implement lifecycle hooks as needed:
    - `before(context)` — preprocessing, runs top-to-bottom in registration order
@@ -42,7 +42,7 @@ Provides 5 patterns for building type-safe middleware: class-based, factory func
    -> See `references/middleware-patterns.md#pattern-3-middleware-with-dependency-injection`
 6. Use factory functions for simpler, stateless middleware that needs configuration parameters
    -> See `references/middleware-patterns.md#pattern-2-factory-function-middleware`
-7. **Register your middleware in the canonical order from `middleware-ordering`** — place it at the correct position relative to ErrorHandler (position 1), validation (positions 6-7), auth (positions 9-12), and ResponseWrapper (last)
+7. **Register your middleware in the canonical order from `noony-middleware-ordering`** — place it at the correct position relative to ErrorHandler (position 1), validation (positions 6-7), auth (positions 9-12), and ResponseWrapper (last)
 
 ## Rules
 
@@ -52,11 +52,11 @@ Provides 5 patterns for building type-safe middleware: class-based, factory func
 - Use descriptive, namespaced businessData keys to avoid collisions — `'otel_span'` is reserved by `OpenTelemetryMiddleware`
 - All lifecycle methods are optional — implement only what you need
 - Middleware must not have side effects on framework state — context properties like `user` and `req` are read-only
-- Consult `middleware-ordering` for where to register your middleware — position determines execution timing
+- Consult `noony-middleware-ordering` for where to register your middleware — position determines execution timing
 
 ## Anti-patterns
 
-- Writing middleware without reading `middleware-ordering` first — ordering determines when your hooks run; wrong position = wrong behavior
+- Writing middleware without reading `noony-middleware-ordering` first — ordering determines when your hooks run; wrong position = wrong behavior
 - `BaseMiddleware` without generics — breaks type chain silently; `context.req.validatedBody` and `context.user` become `unknown`
 - Extending Context interface (`interface CustomContext extends Context`) — not portable, breaks framework compatibility
 - Returning data from `before()` — return value is ignored by the framework, use `businessData` instead
@@ -66,7 +66,7 @@ Provides 5 patterns for building type-safe middleware: class-based, factory func
 
 ## Done when
 
-- You have read `middleware-ordering` and know where your middleware sits in the canonical order
+- You have read `noony-middleware-ordering` and know where your middleware sits in the canonical order
 - You can write class-based middleware with proper `<TBody, TUser>` generics
 - You understand lifecycle hook execution order (before: top-down, after/onError: bottom-up)
 - You can pass data between middlewares via `businessData`

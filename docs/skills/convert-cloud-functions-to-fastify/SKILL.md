@@ -1,9 +1,9 @@
 ---
-name: convert-cloud-functions-to-fastify
+name: noony-convert-cloud-functions-to-fastify
 description: Use when MIGRATING existing Cloud Functions handlers to run locally with Fastify. Converts tightly-coupled Cloud Functions code into framework-agnostic handlers with dual deployment.
 ---
 
-# skill:convert-cloud-functions-to-fastify
+# skill:noony-convert-cloud-functions-to-fastify
 
 ## Does exactly this
 
@@ -20,9 +20,9 @@ Converts an existing Cloud Functions handler into a framework-agnostic Noony han
 
 ## Do not use this skill when
 
-- You are starting a new project from scratch -- use **`complete-dual-entry`** skill instead. It gives you the production pattern without migration concerns.
-- You only need a quick Fastify dev server without migration -- use **`create-fastify-server`** skill instead.
-- You need to support a non-Fastify framework -- use **`custom-adapter`** skill instead.
+- You are starting a new project from scratch -- use **`noony-complete-dual-entry`** skill instead. It gives you the production pattern without migration concerns.
+- You only need a quick Fastify dev server without migration -- use **`noony-create-fastify-server`** skill instead.
+- You need to support a non-Fastify framework -- use **`noony-custom-adapter`** skill instead.
 
 ## Steps
 
@@ -35,7 +35,7 @@ Converts an existing Cloud Functions handler into a framework-agnostic Noony han
 
 2. Verify middleware ordering follows canonical order
    - ErrorHandlerMiddleware first, ResponseWrapperMiddleware last
-   - See **`middleware-ordering`** skill for the definitive reference and common mistakes
+   - See **`noony-middleware-ordering`** skill for the definitive reference and common mistakes
 
 3. Create shared initialization module
    - Singleton guard with `initialized` flag and concurrent-safe promise
@@ -95,10 +95,10 @@ server.ts                  -> createFastifyHandler(handler, name, initFn)
 - `handler.execute()` used in `functions.ts`, `createFastifyHandler()` used in `server.ts`
 - Local testing with `npm run dev` produces identical responses to deployed Cloud Function
 - No Cloud Functions or Fastify imports in handler files
-- Middleware ordering verified against canonical order (**`middleware-ordering`** skill)
+- Middleware ordering verified against canonical order (**`noony-middleware-ordering`** skill)
 
 ## If you need more detail
 
 - -> references/cloud-to-fastify.md -- Architecture diagram, handler definition, both entry points, shared initialization, project structure, migration checklist, integration testing, performance comparison
-- -> **`complete-dual-entry`** skill -- Complete dual-entry reference if you want to see the end-state of a fully migrated project
-- -> **`middleware-ordering`** skill -- Middleware ordering reference for verifying your migrated handler chain
+- -> **`noony-complete-dual-entry`** skill -- Complete dual-entry reference if you want to see the end-state of a fully migrated project
+- -> **`noony-middleware-ordering`** skill -- Middleware ordering reference for verifying your migrated handler chain

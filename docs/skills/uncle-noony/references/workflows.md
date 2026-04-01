@@ -4,7 +4,7 @@
 
 ```
                          ┌──────────────────────┐
-                         │   00 uncle-noony      │
+                         │   00 noony-uncle-noony      │
                          │   (orchestrator)      │
                          └──────────┬─────────────┘
                                     │

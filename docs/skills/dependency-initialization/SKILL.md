@@ -1,9 +1,9 @@
 ---
-name: dependency-initialization
+name: noony-dependency-initialization
 description: Use when initializing database connections, setting up singleton services, implementing the three-condition guard for concurrent-safe one-time initialization, connecting to external APIs at startup, or preventing duplicate DB connections during cold starts in Noony handlers.
 ---
 
-# skill:dependency-initialization
+# skill:noony-dependency-initialization
 
 ## Does exactly this
 
@@ -20,10 +20,10 @@ The singleton initialization guard pattern — initialize database connections, 
 
 ## Do not use this skill when
 
-- For service RESOLUTION (getService, container scopes) → use `dependency-injection` skill
-- For broader performance optimization (memory, lazy vs eager strategy, containerPool tuning) → use `performance-optimization` skill
-- For testing with mocked services → use `testing-handlers` skill
-- For DI inside custom middleware → use `middleware-development` skill
+- For service RESOLUTION (getService, container scopes) → use `noony-dependency-injection` skill
+- For broader performance optimization (memory, lazy vs eager strategy, containerPool tuning) → use `noony-performance-optimization` skill
+- For testing with mocked services → use `noony-testing-handlers` skill
+- For DI inside custom middleware → use `noony-middleware-development` skill
 
 ## Steps
 
@@ -49,8 +49,8 @@ The singleton initialization guard pattern — initialize database connections, 
    - **Lazy (Cloud Functions):** pass as third argument to handler wrapper
    - Never call inside a handler function — adds 300-500ms per request
 
-5. After initialization, resolve services using `dependency-injection` skill patterns — `getService(context, ServiceClass)` in controllers
-   → See `dependency-injection` skill for resolution patterns
+5. After initialization, resolve services using `noony-dependency-injection` skill patterns — `getService(context, ServiceClass)` in controllers
+   → See `noony-dependency-injection` skill for resolution patterns
 
 6. Add graceful shutdown with cleanup on SIGTERM/SIGINT
    - Disconnect database connections, call `containerPool.reset()`, set `initialized = false`
@@ -64,7 +64,7 @@ The singleton initialization guard pattern — initialize database connections, 
 - Always reset `initialized = false` on error so next request retries
 - Always clear `initializationPromise = null` in the finally block
 - Graceful shutdown MUST call cleanup before process exit
-- `performance-optimization` skill uses this pattern as one component of cold start optimization
+- `noony-performance-optimization` skill uses this pattern as one component of cold start optimization
 
 ## Anti-patterns
 

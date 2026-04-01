@@ -1,13 +1,13 @@
 ---
-name: performance-optimization
+name: noony-performance-optimization
 description: Use when optimizing cold starts, tuning memory usage in serverless environments, choosing between lazy and eager initialization strategies, configuring containerPool for zero-copy DI, managing connection pooling, or reviewing a Noony application for broader performance issues beyond basic initialization.
 ---
 
-# skill:performance-optimization
+# skill:noony-performance-optimization
 
 ## Does exactly this
 
-Broader performance optimization — cold start strategies, memory management, lazy vs eager initialization, containerPool tuning, and connection pooling. For the initialization guard pattern itself, see `dependency-initialization`. This skill covers the BROADER performance picture.
+Broader performance optimization — cold start strategies, memory management, lazy vs eager initialization, containerPool tuning, and connection pooling. For the initialization guard pattern itself, see `noony-dependency-initialization`. This skill covers the BROADER performance picture.
 
 ## When to use
 
@@ -20,18 +20,18 @@ Broader performance optimization — cold start strategies, memory management, l
 
 ## Do not use this skill when
 
-- For JUST the initialization guard pattern → use `dependency-initialization` (focused, faster)
-- For DI container API and service resolution → use `dependency-injection`
-- For testing performance-related code → use `testing-handlers`
-- For middleware ordering (cheap-before-expensive) → use `middleware-ordering`
+- For JUST the initialization guard pattern → use `noony-dependency-initialization` (focused, faster)
+- For DI container API and service resolution → use `noony-dependency-injection`
+- For testing performance-related code → use `noony-testing-handlers`
+- For middleware ordering (cheap-before-expensive) → use `noony-middleware-ordering`
 
 ## Steps
 
-`performance-optimization` = `dependency-initialization` (init guard) + `dependency-injection` (DI resolution) + performance-specific patterns.
+`noony-performance-optimization` = `noony-dependency-initialization` (init guard) + `noony-dependency-injection` (DI resolution) + performance-specific patterns.
 
-1. **Apply `dependency-initialization`'s initialization guard** — the foundation of cold start optimization
+1. **Apply `noony-dependency-initialization`'s initialization guard** — the foundation of cold start optimization
    - The three-condition guard ensures one-time initialization under concurrency
-   → See `dependency-initialization` for the complete guard pattern
+   → See `noony-dependency-initialization` for the complete guard pattern
 
 2. **Choose lazy vs eager initialization** based on your deployment target
    - **Lazy** (Cloud Functions): init on first request, good for low-traffic functions
@@ -39,16 +39,16 @@ Broader performance optimization — cold start strategies, memory management, l
    - Eager eliminates cold start for the first user request but increases deployment time
    → See `references/performance-patterns.md#cold-start-optimization-lazy-initialization`
 
-3. **Configure containerPool with `dependency-injection`** for zero-copy DI
+3. **Configure containerPool with `noony-dependency-injection`** for zero-copy DI
    - Global services shared via proxy — no per-request cloning (~99% memory savings)
    - Local services isolated per request — safe to mutate
    - Avoid large objects in local scope — they are cloned per request
-   → See `dependency-injection` for ContainerPool setup
+   → See `noony-dependency-injection` for ContainerPool setup
 
 4. **Optimize middleware ordering** — place cheap checks before expensive ones
    - Auth token validation (fast) before database lookups (slow)
    - Body validation before service calls — reject invalid requests early
-   → See `middleware-ordering` for the canonical order
+   → See `noony-middleware-ordering` for the canonical order
 
 5. **Tune connection pooling** for database and HTTP clients
    - Set pool size based on expected concurrency (Cloud Functions: 1-5, Cloud Run: 10-80)
@@ -61,7 +61,7 @@ Broader performance optimization — cold start strategies, memory management, l
 
 ## Rules
 
-- Three-condition guard REQUIRED for initialization — see `dependency-initialization` for the pattern
+- Three-condition guard REQUIRED for initialization — see `noony-dependency-initialization` for the pattern
 - `containerPool.initializeGlobal()` called ONCE — never per-request
 - Global services must be immutable — initialized once, never mutated during requests
 - Use eager init for production (Cloud Run, long-running servers); lazy for low-traffic Cloud Functions
@@ -81,10 +81,10 @@ Broader performance optimization — cold start strategies, memory management, l
 
 ## Done when
 
-- Initialization uses `dependency-initialization`'s three-condition guard
+- Initialization uses `noony-dependency-initialization`'s three-condition guard
 - Lazy vs eager strategy chosen for your deployment target
-- ContainerPool configured with appropriate global/local scoping (`dependency-injection`)
-- Middleware ordered cheap-before-expensive (`middleware-ordering`)
+- ContainerPool configured with appropriate global/local scoping (`noony-dependency-injection`)
+- Middleware ordered cheap-before-expensive (`noony-middleware-ordering`)
 - Connection pools sized for your concurrency model
 - Graceful shutdown cleans up connections
 

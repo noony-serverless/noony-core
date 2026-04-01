@@ -1,15 +1,15 @@
 ---
-name: complete-dual-entry
-description: The PRODUCTION PATTERN for Noony projects. Use when building a new project or graduating from `create-fastify-server`. Complete dual-entry setup with Fastify (local dev) and Cloud Functions (production) working from the same handler code.
+name: noony-complete-dual-entry
+description: The PRODUCTION PATTERN for Noony projects. Use when building a new project or graduating from `noony-create-fastify-server`. Complete dual-entry setup with Fastify (local dev) and Cloud Functions (production) working from the same handler code.
 ---
 
-# skill:complete-dual-entry
+# skill:noony-complete-dual-entry
 
 ## Does exactly this
 
-End-to-end production-ready setup of a Noony project where the same handler runs identically in both Fastify (local dev) and Cloud Functions (production). This is the recommended starting point for new projects and the graduation target from `create-fastify-server` skill.
+End-to-end production-ready setup of a Noony project where the same handler runs identically in both Fastify (local dev) and Cloud Functions (production). This is the recommended starting point for new projects and the graduation target from `noony-create-fastify-server` skill.
 
-This is the recommended starting point for uncle-noony's New Project journey.
+This is the recommended starting point for noony-uncle-noony's New Project journey.
 
 ## When to use
 
@@ -21,19 +21,19 @@ This is the recommended starting point for uncle-noony's New Project journey.
 - "Project structure for Noony"
 - "Production-ready setup"
 - Starting a new project that needs both local dev and Cloud Functions deployment
-- Graduating from **`create-fastify-server`** skill -- you have a Fastify server and now need Cloud Functions too
+- Graduating from **`noony-create-fastify-server`** skill -- you have a Fastify server and now need Cloud Functions too
 
 ## Do not use this skill when
 
-- You only need a quick Fastify dev server to get started -- use **`create-fastify-server`** skill instead. Come back here when you are ready for production.
-- You are migrating an existing Cloud Functions handler -- use **`convert-cloud-functions-to-fastify`** skill instead. That skill handles migration-specific concerns like extracting inline logic.
-- You need a custom adapter for a non-Fastify framework -- use **`custom-adapter`** skill instead.
+- You only need a quick Fastify dev server to get started -- use **`noony-create-fastify-server`** skill instead. Come back here when you are ready for production.
+- You are migrating an existing Cloud Functions handler -- use **`noony-convert-cloud-functions-to-fastify`** skill instead. That skill handles migration-specific concerns like extracting inline logic.
+- You need a custom adapter for a non-Fastify framework -- use **`noony-custom-adapter`** skill instead.
 
 ## Steps
 
 1. Define handler once with all middlewares in canonical order
    - ErrorHandlerMiddleware first, then validation, then business logic
-   - Verify ordering with **`middleware-ordering`** skill -- this is critical for correct execution
+   - Verify ordering with **`noony-middleware-ordering`** skill -- this is critical for correct execution
    - No imports from Cloud Functions or Fastify in this file
    - Export handler for use by both entry points
    -> See references/dual-entry.md#1-handler-definition-used-by-both-environments
@@ -42,7 +42,7 @@ This is the recommended starting point for uncle-noony's New Project journey.
    - `initialized` flag + concurrent-safe promise pattern
    - Register global services in `containerPool.initializeGlobal()`
    - Include `cleanup()` function for graceful shutdown
-   - See **`dependency-initialization`** skill for detailed initialization patterns
+   - See **`noony-dependency-initialization`** skill for detailed initialization patterns
    -> See references/dual-entry.md#2-initialization-shared-by-both
 
 3. Create Fastify entry point (`server.ts`)
@@ -105,11 +105,11 @@ src/
 - Cloud Functions entry point uses lazy initialization before `handler.execute()`
 - `npm run dev` starts Fastify locally, `npm run deploy` deploys to Cloud Functions
 - No framework-specific imports in handler files
-- Middleware ordering verified against canonical order (**`middleware-ordering`** skill)
+- Middleware ordering verified against canonical order (**`noony-middleware-ordering`** skill)
 
 ## If you need more detail
 
 - -> references/dual-entry.md -- Full project structure, 4 code sections (handler, init, Fastify, Cloud Functions), usage examples for both environments, comparison table, key advantages, common gotchas with solutions
-- -> **`create-fastify-server`** skill -- If you want to start with just Fastify and add Cloud Functions later
-- -> **`dependency-initialization`** skill -- Dependency initialization patterns (singleton guard, containerPool)
-- -> **`middleware-ordering`** skill -- Middleware ordering reference for any handler setup
+- -> **`noony-create-fastify-server`** skill -- If you want to start with just Fastify and add Cloud Functions later
+- -> **`noony-dependency-initialization`** skill -- Dependency initialization patterns (singleton guard, containerPool)
+- -> **`noony-middleware-ordering`** skill -- Middleware ordering reference for any handler setup

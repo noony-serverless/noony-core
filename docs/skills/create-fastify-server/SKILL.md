@@ -1,9 +1,9 @@
 ---
-name: create-fastify-server
-description: Use when setting up a Fastify server for local development from scratch. This is the STARTING POINT — get a dev server running fast, then graduate to `complete-dual-entry` for production dual-entry.
+name: noony-create-fastify-server
+description: Use when setting up a Fastify server for local development from scratch. This is the STARTING POINT — get a dev server running fast, then graduate to `noony-complete-dual-entry` for production dual-entry.
 ---
 
-# skill:create-fastify-server
+# skill:noony-create-fastify-server
 
 ## Does exactly this
 
@@ -21,9 +21,9 @@ Creates a minimal Fastify server for local development with dependency initializ
 
 ## Do not use this skill when
 
-- You need a production-ready project with both Fastify AND Cloud Functions entry points -- use **`complete-dual-entry`** skill instead. That is the graduation path from this skill.
-- You are converting an existing Cloud Functions handler to also run in Fastify -- use **`convert-cloud-functions-to-fastify`** skill instead. That skill handles migration-specific concerns.
-- You need to support a non-Fastify framework (Koa, Hapi, NestJS) -- use **`custom-adapter`** skill instead.
+- You need a production-ready project with both Fastify AND Cloud Functions entry points -- use **`noony-complete-dual-entry`** skill instead. That is the graduation path from this skill.
+- You are converting an existing Cloud Functions handler to also run in Fastify -- use **`noony-convert-cloud-functions-to-fastify`** skill instead. That skill handles migration-specific concerns.
+- You need to support a non-Fastify framework (Koa, Hapi, NestJS) -- use **`noony-custom-adapter`** skill instead.
 
 ## Steps
 
@@ -50,9 +50,9 @@ Creates a minimal Fastify server for local development with dependency initializ
 6. Configure npm scripts: `"dev": "tsx watch src/server.ts"`
    -> See references/fastify-server.md#packagejson-scripts
 
-7. Verify middleware ordering follows canonical order -- see **`middleware-ordering`** skill for the definitive reference
+7. Verify middleware ordering follows canonical order -- see **`noony-middleware-ordering`** skill for the definitive reference
 
-8. When ready for production, graduate to **`complete-dual-entry`** skill to add Cloud Functions alongside your Fastify server
+8. When ready for production, graduate to **`noony-complete-dual-entry`** skill to add Cloud Functions alongside your Fastify server
 
 ## Rules
 
@@ -69,7 +69,7 @@ Creates a minimal Fastify server for local development with dependency initializ
 - Creating different handlers for Fastify vs Cloud Functions -- testing locally becomes meaningless
 - Not catching `RESPONSE_SENT` errors in handler wrapper -- causes unhandled promise rejections
 - Blocking on resources during shutdown without timeout -- process hangs indefinitely
-- Setting up Fastify without planning for Cloud Functions deployment -- use **`complete-dual-entry`** skill when you need both entry points
+- Setting up Fastify without planning for Cloud Functions deployment -- use **`noony-complete-dual-entry`** skill when you need both entry points
 
 ## Done when
 
@@ -78,10 +78,10 @@ Creates a minimal Fastify server for local development with dependency initializ
 - Graceful shutdown closes cleanly on SIGTERM/SIGINT (no hanging processes)
 - Handlers are identical between local Fastify and Cloud Functions entry points
 - Dependencies initialize once on startup, not per-request
-- Middleware ordering follows canonical order (verify with **`middleware-ordering`** skill)
+- Middleware ordering follows canonical order (verify with **`noony-middleware-ordering`** skill)
 
 ## If you need more detail
 
 - -> references/fastify-server.md -- Minimal example, production setup with error handling, package.json scripts, development workflow, Cloud Run deployment, troubleshooting
-- -> **`complete-dual-entry`** skill -- When you need the full dual-entry production pattern
-- -> **`middleware-ordering`** skill -- Middleware ordering reference for any handler setup
+- -> **`noony-complete-dual-entry`** skill -- When you need the full dual-entry production pattern
+- -> **`noony-middleware-ordering`** skill -- Middleware ordering reference for any handler setup

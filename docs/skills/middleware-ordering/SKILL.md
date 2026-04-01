@@ -1,9 +1,9 @@
 ---
-name: middleware-ordering
+name: noony-middleware-ordering
 description: THE canonical reference for middleware chain order — all other pipeline skills defer to this. Use when composing middleware pipelines, debugging execution order, fixing "response already sent" errors, understanding before/after/onError flow direction, sharing data between middlewares via context.businessData, or positioning any middleware in the chain.
 ---
 
-# skill:middleware-ordering
+# skill:noony-middleware-ordering
 
 ## Does exactly this
 
@@ -18,13 +18,13 @@ Defines the canonical middleware execution order for every Noony handler. Explai
 - Understanding why `ResponseWrapperMiddleware` must be last
 - Sharing data between middlewares via `context.businessData`
 - Adding a new middleware and deciding where to place it
-- Any time another skill tells you to "check `middleware-ordering` for ordering"
+- Any time another skill tells you to "check `noony-middleware-ordering` for ordering"
 
 ## Do not use this skill when
 
-- You need to create a custom middleware -> `middleware-development` handles implementation
-- You need error class details -> `error-handling` covers error types and cause chaining
-- You need DI container setup -> `dependency-injection`
+- You need to create a custom middleware -> `noony-middleware-development` handles implementation
+- You need error class details -> `noony-error-handling` covers error types and cause chaining
+- You need DI container setup -> `noony-dependency-injection`
 - This skill is REFERENCE for ordering, not implementation — use the linked skills for how to build each middleware
 
 ## Steps
@@ -32,14 +32,14 @@ Defines the canonical middleware execution order for every Noony handler. Explai
 1. Understand execution flow: `before` runs forward (0->N), `after`/`onError` run reverse (N->0)
    -> See `references/ordering-detail.md#visual-timeline-complete-request-lifecycle` for lifecycle diagram
 2. Place middlewares in canonical order — here is the full positioning with implementation references:
-   - **Position 1**: ErrorHandlerMiddleware -> `error-handling` for error classes and lifecycle
+   - **Position 1**: ErrorHandlerMiddleware -> `noony-error-handling` for error classes and lifecycle
    - **Position 2**: OpenTelemetryMiddleware -> wraps full request including auth
    - **Position 3-5**: Header/structural checks (cheap, fast-fail)
-   - **Position 6**: BodyParserMiddleware -> `validation-schemas` for Zod integration
-   - **Position 7**: BodyValidationMiddleware -> `validation-schemas` for schema patterns
-   - **Position 8**: PathParametersMiddleware -> `path-parameters` for extraction and typing
-   - **Position 9-12**: Auth middlewares (Firebase, OAuth2, guards) -> `guard-system` for guard system
-   - **Position 13+**: DI setup, business logic middlewares -> `middleware-development` for custom middleware
+   - **Position 6**: BodyParserMiddleware -> `noony-validation-schemas` for Zod integration
+   - **Position 7**: BodyValidationMiddleware -> `noony-validation-schemas` for schema patterns
+   - **Position 8**: PathParametersMiddleware -> `noony-path-parameters` for extraction and typing
+   - **Position 9-12**: Auth middlewares (Firebase, OAuth2, guards) -> `noony-guard-system` for guard system
+   - **Position 13+**: DI setup, business logic middlewares -> `noony-middleware-development` for custom middleware
    - **Last**: ResponseWrapperMiddleware -> must be last, its `after` runs first in reverse
    -> See `references/ordering-detail.md#canonical-middleware-order-table` for full table with reasoning
 3. Order principle: cheap structural checks early, expensive semantic operations late
@@ -53,8 +53,8 @@ Defines the canonical middleware execution order for every Noony handler. Explai
 - `ErrorHandlerMiddleware` MUST be first (position 1) — its `onError` runs last in reverse, giving final authority
 - `ResponseWrapperMiddleware` MUST be last — its `after` runs first in reverse, wrapping before others see it
 - `OpenTelemetryMiddleware` at position 2 to wrap full request lifecycle including auth
-- `BodyParserMiddleware` MUST come before `BodyValidationMiddleware` (positions 6-7) — `validation-schemas` depends on this
-- Path params at position 8, before auth guards that may need route params for ownership checks (`path-parameters`, `guard-system`)
+- `BodyParserMiddleware` MUST come before `BodyValidationMiddleware` (positions 6-7) — `noony-validation-schemas` depends on this
+- Path params at position 8, before auth guards that may need route params for ownership checks (`noony-path-parameters`, `noony-guard-system`)
 - Never call `context.res.json()` AND return a value in the same handler — causes double-send
 - Always check `context.res.headersSent` before sending in custom `after()` hooks
 - Use `context.businessData` Map for inter-middleware state — do NOT extend Context interface

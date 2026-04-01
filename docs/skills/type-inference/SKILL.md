@@ -1,13 +1,13 @@
 ---
-name: type-inference
+name: noony-type-inference
 description: Activate when reducing type boilerplate, avoiding repeated generics, inferring types from controller signatures, using createTypedHandler(), choosing between explicit generics and type inference, or fixing broken type chains in middleware.
 ---
 
-# skill:type-inference
+# skill:noony-type-inference
 
 ## Does exactly this
 
-Guides you through the two approaches to typed handlers in Noony: explicit generics (`new Handler<TBody, TUser>()`) and automatic inference via `createTypedHandler()`. Both provide full compile-time type safety — choose based on verbosity preference. Type chain preservation is most critical when writing custom middleware (`middleware-development` skill).
+Guides you through the two approaches to typed handlers in Noony: explicit generics (`new Handler<TBody, TUser>()`) and automatic inference via `createTypedHandler()`. Both provide full compile-time type safety — choose based on verbosity preference. Type chain preservation is most critical when writing custom middleware (`noony-middleware-development` skill).
 
 ## When to use
 
@@ -19,10 +19,10 @@ Guides you through the two approaches to typed handlers in Noony: explicit gener
 
 ## Do not use this skill when
 
-- You need Zod schema types -> see `validation-schemas` skill, it handles those automatically via `z.infer`
-- You need to create a custom middleware -> see `middleware-development` skill for implementation patterns
-- You need DI or container services -> see `dependency-initialization` skill
-- You need middleware ordering -> see `middleware-ordering` skill
+- You need Zod schema types -> see `noony-validation-schemas` skill, it handles those automatically via `z.infer`
+- You need to create a custom middleware -> see `noony-middleware-development` skill for implementation patterns
+- You need DI or container services -> see `noony-dependency-initialization` skill
+- You need middleware ordering -> see `noony-middleware-ordering` skill
 
 ## Steps
 
@@ -51,7 +51,7 @@ Guides you through the two approaches to typed handlers in Noony: explicit gener
    - Always implement `BaseMiddleware<TBody, TUser>` with both generic parameters
    - Use default values `= unknown` on generics for flexibility
    - Missing generics on middleware breaks the chain — `validatedBody` becomes `unknown`
-   - If writing custom middleware, apply `middleware-development` skill after this one for implementation patterns
+   - If writing custom middleware, apply `noony-middleware-development` skill after this one for implementation patterns
    -> references/type-inference.md
 
 ## Rules
@@ -68,7 +68,7 @@ Guides you through the two approaches to typed handlers in Noony: explicit gener
 - `as any` cast to bypass type errors — defeats the entire type system
 - Mixing explicit generics on Handler with implicit middlewares — unclear which is authoritative
 - Using `createTypedHandler()` with untyped controller — inference fails, types degrade to `unknown`
-- Middleware without generics (`BaseMiddleware` instead of `BaseMiddleware<TBody, TUser>`) — breaks type chain; see `middleware-development` skill for correct middleware patterns
+- Middleware without generics (`BaseMiddleware` instead of `BaseMiddleware<TBody, TUser>`) — breaks type chain; see `noony-middleware-development` skill for correct middleware patterns
 - Using `Handler<unknown>` with body validation — `validatedBody` stays `unknown` instead of the schema type
 - `Handler<any, any>` cast to a typed handler — bypasses all checking
 

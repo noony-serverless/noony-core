@@ -1,13 +1,13 @@
 ---
-name: path-parameters
-description: Activate when handling path parameters, route params, accessing :userId or :id from routes, parsing numeric IDs, UUID validation in routes, or distinguishing path params from query params. Used at position 8 in the canonical middleware order (see `middleware-ordering` skill).
+name: noony-path-parameters
+description: Activate when handling path parameters, route params, accessing :userId or :id from routes, parsing numeric IDs, UUID validation in routes, or distinguishing path params from query params. Used at position 8 in the canonical middleware order (see `noony-middleware-ordering` skill).
 ---
 
-# skill:path-parameters
+# skill:noony-path-parameters
 
 ## Does exactly this
 
-Guides you through extracting, typing, and validating path parameters from any framework adapter. Covers simple strings, multiple params, numeric parsing, UUIDs, slugs, and the distinction from query parameters. Path params sit at position 8 in the canonical middleware order (see `middleware-ordering` skill).
+Guides you through extracting, typing, and validating path parameters from any framework adapter. Covers simple strings, multiple params, numeric parsing, UUIDs, slugs, and the distinction from query parameters. Path params sit at position 8 in the canonical middleware order (see `noony-middleware-ordering` skill).
 
 ## When to use
 
@@ -19,10 +19,10 @@ Guides you through extracting, typing, and validating path parameters from any f
 
 ## Do not use this skill when
 
-- You need query string parameter handling -> see `validation-schemas` skill for query validation
-- You are parsing the request body -> see `validation-schemas` skill for body validation
-- You need to decide WHERE to place path params middleware in the chain -> see `middleware-ordering` skill, it is the authority
-- You need middleware ordering guidance -> see `middleware-ordering` skill
+- You need query string parameter handling -> see `noony-validation-schemas` skill for query validation
+- You are parsing the request body -> see `noony-validation-schemas` skill for body validation
+- You need to decide WHERE to place path params middleware in the chain -> see `noony-middleware-ordering` skill, it is the authority
+- You need middleware ordering guidance -> see `noony-middleware-ordering` skill
 
 ## Steps
 
@@ -45,7 +45,7 @@ Guides you through extracting, typing, and validating path parameters from any f
    - UUID: validate with regex or a library before database lookups
    - Slug: validate against allowed characters
 
-5. **Verify path params middleware is at position 8** per `middleware-ordering` skill — after body parsing/validation (positions 6-7) and before auth guards (positions 9-12)
+5. **Verify path params middleware is at position 8** per `noony-middleware-ordering` skill — after body parsing/validation (positions 6-7) and before auth guards (positions 9-12)
 
 6. **In custom adapters**, ensure `params` is mapped in the `GenericRequest` adapter
    - The `params` property must be `Record<string, string>`
@@ -60,7 +60,7 @@ Guides you through extracting, typing, and validating path parameters from any f
 - Validate format and type before using (UUID, numeric, slug)
 - Multiple parameters use separate `:param` declarations in the route path
 - Custom adapters must include `params` in the `GenericRequest` mapping
-- `auth-guards` skill depends on path params for ownership checks — set up path params (position 8) before guards (positions 9-12) per `middleware-ordering` skill
+- `noony-guard-system` skill depends on path params for ownership checks — set up path params (position 8) before guards (positions 9-12) per `noony-middleware-ordering` skill
 
 ## Anti-patterns
 
@@ -77,7 +77,7 @@ Guides you through extracting, typing, and validating path parameters from any f
 - Path param interface is defined with correct types
 - Params are extracted from `context.req.params` (not body or query)
 - Numeric and UUID parameters are validated before use
-- Path params middleware is at position 8 per `middleware-ordering` skill
+- Path params middleware is at position 8 per `noony-middleware-ordering` skill
 - Custom adapter (if applicable) maps `params` to `GenericRequest`
 
 ## If you need more detail

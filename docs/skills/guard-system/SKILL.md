@@ -1,9 +1,9 @@
 ---
-name: guard-system
+name: noony-guard-system
 description: Use when implementing authorization, restricting endpoints by permissions, setting up role-based access control (RBAC), checking user permissions, configuring RouteGuards, using GuardSetup presets, implementing ownership-based or team-based access, or adding wildcard/complex permission expressions in Noony handlers.
 ---
 
-# skill:guard-system
+# skill:noony-guard-system
 
 ## Does exactly this
 
@@ -21,27 +21,27 @@ RouteGuards for authorization: three protection methods (simple, wildcard, compl
 ## Do not use this skill when
 
 - For authentication SETUP (token verification) → see AuthenticationMiddleware docs
-- For error handling in guards (403 responses) → use `error-handling`
-- For middleware ordering of guards in the pipeline → use `middleware-ordering`
-- For DI in guard middleware → use `dependency-injection`
-- For testing guard authorization → use `testing-handlers`
+- For error handling in guards (403 responses) → use `noony-error-handling`
+- For middleware ordering of guards in the pipeline → use `noony-middleware-ordering`
+- For DI in guard middleware → use `noony-dependency-injection`
+- For testing guard authorization → use `noony-testing-handlers`
 
 ## Prerequisites
 
 Guards require:
 - **AuthenticationMiddleware** must run first (sets `context.user`)
-- **Path parameters extracted** (`path-parameters`) before guards that check resource ownership
-- **Correct middleware ordering** per `middleware-ordering`'s canonical order
+- **Path parameters extracted** (`noony-path-parameters`) before guards that check resource ownership
+- **Correct middleware ordering** per `noony-middleware-ordering`'s canonical order
 
 ## Steps
 
 1. Configure guards once at startup with `GuardSetup.production()` or `GuardSetup.development()`
    → See `references/guard-patterns.md#guardsetup-presets` for environment presets
 
-2. Place guards AFTER `AuthenticationMiddleware` per `middleware-ordering`'s canonical order — user must exist before checking permissions
+2. Place guards AFTER `AuthenticationMiddleware` per `noony-middleware-ordering`'s canonical order — user must exist before checking permissions
    - Canonical: ErrorHandler → OTel → Auth → Guards → BodyParser → Validation → ...
 
-3. Ensure path parameters are extracted (`path-parameters`) before guards that check resource ownership
+3. Ensure path parameters are extracted (`noony-path-parameters`) before guards that check resource ownership
    - Ownership guards need `context.req.params.id` to verify the user owns the resource
 
 4. Use `RouteGuards.requirePermissions()` for simple permission checks (most common)
@@ -54,17 +54,17 @@ Guards require:
    → See `references/guard-patterns.md#complex-authorization-ownership-teams` for patterns
 
 7. Test guard authorization with mock users and permission arrays
-   → See `testing-handlers` for guard testing examples
+   → See `noony-testing-handlers` for guard testing examples
 
 ## Rules
 
 - `AuthenticationMiddleware` MUST run before guards — guards need `context.user` populated
 - Guards check `context.user.permissions` array for required permissions
 - `GuardSetup` configured ONCE at startup — never per-request
-- Middleware ordering: ErrorHandler → Auth → Guards → business logic (see `middleware-ordering`)
+- Middleware ordering: ErrorHandler → Auth → Guards → business logic (see `noony-middleware-ordering`)
 - Use simple permissions for most cases — wildcards add matching overhead
 - Permission naming convention: `resource:action` (e.g., `posts:create`, `admin:*`)
-- 403 Forbidden returned when authenticated but lacking permissions (see `error-handling`)
+- 403 Forbidden returned when authenticated but lacking permissions (see `noony-error-handling`)
 
 ## Anti-patterns
 

@@ -1,9 +1,9 @@
 ---
-name: dependency-injection
+name: noony-dependency-injection
 description: Use when resolving services with getService(), managing ContainerPool scopes (global vs local), configuring DependencyInjectionMiddleware, understanding the hybrid proxy container memory model, or accessing type-safe services in Noony controllers. Covers service RESOLUTION, not initialization.
 ---
 
-# skill:dependency-injection
+# skill:noony-dependency-injection
 
 ## Does exactly this
 
@@ -20,17 +20,17 @@ Service RESOLUTION — ContainerPool, `getService()`, global vs local scopes, an
 
 ## Do not use this skill when
 
-- For service INITIALIZATION (one-time setup, singleton guard) → use `dependency-initialization`
-- For cold start optimization and performance tuning → use `performance-optimization`
-- For DI inside custom middleware development → use `middleware-development`
-- For testing with mocked services → use `testing-handlers`
+- For service INITIALIZATION (one-time setup, singleton guard) → use `noony-dependency-initialization`
+- For cold start optimization and performance tuning → use `noony-performance-optimization`
+- For DI inside custom middleware development → use `noony-middleware-development`
+- For testing with mocked services → use `noony-testing-handlers`
 
 ## Steps
 
-The DI flow: `dependency-initialization` (init) → `dependency-injection` (resolve) → `middleware-development` (use in middleware).
+The DI flow: `noony-dependency-initialization` (init) → `noony-dependency-injection` (resolve) → `noony-middleware-development` (use in middleware).
 
-1. First, initialize services with `dependency-initialization`'s singleton guard pattern — services must exist before resolution
-   → See `dependency-initialization` for the three-condition guard
+1. First, initialize services with `noony-dependency-initialization`'s singleton guard pattern — services must exist before resolution
+   → See `noony-dependency-initialization` for the three-condition guard
 
 2. Add `DependencyInjectionMiddleware` to the handler for request-scoped services
    - Use `scope: 'local'` (default) for request-specific data like trace IDs, user context
@@ -48,11 +48,11 @@ The DI flow: `dependency-initialization` (init) → `dependency-injection` (reso
    → See `references/di-patterns.md#hybrid-proxy-container-pattern` for memory diagram
 
 5. For testing, inject mocks via `DependencyInjectionMiddleware` with `scope: 'local'`
-   → See `testing-handlers` for complete testing patterns
+   → See `noony-testing-handlers` for complete testing patterns
 
 ## Rules
 
-- `containerPool.initializeGlobal()` called ONCE at startup — never per-request (see `dependency-initialization`)
+- `containerPool.initializeGlobal()` called ONCE at startup — never per-request (see `noony-dependency-initialization`)
 - Global scope for expensive services (DB connections, HTTP clients, external APIs)
 - Local scope for request-specific data (trace IDs, user context, request IDs)
 - Always use `getService(context, ServiceClass)` for type-safe resolution
@@ -71,7 +71,7 @@ The DI flow: `dependency-initialization` (init) → `dependency-injection` (reso
 
 ## Done when
 
-- Global services initialized once at startup via `dependency-initialization`, resolved via `getService()`
+- Global services initialized once at startup via `noony-dependency-initialization`, resolved via `getService()`
 - Request-scoped data injected via `DependencyInjectionMiddleware`
 - All service access uses `getService(context, ServiceClass)`
 - You understand proxy container prevents global mutation

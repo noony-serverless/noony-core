@@ -1,9 +1,9 @@
 ---
-name: custom-adapter
+name: noony-custom-adapter
 description: Use ONLY when creating adapters for unsupported frameworks like Koa, Hapi, or NestJS. Fastify, Express, and Cloud Functions are already built-in — you do not need this skill for those.
 ---
 
-# skill:custom-adapter
+# skill:noony-custom-adapter
 
 ## Does exactly this
 
@@ -20,10 +20,10 @@ Provides a template for creating adapters for any HTTP framework NOT already sup
 
 ## Do not use this skill when
 
-- **Fastify** -- built-in support via `createFastifyHandler()`. Use **`create-fastify-server`** or **`convert-cloud-functions-to-fastify`** skill instead.
+- **Fastify** -- built-in support via `createFastifyHandler()`. Use **`noony-create-fastify-server`** or **`noony-convert-cloud-functions-to-fastify`** skill instead.
 - **Express** -- built-in support via `handler.execute()`. No adapter needed.
 - **Google Cloud Functions** -- built-in support via `handler.execute()`. No adapter needed.
-- You want the standard Fastify + Cloud Functions dual-entry pattern -- use **`complete-dual-entry`** skill instead.
+- You want the standard Fastify + Cloud Functions dual-entry pattern -- use **`noony-complete-dual-entry`** skill instead.
 
 This skill is for Koa, Hapi, NestJS, or other frameworks that Noony does not natively support.
 
@@ -32,7 +32,7 @@ This skill is for Koa, Hapi, NestJS, or other frameworks that Noony does not nat
 1. Implement `GenericRequest<T>` adapter
    - Map framework's request to: method, url, path, headers, query, params, body, parsedBody
    - CRITICAL: Set `parsedBody` from framework's parsed body -- `BodyValidationMiddleware` reads from this
-   - Adapters need correct generics -- see **`type-inference`** skill for generic patterns
+   - Adapters need correct generics -- see **`noony-type-inference`** skill for generic patterns
    -> See references/custom-adapter.md#step-1-define-adapter-interfaces
 
 2. Implement `GenericResponse` adapter
@@ -52,7 +52,7 @@ This skill is for Koa, Hapi, NestJS, or other frameworks that Noony does not nat
    -> See references/custom-adapter.md#step-4-koa-server-integration
 
 5. Set up middleware chain in canonical order
-   - After creating the adapter, use **`middleware-ordering`** skill to verify handler middleware ordering
+   - After creating the adapter, use **`noony-middleware-ordering`** skill to verify handler middleware ordering
 
 6. Write unit tests for both request and response adaptation
    -> See references/custom-adapter.md#testing-the-adapter
@@ -83,10 +83,10 @@ This skill is for Koa, Hapi, NestJS, or other frameworks that Noony does not nat
 - Response adapter prevents double-send via `headersSent` tracking
 - Unit tests verify request adaptation, response chaining, and double-send prevention
 - Adapter checklist in resources is fully checked
-- Middleware ordering verified against canonical order (**`middleware-ordering`** skill)
+- Middleware ordering verified against canonical order (**`noony-middleware-ordering`** skill)
 
 ## If you need more detail
 
 - -> references/custom-adapter.md -- Complete Koa adapter (request adapter, response adapter, handler wrapper, server integration), unit tests with 3 test cases, adapter checklist, common gotchas with code examples
-- -> **`type-inference`** skill -- Type inference patterns for generics in adapters
-- -> **`middleware-ordering`** skill -- Middleware ordering reference for any handler setup
+- -> **`noony-type-inference`** skill -- Type inference patterns for generics in adapters
+- -> **`noony-middleware-ordering`** skill -- Middleware ordering reference for any handler setup
