@@ -1,0 +1,70 @@
+---
+description: Noony canonical middleware chain order. Apply whenever composing, debugging, or modifying a Noony handler's middleware pipeline.
+globs:
+  - "src/**/*.ts"
+  - "functions.ts"
+  - "server.ts"
+alwaysApply: false
+---
+
+# Noony — Middleware Ordering Rules
+
+Every Noony handler MUST follow this exact middleware chain order.
+
+## Canonical Chain
+
+| Position | Middleware | Constraint |
+|----------|-----------|-----------|
+| 1 | `ErrorHandlerMiddleware` | **MUST be first** — `onError` runs last in reverse, final authority on errors |
+| 2 | `OpenTelemetryMiddleware` | Must wrap full request including auth time |
+| 3–5 | Header/structural checks | Cheap fast-fail checks (e.g. `ContentTypeMiddleware`) |
+| 6 | `BodyParserMiddleware` | **MUST come before** `BodyValidationMiddleware` |
+| 7 | `BodyValidationMiddleware` | Requires parsed body from position 6 |
+| 8 | `PathParametersMiddleware` | Before auth guards — guards may need path params for ownership checks |
+| 9–12 | Auth middlewares | `FirebaseAuthMiddleware`, `OAuth2Middleware`, `RouteGuardMiddleware` |
+| 13+ | DI / business logic | `DependencyInjectionMiddleware`, custom middlewares |
+| Last | `ResponseWrapperMiddleware` | **MUST be last** — `after` runs first in reverse, wraps before others |
+
+## Execution Direction
+
+```
+before  →  runs 0→N  (first middleware's before runs first)
+after   →  runs N→0  (last middleware's after runs first)
+onError →  runs N→0  (last middleware's onError runs first)
+```
+
+## Rules
+
+- `ErrorHandlerMiddleware` NOT at position 1 → errors from structural checks go uncaught
+- `ResponseWrapperMiddleware` NOT last → response wrapping applies in wrong order
+- `BodyValidationMiddleware` before `BodyParserMiddleware` → `parsedBody` is undefined, validation crashes
+- Auth guard before `PathParametersMiddleware` → guard cannot read route params for ownership check
+- `OpenTelemetryMiddleware` after auth → JWT verification time is not traced
+
+## Inter-Middleware Communication
+
+Use `context.businessData` Map — do NOT extend the `Context` interface:
+
+```typescript
+// Set in one middleware
+context.businessData.set('myKey', value);
+
+// Read in a later middleware
+const value = context.businessData.get('myKey');
+```
+
+Reserved key: `'otel_span'` — owned by `OpenTelemetryMiddleware`, never overwrite.
+
+## Response Sending
+
+Choose exactly ONE method per handler — never both:
+
+- **Return value** → `ResponseWrapperMiddleware` wraps and sends it
+- **`context.res.json()`** → sends directly, bypasses wrapper
+
+Always check `context.res.headersSent` before sending in custom `after()` hooks.
+
+## Reference
+
+→ `docs/noony-skills/middleware-ordering/SKILL.md`
+→ `docs/noony-skills/middleware-ordering/references/ordering-detail.md`

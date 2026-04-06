@@ -1,0 +1,122 @@
+---
+description: Noony testing rules. Apply when writing tests for handlers, middleware, or services in a Noony project.
+globs:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+alwaysApply: false
+---
+
+# Noony — Testing Rules
+
+## Handler Test Structure
+
+Always test the full handler chain as a unit, not individual middlewares in isolation:
+
+```typescript
+describe('MyHandler', () => {
+  let mockContext: jest.Mocked<Context<RequestBody, AuthUser>>;
+
+  beforeEach(() => {
+    mockContext = createMockContext({
+      body: { name: 'test' },
+      user: { uid: 'user-123', role: 'admin' },
+    });
+  });
+
+  it('should return the expected response', async () => {
+    const result = await handler.execute(mockRequest(), mockResponse());
+    expect(result.statusCode).toBe(200);
+  });
+
+  it('should throw NotFoundError when resource missing', async () => {
+    mockService.find.mockResolvedValue(null);
+    await expect(handler.execute(mockRequest(), mockResponse()))
+      .rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+```
+
+## Rules
+
+### At least one error path test per handler
+```typescript
+// Every handler MUST have tests for error cases
+it('throws UnauthorizedError when token missing', async () => { ... });
+it('throws ValidationError when body invalid', async () => { ... });
+it('throws NotFoundError when resource not found', async () => { ... });
+```
+
+### Mock services via DI — not module mocking
+```typescript
+// WRONG — brittle, couples to implementation
+jest.mock('../services/user-service');
+
+// CORRECT — mock through the DI container
+const mockUserService = { find: jest.fn(), create: jest.fn() };
+handler.use(new DependencyInjectionMiddleware({
+  UserService: mockUserService,
+}));
+```
+
+### Test the handler chain, not the controller function
+```typescript
+// WRONG — tests controller in isolation, misses middleware behavior
+const result = await myController(mockContext);
+
+// CORRECT — exercises the full pipeline
+const result = await handler.execute(mockRequest, mockResponse);
+```
+
+### Verify typed errors, not generic Error
+```typescript
+// WRONG
+await expect(handler.execute(...)).rejects.toThrow('Not found');
+
+// CORRECT
+await expect(handler.execute(...)).rejects.toBeInstanceOf(NotFoundError);
+```
+
+### Reset DI container between tests
+```typescript
+afterEach(() => {
+  // Reset request-scoped container state between tests
+  containerPool.resetLocal();
+});
+```
+
+## Test File Structure
+
+```typescript
+describe('<HandlerName>', () => {
+  // Setup
+  let handler: Handler<TBody, TUser>;
+  let mockService: jest.Mocked<MyService>;
+
+  beforeEach(() => {
+    mockService = { method: jest.fn() };
+    handler = buildHandler(mockService); // factory that wires the full chain
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  // Happy path
+  it('handles valid request', async () => { ... });
+
+  // Validation
+  it('throws ValidationError on invalid body', async () => { ... });
+
+  // Auth
+  it('throws UnauthorizedError when unauthenticated', async () => { ... });
+
+  // Business logic errors
+  it('throws NotFoundError when resource missing', async () => { ... });
+
+  // Edge cases
+  it('handles empty result set', async () => { ... });
+});
+```
+
+## Reference
+
+→ `docs/noony-skills/testing-handlers/SKILL.md`
+→ `docs/noony-skills/testing-handlers/references/testing-patterns.md`

@@ -1,0 +1,99 @@
+---
+description: Noony error handling rules. Apply whenever throwing errors, handling exceptions, mapping to HTTP status codes, or wrapping external API calls in Noony handlers.
+globs:
+  - "src/**/*.ts"
+  - "functions.ts"
+alwaysApply: false
+---
+
+# Noony — Error Handling Rules
+
+## Error Class Hierarchy
+
+Import from `@noony-serverless/core`. Never throw generic `Error()`.
+
+| Class | HTTP Status | When to use |
+|-------|-------------|-------------|
+| `ValidationError` | 400 | Invalid request body, query params, path params |
+| `UnauthorizedError` | 401 | Missing or invalid authentication token |
+| `ForbiddenError` | 403 | Authenticated but lacks permission |
+| `NotFoundError` | 404 | Resource does not exist |
+| `ConflictError` | 409 | Resource already exists, duplicate key |
+| `InternalServerError` | 500 | Unexpected server-side failures |
+| `HttpError` | custom | Base class — extend for custom status codes |
+| `ServiceError` | n/a | Business logic errors in layers that don't know HTTP |
+
+## Rules
+
+### Always throw typed errors
+```typescript
+// WRONG
+throw new Error('User not found');
+
+// CORRECT
+throw new NotFoundError('User not found');
+```
+
+### Never manually set status
+```typescript
+// WRONG — bypasses error formatting and logging
+context.res.status(404).json({ error: 'Not found' });
+
+// CORRECT — ErrorHandlerMiddleware formats the response
+throw new NotFoundError('User not found');
+```
+
+### Wrap external API errors with cause chaining
+```typescript
+// WRONG — original stack lost
+try {
+  await externalApi.call();
+} catch (err) {
+  throw new InternalServerError('API failed');
+}
+
+// CORRECT — original error preserved as cause
+try {
+  await externalApi.call();
+} catch (err) {
+  throw new InternalServerError('API failed', err as Error);
+}
+```
+
+### Use ServiceError in business logic layers
+```typescript
+// In a service class (doesn't know about HTTP)
+if (!user) throw new ServiceError('USER_NOT_FOUND', 'User does not exist');
+
+// In the handler (translates to HTTP)
+try {
+  return await userService.getUser(id);
+} catch (err) {
+  if (err instanceof ServiceError && err.code === 'USER_NOT_FOUND') {
+    throw new NotFoundError(err.message);
+  }
+  throw new InternalServerError('Failed to get user', err as Error);
+}
+```
+
+### Custom error classes
+```typescript
+export class PaymentRequiredError extends HttpError {
+  constructor(message: string, cause?: Error) {
+    super(402, message, cause);
+  }
+}
+```
+
+## Forbidden Patterns
+
+- `throw new Error('...')` — becomes opaque 500 with no context
+- `context.res.status(X).json(...)` — bypasses `ErrorHandlerMiddleware`
+- `catch (err) { /* ignore */ }` — silent failures hide bugs
+- Wrapping without cause: `new InternalServerError('msg')` when you have the original error
+- `ErrorHandlerMiddleware` not at position 1 — errors from structural checks go uncaught
+
+## Reference
+
+→ `docs/noony-skills/error-handling/SKILL.md`
+→ `docs/noony-skills/error-handling/references/error-hierarchy.md`

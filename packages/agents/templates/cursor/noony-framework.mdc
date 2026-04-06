@@ -1,0 +1,175 @@
+---
+description: Noony framework skill routing. Apply when working with Noony handlers, middleware, Cloud Functions, Fastify, validation, DI, guards, testing, or performance. Uncle Noony orchestrates all Noony development work.
+globs:
+  - "src/**/*.ts"
+  - "functions.ts"
+  - "server.ts"
+alwaysApply: false
+---
+
+# Noony Framework — Uncle Noony Skill Router
+
+You are operating in a project that uses the **Noony Serverless Framework** — a TypeScript middleware framework for Google Cloud Functions with Fastify local dev support.
+
+Route all Noony work through the skill system below. Do not answer Noony questions generically.
+
+---
+
+## Skill Enforcement
+
+When operating in a Noony-based project, you must route all relevant work through the Noony skill system.
+
+### Approved Noony skills
+
+- `noony-uncle-noony`
+- `noony-create-fastify-server`
+- `noony-convert-cloud-functions-to-fastify`
+- `noony-custom-adapter`
+- `noony-path-parameters`
+- `noony-dependency-initialization`
+- `noony-complete-dual-entry`
+- `noony-type-inference`
+- `noony-middleware-development`
+- `noony-validation-schemas`
+- `noony-error-handling`
+- `noony-dependency-injection`
+- `noony-guard-system`
+- `noony-performance-optimization`
+- `noony-testing-handlers`
+- `noony-middleware-ordering`
+
+### Mandatory behavior
+
+- You MUST apply one or more Noony skills whenever the task touches Noony handlers, middleware, validation, errors, DI, auth, Fastify integration, Cloud Functions, testing, performance, or framework architecture.
+- You MUST start with `noony-uncle-noony` when the request is broad, ambiguous, exploratory, or spans multiple Noony concerns.
+- You MUST use the directly relevant skill when the task is narrow and clearly scoped.
+- You MUST explicitly state which Noony skill(s) you are using.
+- You MUST prefer Noony framework conventions over generic framework advice.
+
+### Hard rules
+
+- Preserve generics `<TBody, TUser>` through `Handler`, middleware, and `Context`.
+- Never recommend `as any` as a way to resolve typing issues.
+- Treat `noony-middleware-ordering` as the single source of truth for middleware sequencing.
+- Treat `noony-error-handling` as the single source of truth for typed errors and HTTP status mapping.
+- Use `noony-validation-schemas` for Zod/body/query validation concerns.
+- Use `noony-dependency-initialization` for startup initialization and `noony-dependency-injection` for service resolution.
+- Use `noony-guard-system` for auth and permissions.
+- Use `noony-testing-handlers` for handler and middleware tests.
+- Use `noony-complete-dual-entry` for the production Fastify + Cloud Functions pattern.
+
+### Escalation
+
+- If multiple skills apply, use them in a sensible sequence instead of answering generically.
+- If unsure which Noony skill applies, use `noony-uncle-noony` first.
+
+---
+
+## If/Then Routing
+
+- If the user is unsure where to start, asks "how do I…", is new to Noony, or the task spans multiple areas → use `noony-uncle-noony`.
+- If the user needs a local Fastify dev server → use `noony-create-fastify-server`.
+- If the user wants to migrate Cloud Functions code to run in Fastify too → use `noony-convert-cloud-functions-to-fastify`.
+- If the user needs support for Koa, Hapi, NestJS, or another unsupported framework → use `noony-custom-adapter`.
+- If the user is working with route params like `:id` or `:userId` → use `noony-path-parameters`.
+- If the user needs one-time startup/service initialization → use `noony-dependency-initialization`.
+- If the user wants the full production pattern for Fastify + Cloud Functions → use `noony-complete-dual-entry`.
+- If the user has generic/type-flow issues → use `noony-type-inference`.
+- If the user is creating custom middleware → use `noony-middleware-development`.
+- If the user is defining or applying Zod validation → use `noony-validation-schemas`.
+- If the user is handling errors, status codes, or typed exceptions → use `noony-error-handling`.
+- If the user is resolving services from the container → use `noony-dependency-injection`.
+- If the user is adding auth, permissions, or route guards → use `noony-guard-system`.
+- If the user is optimizing startup, memory, or request performance → use `noony-performance-optimization`.
+- If the user is writing tests for handlers or middleware → use `noony-testing-handlers`.
+- If the user is deciding middleware order → use `noony-middleware-ordering`.
+
+## Workflow rules
+
+- If the task is broad, start with `noony-uncle-noony`, then dispatch to the needed skills.
+- If the task is specific, use the matching skill directly.
+- If validation is involved, usually pair `noony-validation-schemas` with `noony-middleware-ordering`.
+- If auth is involved, usually pair `noony-guard-system` with `noony-middleware-ordering`, and confirm `noony-error-handling` is in place.
+- If custom middleware is involved, usually pair `noony-middleware-development` with `noony-middleware-ordering`.
+- If DI is involved, use `noony-dependency-initialization` for startup and `noony-dependency-injection` for runtime resolution.
+- If types break across the pipeline, use `noony-type-inference` before changing middleware or handlers.
+- If testing behavior, use `noony-testing-handlers` after the implementation skill, not before.
+
+---
+
+## Noony Core Rules
+
+These rules are non-negotiable in every Noony handler. Apply them before writing any code.
+
+### Middleware Ordering (canonical — `noony-middleware-ordering`)
+
+Every handler chain MUST follow this order:
+
+| Position | Middleware | Rule |
+|----------|-----------|------|
+| 1 | `ErrorHandlerMiddleware` | **MUST be first** — its `onError` fires last in reverse, catching all errors |
+| 2 | `OpenTelemetryMiddleware` | Wraps full request lifecycle including auth |
+| 3-5 | Header/structural checks | Cheap fast-fail checks |
+| 6 | `BodyParserMiddleware` | MUST come before `BodyValidationMiddleware` |
+| 7 | `BodyValidationMiddleware` | Requires parsed body from position 6 |
+| 8 | `PathParametersMiddleware` | Before auth guards that need route params |
+| 9-12 | Auth middlewares | Firebase, OAuth2, guards |
+| 13+ | DI setup, business logic | Custom middleware |
+| Last | `ResponseWrapperMiddleware` | **MUST be last** — its `after` runs first in reverse |
+
+Execution direction: `before` runs forward (0→N), `after`/`onError` run reverse (N→0).
+
+### Error Handling (canonical — `noony-error-handling`)
+
+- Always throw typed errors — never throw generic `Error()`
+- Available typed errors: `ValidationError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `InternalServerError` (500)
+- Never call `context.res.status().json()` for errors — always throw, never manually set status
+- Wrap external API errors with cause chaining: `new InternalServerError('message', originalError)`
+- Use `ServiceError` in service layers that shouldn't know about HTTP — translate to `HttpError` in the handler
+
+### Type Safety (canonical — `noony-type-inference`)
+
+- Preserve generics `<TBody, TUser>` through every layer: `Handler`, middleware, `Context`
+- All middleware MUST implement `BaseMiddleware<TBody, TUser>` with both generics
+- Never use `as any` to bypass type errors — use proper type declarations
+- `context.req.validatedBody` must resolve to `TBody` (not `unknown`)
+- `context.user` must resolve to `TUser` (not `unknown`)
+- Use `= unknown` defaults on custom middleware generics for flexible usage
+
+### Forbidden Patterns
+
+- `ErrorHandlerMiddleware` not at position 1
+- `ResponseWrapperMiddleware` not last
+- `context.res.json()` AND a return value in the same handler (double-send error)
+- `throw new Error('...')` instead of a typed error class
+- `as any` anywhere in the handler chain
+- Modifying the `Context` interface — use `context.businessData` Map for inter-middleware state
+- `Container.set()` or `Container.reset()` in production code
+- `@fastify/otel` — use Noony's `OpenTelemetryMiddleware` instead
+
+---
+
+## Skill Reference Paths
+
+All skill detail lives in `docs/skills/`. Read the SKILL.md for the relevant skill before giving guidance.
+
+| Skill | Path |
+|-------|------|
+| `noony-uncle-noony` | `docs/skills/uncle-noony/SKILL.md` |
+| `noony-create-fastify-server` | `docs/skills/create-fastify-server/SKILL.md` |
+| `noony-convert-cloud-functions-to-fastify` | `docs/skills/convert-cloud-functions-to-fastify/SKILL.md` |
+| `noony-custom-adapter` | `docs/skills/custom-adapter/SKILL.md` |
+| `noony-path-parameters` | `docs/skills/path-parameters/SKILL.md` |
+| `noony-dependency-initialization` | `docs/skills/dependency-initialization/SKILL.md` |
+| `noony-complete-dual-entry` | `docs/skills/complete-dual-entry/SKILL.md` |
+| `noony-type-inference` | `docs/skills/type-inference/SKILL.md` |
+| `noony-middleware-development` | `docs/skills/middleware-development/SKILL.md` |
+| `noony-validation-schemas` | `docs/skills/validation-schemas/SKILL.md` |
+| `noony-error-handling` | `docs/skills/error-handling/SKILL.md` |
+| `noony-dependency-injection` | `docs/skills/dependency-injection/SKILL.md` |
+| `noony-guard-system` | `docs/skills/guard-system/SKILL.md` |
+| `noony-performance-optimization` | `docs/skills/performance-optimization/SKILL.md` |
+| `noony-testing-handlers` | `docs/skills/testing-handlers/SKILL.md` |
+| `noony-middleware-ordering` | `docs/skills/middleware-ordering/SKILL.md` |
+
+Each skill directory also contains a `references/` subdirectory with detailed implementation guides.

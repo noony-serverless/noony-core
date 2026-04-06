@@ -1,0 +1,106 @@
+---
+description: Noony dependency injection rules. Apply when initializing services, resolving dependencies, using the container, or managing global vs request-scoped state.
+globs:
+  - "src/**/*.ts"
+  - "functions.ts"
+  - "server.ts"
+alwaysApply: false
+---
+
+# Noony — Dependency Injection Rules
+
+## Two Scopes
+
+| Scope | Container | Lifetime | Use for |
+|-------|-----------|---------|---------|
+| **Global** | `containerPool.global` | Process lifetime | DB clients, SDK instances, connection pools |
+| **Local** | `containerPool.local` | Per-request | Request metadata, auth user, business data |
+
+## Singleton Initialization Guard
+
+Global services MUST use the three-condition guard to prevent duplicate initialization on concurrent cold starts:
+
+```typescript
+let initialized = false;
+let initializing = false;
+
+async function initializeDependencies() {
+  if (initialized) return;        // already done
+  if (initializing) return;       // concurrent cold start — let first one finish
+  initializing = true;
+
+  try {
+    const db = new Firestore();
+    containerPool.initializeGlobal(DatabaseService, db);
+    initialized = true;
+  } catch (err) {
+    initializing = false;          // reset so next request can retry
+    throw err;
+  }
+}
+```
+
+## Rules
+
+### Initialize once — call before handler executes
+```typescript
+// In server.ts (Fastify) — initialize in onReady hook
+fastify.addHook('onReady', initializeDependencies);
+
+// In functions.ts (Cloud Functions) — initialize lazily before handler
+export const myFunction = onRequest(async (req, res) => {
+  await initializeDependencies();
+  await handler.executeGeneric(req, res);
+});
+```
+
+### Resolve services with `getService()`, not Container directly
+```typescript
+// WRONG — bypasses Noony's DI proxy
+import { Container } from 'typedi';
+const db = Container.get(DatabaseService);
+
+// CORRECT
+import { getService } from '@noony-serverless/core';
+const db = getService(DatabaseService, context.container);
+```
+
+### Never use `Container.set()` or `Container.reset()` in production
+```typescript
+// FORBIDDEN in production handlers
+Container.set(MyService, new MyService());  // use containerPool instead
+Container.reset();                           // destroys all global state
+```
+
+### Add `DependencyInjectionMiddleware` to expose services to context
+```typescript
+const handler = new Handler<TBody, TUser>()
+  .use(new ErrorHandlerMiddleware<TBody, TUser>())
+  // ... other middlewares ...
+  .use(new DependencyInjectionMiddleware<TBody, TUser>())  // position 13+
+  .handle(async (context) => {
+    const db = getService(DatabaseService, context.container);
+  });
+```
+
+### Request-scoped data goes in local container
+```typescript
+// In an auth middleware's before()
+context.container.set('currentUserId', decodedToken.uid);
+
+// In the controller
+const userId = context.container.get<string>('currentUserId');
+```
+
+## Forbidden Patterns
+
+- `Container.set()` in production — bypasses scope isolation, leaks between requests
+- `Container.reset()` in production — destroys all global services, next request cold-starts everything
+- Initializing services inside the handler/controller — runs on every request, defeats caching
+- Accessing global services without the initialization guard — crashes on concurrent cold starts
+
+## Reference
+
+→ `docs/noony-skills/dependency-injection/SKILL.md`
+→ `docs/noony-skills/dependency-initialization/SKILL.md`
+→ `docs/noony-skills/dependency-injection/references/di-patterns.md`

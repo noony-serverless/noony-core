@@ -1,0 +1,92 @@
+---
+description: Noony type safety rules. Apply whenever creating handlers, writing middleware, using generics, or resolving types in a Noony project.
+globs:
+  - "src/**/*.ts"
+  - "functions.ts"
+alwaysApply: false
+---
+
+# Noony — Type Safety Rules
+
+## The Type Chain
+
+Every Noony handler has a two-parameter type chain that MUST flow through every layer:
+
+```
+Handler<TBody, TUser>
+  └─ .use(new MyMiddleware<TBody, TUser>())
+       └─ implements BaseMiddleware<TBody, TUser>
+            └─ before(context: Context<TBody, TUser>)
+            └─ after(context: Context<TBody, TUser>)
+```
+
+If any layer drops the generics, the types degrade to `unknown` downstream.
+
+## Two Approaches — Pick One Per Handler
+
+### Option A: Explicit generics
+
+```typescript
+interface RequestBody { name: string; }
+interface AuthUser { uid: string; role: string; }
+
+const handler = new Handler<RequestBody, AuthUser>()
+  .use(new ErrorHandlerMiddleware<RequestBody, AuthUser>())
+  .use(new BodyValidationMiddleware<RequestBody, AuthUser>(schema))
+  .handle(async (context: Context<RequestBody, AuthUser>) => {
+    const { name } = context.req.validatedBody; // typed as RequestBody
+    const { uid } = context.user;               // typed as AuthUser
+  });
+```
+
+### Option B: Type inference via `createTypedHandler()`
+
+```typescript
+const handler = createTypedHandler(
+  async (context: Context<RequestBody, AuthUser>) => {
+    // types inferred from the controller annotation
+  }
+);
+```
+
+Do NOT mix both approaches in the same handler chain.
+
+## Custom Middleware Type Rules
+
+```typescript
+// WRONG — breaks the type chain downstream
+class MyMiddleware implements BaseMiddleware {
+  async before(context: Context) { ... }
+}
+
+// CORRECT — generics preserved
+class MyMiddleware<TBody = unknown, TUser = unknown>
+  implements BaseMiddleware<TBody, TUser> {
+  async before(context: Context<TBody, TUser>) { ... }
+}
+```
+
+## Rules
+
+- `as any` anywhere in the handler chain → types are broken; find the missing generic
+- `BaseMiddleware` without `<TBody, TUser>` → type chain broken at that middleware
+- `context.req.validatedBody` typed as `unknown` → Handler or BodyValidationMiddleware missing generics
+- `context.user` typed as `unknown` → Handler missing `TUser` or auth middleware not typed
+- Do NOT use `Handler<unknown>` with body validation — `validatedBody` stays `unknown`
+- Do NOT cast `Handler<any, any>` — bypasses all checking
+
+## Forbidden Patterns
+
+```typescript
+// All forbidden:
+as any
+as unknown as SomeType
+Handler<unknown, unknown>  // when you have actual types
+(context as any).req.validatedBody
+```
+
+## Reference
+
+→ `docs/noony-skills/type-inference/SKILL.md`
+→ `docs/noony-skills/type-inference/references/type-inference.md`
+→ `docs/noony-skills/middleware-development/SKILL.md`

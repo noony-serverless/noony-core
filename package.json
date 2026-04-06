@@ -128,6 +128,9 @@
     }
   },
   "private": false,
+  "workspaces": [
+    "packages/*"
+  ],
   "optionalDependencies": {
     "@google-cloud/opentelemetry-cloud-trace-propagator": "^0.21.0"
   },
