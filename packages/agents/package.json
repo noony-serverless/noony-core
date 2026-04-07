@@ -1,7 +1,7 @@
 {
   "name": "@noony-serverless/agents",
   "version": "1.0.0",
-  "description": "CLI to install Uncle Noony + 16 skills into your project for Claude Code, Cursor, OpenCode, and Codex",
+  "description": "CLI to install Uncle Noony + 16 skills into your project for Claude Code, Cursor, OpenCode, Codex, and Antigravity",
   "license": "MIT",
   "bin": {
     "noony-agents": "./bin/init.js"
@@ -15,7 +15,10 @@
   "engines": {
     "node": ">=18"
   },
-  "scripts": {},
+  "scripts": {
+    "build": "echo 'No build step (pure Node.js)'",
+    "pack": "npm pack"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/noony-serverless/noony-core.git",
@@ -32,7 +35,8 @@
     "claude",
     "cursor",
     "opencode",
-    "codex"
+    "codex",
+    "antigravity"
   ],
   "author": "Noony Serverless"
 }

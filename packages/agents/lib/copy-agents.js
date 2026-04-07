@@ -54,6 +54,15 @@ async function installOpenCode(cwd, config) {
   return copyTemplate(path.join('opencode', 'uncle-noony.md'), dest, config);
 }
 
+async function installAntigravity(cwd, config) {
+  const results = [];
+  for (const name of RULE_FILES) {
+    const dest = path.join(cwd, '.agents', 'rules', `${name}.md`);
+    results.push(await copyTemplate(path.join('antigravity-rules', `${name}.md`), dest, config));
+  }
+  return results;
+}
+
 async function installCodex(cwd, config) {
   const dest = path.join(cwd, 'AGENTS.md');
   return patchAgentsMd(dest, config);
@@ -81,6 +90,7 @@ module.exports = {
   installCursor,
   installWindsurf,
   installOpenCode,
+  installAntigravity,
   installCodex,
   installCopilot,
   installSkills,

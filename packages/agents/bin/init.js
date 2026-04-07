@@ -9,6 +9,7 @@ const {
   installCursor,
   installWindsurf,
   installOpenCode,
+  installAntigravity,
   installCodex,
   installCopilot,
   installSkills,
@@ -30,6 +31,7 @@ Platform flags (if none given, all are installed):
   --cursor          Cursor agent rule + 5 framework rules (.cursor/rules/)
   --windsurf        Windsurf rules (.windsurf/rules/)
   --opencode        OpenCode agent (.opencode/agents/)
+  --antigravity     Antigravity rules (.agents/rules/)
   --codex           AGENTS.md section (append/create)
   --copilot         GitHub Copilot (.github/copilot-instructions.md)
   --skills          Skill cards only (docs/noony-skills/)
@@ -112,6 +114,11 @@ async function main() {
     results.push(await installOpenCode(cwd, config));
   }
 
+  if (config.platforms.has('antigravity')) {
+    console.log('\n→ Antigravity rules');
+    results.push(...[].concat(await installAntigravity(cwd, config)));
+  }
+
   if (config.platforms.has('codex')) {
     console.log('\n→ Codex / AGENTS.md');
     results.push(await installCodex(cwd, config));
@@ -132,7 +139,7 @@ async function main() {
 function parseFlags(flags) {
   const known = new Set([
     'claude', 'claude-rules', 'cursor', 'windsurf',
-    'opencode', 'codex', 'copilot', 'skills',
+    'opencode', 'antigravity', 'codex', 'copilot', 'skills',
   ]);
   const selected = new Set();
 
