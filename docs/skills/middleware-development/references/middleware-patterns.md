@@ -128,15 +128,15 @@ export class ConditionalCachingMiddleware<TBody = unknown, TUser = unknown>
     if (!this.cacheConfig.enabled) return;
     if (context.req.method !== 'GET') return;
 
-    // Use cached response if available
+    // Use cached response if available — set responseData so ResponseWrapperMiddleware sends it
     const cachedResponse = context.businessData.get('cachedResponse');
     if (cachedResponse) {
-      context.res.json(cachedResponse);
+      context.responseData = cachedResponse;
       return;
     }
 
-    // Cache successful responses
-    if (context.res.statusCode === 200 && context.responseData) {
+    // Cache successful responses (responseData set by the handler return value)
+    if (context.responseData) {
       const cacheKey = `${context.req.path}`;
       await cacheService.set(cacheKey, context.responseData, this.cacheConfig.ttl);
     }

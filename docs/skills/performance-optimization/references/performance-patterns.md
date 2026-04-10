@@ -197,20 +197,25 @@ export const createUser = http('createUser', async (req, res) => {
 
 **Impact:** Each request waits 300-500ms for DB connection. 1000 requests = 300-500 seconds!
 
-### ✅ Correct: Initialize Once
+### ✅ Correct: Initialize Once (Noony Pattern)
 
 ```typescript
-// Startup
-let db: DatabaseService;
+// Startup — initialize in Fastify onReady or before handlers execute
 server.addHook('onReady', async () => {
-  db = await databaseService.connect();
+  await initializeDependencies(); // connects DB, registers services
 });
 
-// Handler reuses same connection
-export const createUser = http('createUser', async (req, res) => {
-  const user = await new UserRepository(db).create(req.body);
-  res.json({ data: user });
-});
+// Noony handler reuses same connection via DI
+export const createUserHandler = new Handler<CreateUserBody>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new BodyValidationMiddleware(createUserSchema))
+  .use(new DependencyInjectionMiddleware())
+  .use(new ResponseWrapperMiddleware())
+  .handle(async (context) => {
+    const userRepository = getService(UserRepository, context.container);
+    const user = await userRepository.create(context.req.validatedBody!);
+    return user; // never res.json() — always return
+  });
 ```
 
 **Impact:** First request ~500ms, remaining 999 requests ~30ms each. Total: ~32 seconds!
@@ -240,25 +245,29 @@ export const getUser = http('getUser', async (req, res) => {
 
 **Impact:** Cache inconsistency, double-fetching, memory bloat.
 
-### ✅ Correct: Immutable Services
+### ✅ Correct: Immutable Services (Noony Pattern)
 
 ```typescript
-// Services initialized once, never mutated during requests
-const db = await databaseService.connect();  // Once at startup
-const cache = new RedisCache();              // Once at startup
+// Services initialized once via initializeDependencies(), registered in containerPool.global
 
-export const getUser = http('getUser', async (req, res) => {
-  const userId = req.query.id;
+export const getUserHandler = new Handler<unknown>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new DependencyInjectionMiddleware())
+  .use(new ResponseWrapperMiddleware())
+  .handle(async (context) => {
+    const query = context.req.query as { id: string };
+    const cacheService = getService(CacheService, context.container);
+    const userRepository = getService(UserRepository, context.container);
 
-  // Multiple concurrent requests safely read cache
-  let user = await cache.get(userId);
-  if (!user) {
-    user = await userRepository.getById(userId);
-    await cache.set(userId, user);
-  }
+    // Multiple concurrent requests safely read cache
+    let user = await cacheService.get(query.id);
+    if (!user) {
+      user = await userRepository.getById(query.id);
+      await cacheService.set(query.id, user);
+    }
 
-  res.json({ data: user });
-});
+    return user; // never res.json() — always return
+  });
 ```
 
 **Impact:** No race conditions, safe concurrency.
@@ -277,17 +286,22 @@ export const fetchUserData = http('fetchUserData', async (req, res) => {
 
 **Each new instance:** Socket allocation, SSL handshake, memory allocation.
 
-### ✅ Correct: Reuse Singleton Client
+### ✅ Correct: Reuse Singleton Client (Noony Pattern)
 
 ```typescript
-// Once at startup
-const httpClient = new HttpClient({ timeout: 30000 });
+// Once at startup — register in initializeDependencies()
+containerPool.initializeGlobal(HttpClientService, new HttpClientService({ timeout: 30000 }));
 
-export const fetchUserData = http('fetchUserData', async (req, res) => {
-  // Reuse same client across all requests
-  const data = await httpClient.get('https://api.example.com/users');
-  res.json({ data });
-});
+export const fetchUserDataHandler = new Handler<unknown>()
+  .use(new ErrorHandlerMiddleware())
+  .use(new DependencyInjectionMiddleware())
+  .use(new ResponseWrapperMiddleware())
+  .handle(async (context) => {
+    const httpClient = getService(HttpClientService, context.container);
+    // Reuse same client across all requests
+    const data = await httpClient.get('https://api.example.com/users');
+    return data; // never res.json() — always return
+  });
 ```
 
 **Impact:** Connection pooling, faster requests, lower memory footprint.

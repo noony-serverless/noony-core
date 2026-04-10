@@ -43,12 +43,17 @@ Converts an existing Cloud Functions handler into a framework-agnostic Noony han
    -> See references/cloud-to-fastify.md#step-4-shared-configuration
 
 4. Set up Cloud Functions entry point
-   - `handler.execute(req, res)` for Cloud Functions native req/res
-   - Call `initializeDependencies()` before each execution (fast path if already init)
+   - Use `server.inject()` to forward requests through Fastify — NOT `server.routing()` (causes timeouts)
+   - Pass `req.rawBody` (GCF's Buffer) as `payload` to `server.inject()` — this preserves original bytes through `addContentTypeParser`
+   - Pre-read body with `extractAndStoreRequestBody(req)` as fallback only; use `gcfRawBody ?? __rawBody` as the payload
+   - Build with `--format=cjs` — avoid top-level `await` (forces ESM, breaks `require()`)
+   - `ensureServerReady()` guard (calls `initializeDependencies()` + `server.ready()`) before each inject
    -> See references/cloud-to-fastify.md#step-2-cloud-functions-entry-point
 
 5. Set up Fastify entry point
-   - `createFastifyHandler(handler, name, initFn)` wrapper
+   - Standard routes: `createFastifyHandler(handler, name, initFn)` wrapper
+   - Routes needing rawBody (webhooks, signatures): use `executeGeneric` with custom adapter — see **`noony-custom-adapter`** skill
+   - Register `addContentTypeParser('application/json', { parseAs: 'buffer' }, ...)` BEFORE routes when any route needs rawBody
    - Initialize eagerly in `onReady` hook
    -> See references/cloud-to-fastify.md#step-3-fastify-entry-point
 
@@ -86,8 +91,14 @@ server.ts                  -> createFastifyHandler(handler, name, initFn)
 - Duplicating handler code between entry points -- bugs in one environment won't surface in the other
 - Using `handler.executeGeneric()` with Cloud Functions req/res -- wrong API, use `execute()` instead
 - Importing Fastify server code into `functions.ts` -- Cloud Functions cannot run Fastify
-- Calling `handler.execute()` with Fastify req/res -- use `createFastifyHandler()` wrapper instead
+- Calling `handler.execute()` with Fastify req/res -- use `createFastifyHandler()` or `executeGeneric` with custom adapter instead
 - Converting without the dual-entry pattern -- locks you into Fastify and loses Cloud Functions deployment
+- Using `server.routing(req, res)` in the Cloud Functions entry -- response is never terminated, causes upstream request timeout
+- Using `extractAndStoreRequestBody(server)` as a routing wrapper -- not a routing adapter in `@noony-serverless/core@0.8+`; use `server.inject()` instead
+- Top-level `await` in `functions.ts` -- GCP's Functions Framework uses `require()` which cannot load ESM with TLA; wrap in IIFE or guard function and build with `--format=cjs`
+- `pino-pretty` transport via object spread -- pino resolves the transport at module load; use explicit `if (isDevelopment)` block so the key is absent in production
+- Using `JSON.stringify(req.body)` as rawBody for signature verification -- re-serialized bytes differ from original; pass `req.rawBody` (GCF Buffer) through `server.inject()` and capture via `addContentTypeParser`
+- Bypassing Fastify entirely for webhook routes that need rawBody -- use `executeGeneric` with a custom adapter inside a Fastify route instead; see **`noony-custom-adapter`** skill
 
 ## Done when
 

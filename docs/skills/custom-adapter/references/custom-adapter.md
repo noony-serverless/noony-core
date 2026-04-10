@@ -1,19 +1,162 @@
 # Resource: Custom Framework Adapter
 
-## Complete Koa Adapter Example
+## Fastify Adapter with rawBody
 
-Building adapters for unsupported frameworks (Koa, Hapi, NestJS, Express.js with native types) by implementing `GenericRequest<T>` and `GenericResponse` interfaces.
+Use this pattern when a Fastify route needs `context.req.rawBody` — for example, webhook signature verification where the original payload bytes must be preserved.
 
-### Step 1: Define Adapter Interfaces
+### Step 1: Capture Raw Bytes in Content-Type Parser
+
+Register BEFORE routes on the Fastify server. GCF passes `req.rawBody` (Buffer) as the `server.inject()` payload — this parser receives it and stores it.
 
 ```typescript
-// src/adapters/koa.adapter.ts
+// src/functions.ts
+server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(body as string, 'utf8');
+  (req as unknown as { rawBodyBuffer: Buffer }).rawBodyBuffer = buf;
+  try {
+    done(null, JSON.parse(buf.toString('utf8')));
+  } catch (err) {
+    done(err as Error, undefined);
+  }
+});
+```
+
+### Step 2: Fastify Request Adapter with rawBody
+
+```typescript
+import type { FastifyRequest } from 'fastify';
+import type { GenericRequest } from '@noony-serverless/core';
+
+function adaptFastifyRequestWithRawBody<T = unknown>(req: FastifyRequest): GenericRequest<T> {
+  const rawBuf = (req as unknown as { rawBodyBuffer?: Buffer }).rawBodyBuffer;
+  return {
+    method: req.method,
+    url: req.url,
+    path: (req.routeOptions as unknown as { url?: string })?.url ?? req.url,
+    headers: req.headers as Record<string, string | string[] | undefined>,
+    query: (req.query as Record<string, string | string[] | undefined>) ?? {},
+    params: (req.params as Record<string, string>) ?? {},
+    body: req.body,
+    parsedBody: req.body as T,
+    rawBody: rawBuf,          // ← the original bytes; undefined falls back gracefully
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+  };
+}
+```
+
+### Step 3: Fastify Response Adapter
+
+```typescript
+import type { FastifyReply } from 'fastify';
+import type { GenericResponse } from '@noony-serverless/core';
+
+function adaptFastifyReply(reply: FastifyReply): GenericResponse {
+  let statusCode = 200;
+  let headersSent = false;
+  const res: GenericResponse = {
+    status(code)      { statusCode = code; reply.code(code); return res; },
+    json(data)        { if (reply.sent) return res; headersSent = true; reply.send(data); return res; },
+    send(data)        { if (reply.sent) return res; headersSent = true; reply.send(data); return res; },
+    header(name, val) { reply.header(name, val); return res; },
+    headers(hdrs)     { for (const k in hdrs) reply.header(k, hdrs[k]); return res; },
+    end()             { if (!reply.sent) { headersSent = true; reply.send(); } },
+    get statusCode()  { return statusCode; },
+    get headersSent() { return headersSent || reply.sent; },
+  };
+  return res;
+}
+```
+
+### Step 4: executeGeneric Wrapper
+
+```typescript
+import type { Handler } from '@noony-serverless/core';
+import { isResponseAlreadySent, INTERNAL_ERROR_RESPONSE } from '@noony-serverless/core';
+
+function adaptWithRawBody(handler: Handler<any, any>, initFn: () => Promise<void>) {
+  return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    await initFn();
+    try {
+      const genericReq = adaptFastifyRequestWithRawBody(req);
+      const genericRes = adaptFastifyReply(reply);
+      await handler.executeGeneric(genericReq, genericRes);
+    } catch (error) {
+      if (isResponseAlreadySent(error)) return;
+      if (!reply.sent) reply.code(500).send(INTERNAL_ERROR_RESPONSE);
+    }
+  };
+}
+```
+
+### Step 5: Route Registration
+
+Mix standard and custom adapters on the same Fastify server:
+
+```typescript
+// Routes that need rawBody — use executeGeneric with custom adapter
+server.get('/webhook/ebay/notifications/:marketplaceId', adaptWithRawBody(challengeHandler, init));
+server.post('/webhook/ebay/notifications/:marketplaceId', adaptWithRawBody(notificationHandler, init));
+
+// Standard routes — use createFastifyHandler (no rawBody needed)
+server.post('/api/orders', createFastifyHandler(orderHandler, 'order', init));
+server.get('/health', createFastifyHandler(healthHandler, 'health', init));
+```
+
+### Step 6: GCF Entry Point — Pass rawBody Through inject()
+
+```typescript
+import { http } from '@google-cloud/functions-framework';
+import { extractAndStoreRequestBody, CloudFunctionRequest } from '@noony-serverless/core';
+
+http('myHandler', async (req, res) => {
+  await ensureServerReady();
+
+  // GCF sets req.rawBody as Buffer with the original bytes before JSON parsing.
+  // Pass it as payload so addContentTypeParser receives the real bytes.
+  const gcfRawBody: Buffer | undefined = (req as any).rawBody;
+  extractAndStoreRequestBody(req);
+  const payload = gcfRawBody ?? (req as unknown as CloudFunctionRequest).__rawBody;
+
+  const response = await server.inject({
+    method: req.method as any,
+    url: req.url || '/',
+    headers: req.headers as Record<string, string>,
+    payload,  // ← Buffer flows through to addContentTypeParser → rawBodyBuffer
+  });
+
+  res.statusCode = response.statusCode;
+  for (const [key, value] of Object.entries(response.headers)) {
+    if (value !== undefined) res.setHeader(key, value as string);
+  }
+  res.end(response.payload);
+});
+```
+
+### Step 7: Read rawBody in Middleware
+
+```typescript
+// In any middleware before() method:
+const rawBodyRaw = context.req.rawBody;
+const rawBody: string = Buffer.isBuffer(rawBodyRaw)
+  ? rawBodyRaw.toString('utf8')
+  : typeof rawBodyRaw === 'string'
+    ? rawBodyRaw
+    : JSON.stringify(context.req.body ?? {});  // fallback for routes without rawBody
+```
+
+---
+
+## Complete Koa Adapter Example
+
+Building adapters for unsupported frameworks (Koa, Hapi, NestJS, Express.js with native types).
+
+### Koa Request Adapter
+
+```typescript
 import { GenericRequest, GenericResponse } from '@noony-serverless/core';
 import { Context as KoaContext } from 'koa';
 
-/**
- * Adapt Koa's context to Noony's GenericRequest interface
- */
 export function adaptKoaRequest<T = unknown>(koaContext: KoaContext): GenericRequest<T> {
   return {
     method: koaContext.method,
@@ -23,351 +166,121 @@ export function adaptKoaRequest<T = unknown>(koaContext: KoaContext): GenericReq
     query: koaContext.query as Record<string, string | string[]>,
     params: koaContext.params as Record<string, string>,
     body: koaContext.request.body as unknown,
-    parsedBody: koaContext.request.body as T,  // Assume parsed by middleware
+    parsedBody: koaContext.request.body as T,
     ip: koaContext.ip,
-    userAgent: koaContext.headers['user-agent']
+    userAgent: koaContext.headers['user-agent'],
   };
 }
 
-/**
- * Adapt Noony's GenericResponse to Koa's context.response
- */
 export function adaptKoaResponse(koaContext: KoaContext): GenericResponse {
   let statusCode = 200;
   let headersSent = false;
 
   return {
-    status: function(code: number): GenericResponse {
-      statusCode = code;
-      koaContext.status = code;
-      return this;
-    },
-
-    json: function(data: unknown): GenericResponse {
-      if (!headersSent) {
-        koaContext.type = 'application/json';
-        koaContext.body = data;
-        headersSent = true;
-      }
-      return this;
-    },
-
-    send: function(data: unknown): GenericResponse {
-      if (!headersSent) {
-        koaContext.body = data;
-        headersSent = true;
-      }
-      return this;
-    },
-
-    header: function(name: string, value: string): GenericResponse {
-      koaContext.set(name, value);
-      return this;
-    },
-
-    headers: function(headers: Record<string, string>): GenericResponse {
-      Object.entries(headers).forEach(([key, val]) => {
-        koaContext.set(key, val);
-      });
-      return this;
-    },
-
-    end: function(): void {
-      headersSent = true;
-    },
-
-    get statusCode(): number {
-      return statusCode;
-    },
-
-    get headersSent(): boolean {
-      return headersSent;
-    }
+    status(code) { statusCode = code; koaContext.status = code; return this; },
+    json(data)   { if (!headersSent) { koaContext.type = 'application/json'; koaContext.body = data; headersSent = true; } return this; },
+    send(data)   { if (!headersSent) { koaContext.body = data; headersSent = true; } return this; },
+    header(name, value) { koaContext.set(name, value); return this; },
+    headers(headers) { Object.entries(headers).forEach(([k, v]) => koaContext.set(k, v)); return this; },
+    end() { headersSent = true; },
+    get statusCode() { return statusCode; },
+    get headersSent() { return headersSent; },
   };
 }
 ```
 
-### Step 2: Handler Definition
+### Koa Handler Wrapper
 
 ```typescript
-// src/handlers/product.handlers.ts
-import { z } from 'zod';
-import { Handler, Context } from '@noony-serverless/core';
-import {
-  ErrorHandlerMiddleware,
-  BodyValidationMiddleware,
-  ResponseWrapperMiddleware
-} from '@noony-serverless/core';
-
-const createProductSchema = z.object({
-  name: z.string().min(1),
-  price: z.number().min(0),
-  category: z.string()
-});
-
-type CreateProductRequest = z.infer<typeof createProductSchema>;
-
-interface AuthUser {
-  id: string;
-  role: 'admin' | 'user';
-}
-
-export const createProductHandler = new Handler<CreateProductRequest, AuthUser>()
-  .use(new ErrorHandlerMiddleware<CreateProductRequest, AuthUser>())
-  .use(new BodyValidationMiddleware<CreateProductRequest, AuthUser>(createProductSchema))
-  .use(new ResponseWrapperMiddleware<CreateProductRequest, AuthUser>())
-  .handle(async (context: Context<CreateProductRequest, AuthUser>) => {
-    const { name, price, category } = context.req.validatedBody!;
-
-    const product = await productService.create({
-      name,
-      price,
-      category,
-      createdBy: context.user?.id
-    });
-
-    return { data: product };
-  });
-```
-
-### Step 3: Koa Route Handler Wrapper
-
-```typescript
-// src/adapters/koa-handler.wrapper.ts
 import { Handler } from '@noony-serverless/core';
 import { Context as KoaContext } from 'koa';
-import { adaptKoaRequest, adaptKoaResponse } from './koa.adapter';
 
-/**
- * Wraps Noony handler for use with Koa routing
- */
-export function createKoaHandler(
-  noonyHandler: Handler<unknown>,
-  functionName: string,
-  initializeDependencies?: () => Promise<void>
-) {
+export function createKoaHandler(noonyHandler: Handler<unknown>, functionName: string, initFn?: () => Promise<void>) {
   return async (koaContext: KoaContext) => {
     try {
-      // Initialize dependencies if provided
-      if (initializeDependencies) {
-        await initializeDependencies();
-      }
-
-      // Adapt Koa context to Noony interfaces
+      if (initFn) await initFn();
       const genericReq = adaptKoaRequest(koaContext);
       const genericRes = adaptKoaResponse(koaContext);
-
-      // Execute handler
       await noonyHandler.executeGeneric(genericReq, genericRes);
     } catch (error) {
-      // Handle errors gracefully
-      if (error instanceof Error && error.message === 'RESPONSE_SENT') {
-        // Response already sent, ignore
-        return;
-      }
-
-      // Log unexpected errors
+      if (error instanceof Error && error.message === 'RESPONSE_SENT') return;
       console.error(`[${functionName}] Unexpected error`, error);
-
-      // Send error response if not already sent
       if (!koaContext.res.headersSent) {
         koaContext.status = 500;
-        koaContext.body = {
-          success: false,
-          error: {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'An unexpected error occurred'
-          }
-        };
+        koaContext.body = { success: false, error: { code: 'INTERNAL_SERVER_ERROR', message: 'An unexpected error occurred' } };
       }
     }
   };
 }
 ```
 
-### Step 4: Koa Server Integration
-
-```typescript
-// src/server.ts
-import Koa from 'koa';
-import Router from '@koa/router';
-import bodyParser from 'koa-bodyparser';
-import { createKoaHandler } from './adapters/koa-handler.wrapper';
-import { createProductHandler } from './handlers/product.handlers';
-import { initializeDependencies, cleanup } from './core/initialization';
-
-const app = new Koa();
-const router = new Router();
-
-// Body parsing middleware
-app.use(bodyParser());
-
-// Initialize dependencies on server startup
-app.on('server', async (server) => {
-  try {
-    await initializeDependencies();
-    console.log('[Server] Dependencies initialized');
-  } catch (error) {
-    console.error('[Server] Initialization failed', error);
-    process.exit(1);
-  }
-});
-
-// Register routes
-router.post('/api/products',
-  createKoaHandler(createProductHandler, 'createProduct', () => Promise.resolve())
-);
-
-app.use(router.routes());
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('[Server] SIGTERM received, shutting down...');
-  await cleanup();
-  process.exit(0);
-});
-
-// Start server
-app.listen(3000, () => {
-  console.log('[Server] Listening on http://localhost:3000');
-});
-```
-
-## Testing the Adapter
-
-```typescript
-// src/adapters/koa.adapter.test.ts
-import { adaptKoaRequest, adaptKoaResponse } from './koa.adapter';
-import { createKoaHandler } from './koa-handler.wrapper';
-import { createProductHandler } from '../handlers/product.handlers';
-
-describe('Koa Adapter', () => {
-  it('should adapt Koa context to GenericRequest', () => {
-    const mockKoaCtx = {
-      method: 'POST',
-      url: '/api/products',
-      path: '/api/products',
-      headers: { 'content-type': 'application/json' },
-      query: {},
-      params: {},
-      request: {
-        body: { name: 'Product A', price: 99.99, category: 'electronics' }
-      },
-      ip: '127.0.0.1'
-    };
-
-    const genericReq = adaptKoaRequest(mockKoaCtx);
-
-    expect(genericReq.method).toBe('POST');
-    expect(genericReq.parsedBody.name).toBe('Product A');
-    expect(genericReq.path).toBe('/api/products');
-  });
-
-  it('should handle responses correctly', async () => {
-    const mockKoaCtx = {
-      method: 'POST',
-      url: '/api/products',
-      status: 200,
-      body: null,
-      headers: {},
-      set: jest.fn(),
-      request: { body: { name: 'Test', price: 10, category: 'test' } },
-      res: { headersSent: false }
-    };
-
-    const genericRes = adaptKoaResponse(mockKoaCtx as any);
-
-    genericRes.status(201).json({ success: true });
-
-    expect(mockKoaCtx.status).toBe(201);
-    expect(mockKoaCtx.body).toEqual({ success: true });
-  });
-
-  it('should handle handler execution via Koa wrapper', async () => {
-    const mockKoaCtx = {
-      method: 'POST',
-      url: '/api/products',
-      status: 200,
-      body: null,
-      headers: {},
-      set: jest.fn(),
-      path: '/api/products',
-      query: {},
-      params: {},
-      request: {
-        body: { name: 'Test Product', price: 50, category: 'test' }
-      },
-      ip: '127.0.0.1',
-      res: { headersSent: false }
-    };
-
-    const handler = createKoaHandler(createProductHandler, 'createProduct');
-    await handler(mockKoaCtx);
-
-    // Response should be wrapped by ResponseWrapperMiddleware
-    expect(mockKoaCtx.status).toBe(200);
-    expect(mockKoaCtx.body.success).toBe(true);
-  });
-});
-```
+---
 
 ## Adapter Checklist
 
+- [ ] `addContentTypeParser` registered BEFORE routes (Fastify rawBody pattern)
+- [ ] `rawBodyBuffer` stored on Fastify request in content-type parser
+- [ ] `GenericRequest.rawBody` set from `rawBodyBuffer` (Buffer, not re-serialized string)
+- [ ] GCF entry passes `req.rawBody` Buffer as `server.inject()` payload
 - [ ] Implements `GenericRequest<T>` interface completely
 - [ ] Implements `GenericResponse` interface completely
-- [ ] Preserves all headers from framework request
-- [ ] Handles query parameters correctly (string or string[])
-- [ ] Handles path parameters (`:id` style extracted)
-- [ ] Sets `parsedBody` from framework's parsed body
+- [ ] `parsedBody` set from framework's parsed body
 - [ ] Prevents double-send via `headersSent` tracking
-- [ ] Handles `RESPONSE_SENT` errors gracefully
-- [ ] Supports method chaining on response methods
+- [ ] All response methods return `this` (chainable)
 - [ ] Has `status()`, `json()`, `send()`, `header()`, `headers()`, `end()` methods
-- [ ] Read-only properties: `statusCode`, `headersSent`
-- [ ] Tested with unit tests for both request and response adaptation
+- [ ] Read-only `statusCode` and `headersSent` properties
+- [ ] `executeGeneric()` called — never `execute()` for adapted requests
+- [ ] `isResponseAlreadySent` errors handled gracefully in wrapper
 
 ## Common Gotchas
 
-### ❌ Forgetting to Track headersSent
+### ❌ Using JSON.stringify as rawBody
 
 ```typescript
-// WRONG - Can send twice
-json: function(data: unknown): GenericResponse {
-  koaContext.body = data;  // No check
-  return this;
+// WRONG — re-serialized bytes differ from original; signature verification fails
+const rawBody = JSON.stringify(req.body);
+```
+
+```typescript
+// CORRECT — use the captured Buffer
+const rawBodyRaw = context.req.rawBody;
+const rawBody = Buffer.isBuffer(rawBodyRaw) ? rawBodyRaw.toString('utf8') : ...;
+```
+
+### ❌ Bypassing Fastify for Routes That Need rawBody
+
+```typescript
+// WRONG — pattern-matching URLs in the GCF handler loses Fastify routing/logging
+if (url.startsWith('/webhook/')) {
+  await handler.execute(req, res);  // bypasses Fastify entirely
 }
 ```
 
-### ✅ Correct: Check Before Sending
+```typescript
+// CORRECT — stay inside Fastify, use executeGeneric with custom adapter
+server.post('/webhook/:id', adaptWithRawBody(handler, init));
+```
+
+### ❌ Forgetting headersSent Check
 
 ```typescript
-// CORRECT - Prevents double-send
-json: function(data: unknown): GenericResponse {
-  if (!headersSent) {
-    koaContext.body = data;
-    headersSent = true;
-  }
-  return this;
-}
+// WRONG — can send twice
+json(data) { reply.send(data); return res; }
+```
+
+```typescript
+// CORRECT
+json(data) { if (reply.sent) return res; headersSent = true; reply.send(data); return res; }
 ```
 
 ### ❌ Not Setting parsedBody
 
 ```typescript
-// WRONG - BodyValidationMiddleware won't work
-return {
-  // Missing parsedBody
-  body: koaContext.request.body
-};
+// WRONG — BodyValidationMiddleware reads parsedBody, not body
+return { body: req.body };
 ```
 
-### ✅ Correct: Set Parsed Body
-
 ```typescript
-// CORRECT - Validation works
-return {
-  body: koaContext.request.body,
-  parsedBody: koaContext.request.body,  // BodyValidationMiddleware needs this
-  // ...
-};
+// CORRECT
+return { body: req.body, parsedBody: req.body as T };
 ```

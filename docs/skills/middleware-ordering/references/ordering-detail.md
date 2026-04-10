@@ -160,22 +160,17 @@ async after(context: Context): Promise<void> {
 }
 ```
 
-**Or:** Handler calls `context.res.json()` directly (no wrapping needed):
+**Rule:** Always return the value from the handler — never call `context.res` from a controller or handler callback.
 
 ```typescript
-// Handler sends directly
+// ✅ CORRECT — return the value, ResponseWrapperMiddleware sends it
+return { data: user };
+
+// ❌ WRONG — never call context.res from a handler/controller
 context.res.status(201).json({ data: user });
-// context.responseData remains undefined
-// context.res.headersSent is now true
-// ResponseWrapperMiddleware.after() skips (headers already sent)
 ```
 
-**Critical Rule:** Never do both in same handler:
-```typescript
-// ❌ WRONG
-context.res.json({ data: user });  // First send
-return { extra: 'data' };          // Second send (conflict!)
-```
+`context.res` is for framework internals only (e.g., `ResponseWrapperMiddleware.after()`). Calling it from a handler bypasses wrapping, logging, and the error path — and causes the FASTIFY-WRAPPER to log spurious "handler error called" messages.
 
 ### Via context.businessData (Inter-Middleware State)
 
@@ -250,26 +245,23 @@ async after(context: Context): Promise<void> {
 ```
 Handler execution complete
     │
-    ├─ Did handler call context.res.json() or context.res.status().send()?
-    │  │
-    │  ├─ YES → context.res.headersSent = true
-    │  │         context.responseData = undefined
-    │  │         ResponseWrapperMiddleware.after() SKIPS (already sent)
-    │  │         ✅ Response is final, no wrapping
-    │  │
-    │  └─ NO → Check if handler returned a value
-    │         │
-    │         ├─ YES (returned object/data)
-    │         │  │
-    │         │  └─ context.responseData = { returned value }
-    │         │     ResponseWrapperMiddleware.after() runs
-    │         │     ✅ Response wrapped in standard format
-    │         │
-    │         └─ NO (returned nothing)
-    │            │
-    │            └─ context.responseData = undefined
-    │               ResponseWrapperMiddleware.after() does nothing
-    │               ❌ Risk: 204 No Content or incomplete response
+    └─ Did handler return a value?
+          │
+          ├─ YES (returned object/data)      ← ✅ THE ONLY CORRECT PATTERN
+          │  │
+          │  └─ context.responseData = { returned value }
+          │     ResponseWrapperMiddleware.after() runs
+          │     ✅ Response wrapped in standard format: { success: true, payload: ... }
+          │
+          └─ NO (returned nothing)
+             │
+             └─ context.responseData = undefined
+                ResponseWrapperMiddleware.after() does nothing
+                ❌ Risk: 204 No Content or incomplete response
+
+NOTE: Never call context.res.json() or context.res.status().send() from a handler.
+      That path bypasses wrapping and logging, and produces spurious framework error logs.
+      context.res is for framework internals (ResponseWrapperMiddleware, ErrorHandlerMiddleware) only.
 ```
 
 </content>

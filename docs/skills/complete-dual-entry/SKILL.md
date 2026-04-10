@@ -52,8 +52,10 @@ This is the recommended starting point for noony-uncle-noony's New Project journ
    -> See references/dual-entry.md#3-local-development-fastify
 
 4. Create Cloud Functions entry point (`functions.ts`)
-   - Lazy initialization with `initializeDependencies()` before each execution
-   - Use `handler.execute(req, res)` for native Cloud Functions req/res
+   - Use **`server.inject()`** to forward requests through Fastify — NOT `server.routing()` or `extractAndStoreRequestBody(server)`
+   - Pre-read the body with `extractAndStoreRequestBody(req)` before injecting — stream is consumed by the time Fastify reads it
+   - Ensure `--format=cjs` in the build command — top-level `await` forces ESM output which `require()` cannot load
+   - Lazy initialization via `ensureServerReady()` guard before each inject
    -> See references/dual-entry.md#4-production-cloud-functions
 
 5. Configure npm scripts for both workflows
@@ -97,6 +99,10 @@ src/
 - Calling `initializeDependencies()` inside handler function body -- adds latency per request
 - Importing Fastify server startup code into `functions.ts` -- Cloud Functions runtime cannot run Fastify
 - Adding OpenTelemetryMiddleware only in production -- tracing behavior diverges from local testing
+- Using `server.routing(req, res)` in Cloud Functions entry point -- causes upstream request timeout; responses are never terminated correctly
+- Using `extractAndStoreRequestBody(server)` as a routing adapter -- in `@noony-serverless/core@0.8+` this takes a single `req`, not a server instance
+- Top-level `await` in `functions.ts` -- forces ESM output; wrap startup awaits in an async IIFE or `ensureServerReady()` guard, and always build with `--format=cjs`
+- Passing `pino-pretty` transport via object spread (`...isDev && { transport: ... }`) -- pino resolves the transport string at module load regardless; use an explicit `if` block so the key is absent in production
 
 ## Done when
 
